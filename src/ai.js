@@ -500,6 +500,27 @@ const SU_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺�
 function fallbackSuTalk() {
   return "【苏唐】师兄说什么呢，灶上还忙着，别逗我。";
 }
+
+// ── 副本·探秘（美食猎人口吻：感官写味、危险真实，武功+智慧+苏唐寻稀有食材）──
+const EXP_SYS = "你是探秘副本的旁白（美食猎人口吻）：用强烈的感官描写写味道、香气、口感与环境的凶险；写世界与苏唐的反应。中文，分 3-5 段。";
+export async function genExpedition(cfg, ctx, onChunk) {
+  if (cfgReady(cfg)) {
+    const user = [
+      ctx.context ? `【上下文】\n${ctx.context}` : "",
+      `师兄（武功约 ${ctx.skillAvg}、凭平日见识）与苏唐（手艺 ${ctx.suAvg}）同行，深入一处险地寻稀有食材。`,
+      `此行的收获是：${ctx.found.join("、") || "空空如也"}。`,
+      `写一段 3-5 段的探秘叙事：入险地、遇阻（猛兽/绝壁/毒瘴）、师兄以武功或智慧化解、苏唐辨认并采得食材；把收获食材的味道与香气写得诱人；结尾收束回店。`,
+    ].filter(Boolean).join("\n");
+    const t0 = Date.now();
+    try {
+      const raw = streamOn(cfg) && onChunk
+        ? await callAIStream(cfg, EXP_SYS, user, onChunk, "探秘")
+        : await callAI(cfg, EXP_SYS, user, "探秘");
+      return { narrative: (raw || "").trim(), ms: Date.now() - t0, ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { narrative: `师兄与苏唐深入后山险地，凭一身武功与苏唐的眼力，采得 ${ctx.found.join("、") || "几样山货"}，满载而归。`, ai: false };
+}
 export async function genSuTalk(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const user = [

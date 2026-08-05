@@ -1,12 +1,12 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES } from "./data.js";
+import { ING_BY_NAME, RECIPES, INGREDIENTS } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition,
   extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace,
 } from "./ai.js";
@@ -32,6 +32,7 @@ const handlers = {
   trace: () => openTrace(),
   notes: () => openNotes(st),
   su: () => openSuPanel(st, { onTalk: (txt) => doSuTalk(txt) }),
+  exp: () => doExpedition(),
   save: () => { saveGame(st); sys("存档完毕。"); },
   help: () => openHelp(),
 };
@@ -297,7 +298,30 @@ async function doReview() {
   note("收工", `第${st.day}天送${(st.dayLog || []).length}客，苏唐总评已记。`);
   endTrace(`第${st.day}天收工`);
   st.dayLog = [];
-  setMood(4);
+}
+
+// ── 副本·探秘（收功后，武功+智慧+苏唐 寻稀有食材）──────────────────
+async function doExpedition() {
+  if (st.phase !== "closing") return sys("收功后才能去探秘。");
+  if (busy) return sys("正忙着呢。");
+  busy = true;
+  startTrace("探秘");
+  const avgv = (o) => { const v = Object.values(o || {}); return v.reduce((a, b) => a + b, 0) / (v.length || 1); };
+  const skillAvg = Math.round(avgv(st.skills));
+  const suAvg = Math.round(avgv(st.suSkills));
+  const rarePool = INGREDIENTS.filter(i => i.price >= 4);
+  const n = (skillAvg + suAvg) / 2 >= 20 ? 2 : 1;
+  const found = [];
+  for (let i = 0; i < n; i++) found.push(rarePool[Math.floor(Math.random() * rarePool.length)].name);
+  sys(`【探秘】师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……`);
+  const h = logStream("narr");
+  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, found, context: ctxLine(st) }, c => h.append(c));
+  if (!r.ai || !h.text) { h.remove(); await narr(r.narrative); }
+  for (const f of found) { st.inv[f] = (st.inv[f] || 0) + 1; }
+  note("探秘", `副本寻得 ${found.join("、")}。`);
+  sys(`【探秘】收获：${found.join("、")}。`);
+  endTrace(`探秘·得${found.join("、")}`);
+  busy = false;
   renderAll(st, handlers);
   saveGame(st);
 }
@@ -467,6 +491,7 @@ async function onCommand(text) {
   if (["小吃", "零食"].includes(cmd)) return doSnackPanel();
   if (["收功", "打烊"].includes(cmd)) return doClose();
   if (["商店", "买", "逛街"].includes(cmd)) return doShop();
+  if (["探秘", "副本", "exp"].includes(cmd)) return doExpedition();
   if (["下一日", "下一天", "等待", "睡觉", "明儿"].includes(cmd)) return doNext();
   if (["背包", "包袱"].includes(cmd)) return openBag(st);
   if (["设置"].includes(cmd)) return openSettings();
@@ -521,7 +546,7 @@ function bind() {
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();
-    const map = { c: "cook", x: "snack", b: "su", s: "serve", v: "set", r: "close", t: "shop", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
+    const map = { c: "cook", x: "snack", b: "su", s: "serve", v: "set", r: "close", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
     if (map[k]) handlers[map[k]]();
   });
   $("#btn-new").onclick = () => startNew();

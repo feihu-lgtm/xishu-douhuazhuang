@@ -239,6 +239,7 @@ export function renderSide(st, h) {
     item("佐餐", "S", can.serve, "serve") +
     item("收功", "R", can.close, "close") +
     item("商店", "T", can.shop, "shop") +
+    item("探秘", "M", can.next, "exp") +
     item("下一日", "N", can.next, "next") +
     `<div class="sep"></div>` +
     item("仓库", "I", true, "bag") +
@@ -399,7 +400,7 @@ export function openShop(st, { onBuy, onLeave, onRefresh }) {
   const TABS = { ingredient: ["食材", "ingredient"], cookware: ["厨具", "cookware"],
     tech: ["技法", "tech"], flavor: ["味型", "flavor"] };
   const qkey = (id) => `${tab}:${id}`;
-  const qtyOf = (id) => st.buyQty[qkey(id)] || 1;
+  const qtyOf = (id) => st.buyQty[qkey(id)] || 0; // 从 0 开始加
 
   const modal = openModal(`
     <div class="shop-head">
@@ -426,14 +427,16 @@ export function openShop(st, { onBuy, onLeave, onRefresh }) {
   function cardHtml(it) {
     const isIng = tab === "ingredient";
     const q = qtyOf(it.id);
-    const poor = !it.owned && st.coins < it.price * q;
-    return `<div class="scard ${poor ? "poor" : ""} ${it.owned && !isIng ? "owned" : ""}">
+    const poor = !it.owned && st.coins < it.price;
+    return `<div class="scard ${poor && !isIng ? "poor" : ""} ${it.owned && !isIng ? "owned" : ""}">
       <div class="sname">${it.name}${isIng ? ` <i style="color:var(--ink-dim);font-size:11px">${ingTag(it.name)}</i>` : ""}</div>
       <div class="sicon">${iconFor()}</div>
       <div class="sdesc">${it.extra ? `<i>${it.extra}</i><br>` : ""}${it.desc}</div>
       <div class="scost">价：${coin(it.price)}</div>
-      ${isIng ? `<div class="qty"><span data-q="-1" data-id="${it.id}">−</span><b>${q}</b><span data-q="1" data-id="${it.id}">＋</span></div>` : ""}
-      <div class="sbuy" data-buy="${it.id}">${it.owned && !isIng ? "已拥有" : poor ? "买不起" : (isIng ? `买 ${q} 份` : "买下")}</div>
+      ${isIng
+        ? `<div class="qty"><span data-q="-1" data-id="${it.id}">−</span><b>${q}</b><span data-q="1" data-id="${it.id}">＋</span></div>
+           <div class="sbuy" data-add="${it.id}">＋1 入车</div>`
+        : `<div class="sbuy" data-buy="${it.id}">${it.owned ? "已拥有" : poor ? "买不起" : "买下"}</div>`}
     </div>`;
   }
   function tagbarHtml() {
@@ -473,12 +476,17 @@ export function openShop(st, { onBuy, onLeave, onRefresh }) {
     b.querySelectorAll("[data-q]").forEach(el => el.onclick = () => {
       const id = el.dataset.id;
       const d = +el.dataset.q;
-      st.buyQty[qkey(id)] = Math.max(1, Math.min(9, qtyOf(id) + d)); // 锁定，以后默认这份数
+      st.buyQty[qkey(id)] = Math.max(0, Math.min(9, qtyOf(id) + d)); // 从 0 加
+      renderGrid(true);
+    });
+    b.querySelectorAll("[data-add]").forEach(el => el.onclick = () => {
+      const id = el.dataset.add;
+      st.buyQty[qkey(id)] = Math.min(9, qtyOf(id) + 1);
       renderGrid(true);
     });
     b.querySelectorAll("[data-buy]").forEach(el => el.onclick = () => {
       if (el.textContent === "买不起" || el.textContent === "已拥有") return;
-      const r = onBuy(tab, el.dataset.buy, qtyOf(el.dataset.buy));
+      const r = onBuy(tab, el.dataset.buy, 1);
       if (r.ok) { modal.querySelector("#shop-coins").textContent = `${st.coins} 文`; renderGrid(true); }
     });
     const co = b.querySelector("[data-checkout]");
@@ -488,6 +496,7 @@ export function openShop(st, { onBuy, onLeave, onRefresh }) {
         const [tb, id] = k.split(":");
         onBuy(tb, id, q);
       }
+      st.buyQty = {}; // 结算后清空购物车
       modal.querySelector("#shop-coins").textContent = `${st.coins} 文`;
       renderGrid(true);
     };

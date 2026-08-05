@@ -80,10 +80,14 @@ try {
   await page.waitForSelector(".shop-grid", { timeout: 8000 });
   await page.screenshot({ path: `${OUT}/xc-shop.png` });
   await page.click('[data-tab="ingredient"]');
-  const coinsBefore = await page.textContent("#status");
-  await page.click('[data-buy="贡措海盐"]');
-  const coinsAfter = await page.textContent("#status");
+  await page.click("[data-cart]"); // 开购物车
+  const coinsBefore = await page.textContent("#shop-coins");
+  await page.click('[data-add="贡措海盐"]');
+  await page.click('[data-add="贡措海盐"]');
+  await page.click("[data-checkout]");
+  const coinsAfter = await page.textContent("#shop-coins");
   if (coinsBefore === coinsAfter) throw new Error("购买未扣钱");
+  if ((await page.textContent("#shop-body")).includes("贡措海盐 ×")) throw new Error("结算后购物车未清空");
   await page.click("[data-leave]");
   // 返回后仍可再进
   await page.waitForSelector('#side [data-act="shop"]:not(.disabled)');
