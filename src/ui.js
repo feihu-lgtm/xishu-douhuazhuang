@@ -189,7 +189,8 @@ export function renderLeft(st) {
     st.cookware.map(id => `<div class="row"><span>${COOKWARE_BY_ID[id].name}</span></div>`).join("");
   html += `<h3>手 艺</h3>
     <div class="row"><span>技法</span><span class="v">${st.techs.join(" / ")}</span></div>
-    <div class="row"><span>味型</span><span class="v">${st.flavors.map(f => FLAVOR_BY_ID[f].name).join(" / ")}</span></div>`;
+    <div class="row"><span>味型</span><span class="v">${st.flavors.map(f => FLAVOR_BY_ID[f].name).join(" / ")}</span></div>
+    <div class="row"><span>苏唐好感</span><span class="v" style="color:#f2a6c0">${st.suAff || 0}</span></div>`;
   html += `<h3>武 学</h3><div class="skills">` +
     SKILLS.map(s => `<span class="skill">${s}<b>${(st.skills || {})[s] || 0}</b></span>`).join("") +
     `</div>`;

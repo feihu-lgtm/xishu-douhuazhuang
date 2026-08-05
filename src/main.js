@@ -7,7 +7,7 @@ import {
 } from "./state.js";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview,
-  extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf,
+  extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
 } from "./ai.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop,
@@ -314,6 +314,12 @@ function cycleTag(name) {
   doSnackPanel();
 }
 
+function suTierOf(s) {
+  const v = Object.values(s.suSkills || {});
+  const avg = v.reduce((a, b) => a + b, 0) / (v.length || 1);
+  return tierOfScore(avg);
+}
+
 async function doSnackRequest(txt) {
   if (busy) return sys("苏唐正忙着呢。");
   busy = true;
@@ -321,7 +327,7 @@ async function doSnackRequest(txt) {
   suSys(`【行动·备小吃】师兄说：${txt || "随便"}`);
   suLine(`苏唐应了声「知道了」，挽起袖子正在备菜……`);
   const cfg = loadCfg();
-  const r = await genSnack(cfg, { request: txt, inv: st.inv });
+  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st) });
   for (const m of r.used) {
     st.inv[m] = (st.inv[m] || 0) - 1;
     if (st.inv[m] <= 0) delete st.inv[m];
@@ -330,13 +336,15 @@ async function doSnackRequest(txt) {
   st.snacks[r.made] = (st.snacks[r.made] || 0) + r.portions;
   st.snackRecipes = st.snackRecipes || [];
   const srec = st.snackRecipes.find(x => x.name === r.made);
-  if (srec) { srec.desc = r.desc || srec.desc; srec.used = r.used; srec.quality = r.quality; }
-  else st.snackRecipes.push({ name: r.made, cat: r.cat, tag: r.cat, used: r.used, quality: r.quality, desc: r.desc });
+  if (srec) { srec.desc = r.desc || srec.desc; srec.used = r.used; srec.quality = r.quality; srec.proc = r.proc || srec.proc; }
+  else st.snackRecipes.push({ name: r.made, cat: r.cat, tag: r.cat, used: r.used, quality: r.quality, desc: r.desc, proc: r.proc });
   const got = applySuExp(st);
+  st.suAff = (st.suAff || 0) + 1;
   setMood(moodIndex(r.mood) ?? 7);
+  if (r.proc) await suLine(r.proc);
   await suLine(`【苏唐】${r.say}`);
   suSys(`【回复·备小吃】备下「${r.made}」${r.portions} 份 · 用 ${r.used.join("、") || "手头现成的"} · 品质 ${r.quality}`);
-  suSys(`【苏唐】练功：${got.join("、")} 各+3`);
+  suSys(`【苏唐】练功：${got.join("、")} 各+3 · 好感+1（今 ${st.suAff}）`);
   busy = false;
   renderAll(st, handlers);
   saveGame(st);
@@ -355,8 +363,10 @@ async function doRemake(name) {
   st.snacks = st.snacks || {};
   st.snacks[name] = (st.snacks[name] || 0) + 3;
   const got = applySuExp(st);
+  st.suAff = (st.suAff || 0) + 1;
+  if (rec.proc) await suLine(rec.proc);
   suSys(`【回复·复做】「${name}」3 份 · 品质 ${rec.quality}`);
-  suSys(`【苏唐】练功：${got.join("、")} 各+3`);
+  suSys(`【苏唐】练功：${got.join("、")} 各+3 · 好感+1（今 ${st.suAff}）`);
   busy = false;
   renderAll(st, handlers);
   saveGame(st);

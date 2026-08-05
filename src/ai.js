@@ -465,7 +465,7 @@ export function parseSnack(t, ctx) {
   let q = parseInt(o.quality, 10);
   if (!Number.isFinite(q)) q = 60;
   q = Math.max(0, Math.min(100, q));
-  return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃", desc: o.desc || "" };
+  return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃", desc: o.desc || "", proc: o.proc || "" };
 }
 
 export async function genSnack(cfg, ctx) {
@@ -473,10 +473,12 @@ export async function genSnack(cfg, ctx) {
     const invStr = Object.entries(ctx.inv).map(([n, c]) => `${n}×${c}`).join("、") || "（没有）";
     const user = [
       `师兄对苏唐说：${ctx.request || "（没说什么，随你发挥）"}`,
+      ctx.guest ? `注意：这小吃是做给当前客人 ${ctx.guest.name}（${ctx.guest.ident}）吃的，不是给师兄。TA 说「${ctx.guest.order}」，偏好${FLAVOR_BY_ID[ctx.guest.flavor]?.name || ""}味、最好有${ctx.guest.fav}。你要照着客人的口味来做。` : ``,
       `现有食材：${invStr}`,
-      `你是苏唐，自己决定做什么小吃、用什么料、做几份、品质如何，师兄管不着。`,
-      `只输出 JSON：{"made":"成品名","cat":"汤/饭/点心/串/小吃","used":[用掉的食材名,须来自现有且够数],"portions":1-6,"quality":0-100,"desc":"约100字描述(品名+用料+风味,供记入菜单)","say":"苏唐说的话","mood":"八个心情词之一"}`,
-    ].join("\n");
+      `你是苏唐，自己决定做什么小吃、用什么料（最多4样）、做几份、品质如何，师兄管不着。`,
+      tierGuide(ctx.suTier || 1).replace("武学档位", "苏唐手艺档位"),
+      `只输出 JSON：{"made":"成品名","cat":"汤/饭/点心/串/小吃","used":[用掉的食材名,最多4样,须来自现有且够数],"portions":1-6,"quality":0-100,"desc":"约100字描述(品名+用料+风味,供记入菜单)","proc":"苏唐做这道小吃的过程,按手艺档位写细致度","say":"苏唐说的话","mood":"八个心情词之一"}`,
+    ].filter(Boolean).join("\n");
     try {
       const raw = await callAI(cfg,
         "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好，嘴硬心软，做小吃是她的活计。只输出 JSON。",
@@ -506,6 +508,7 @@ function fallbackSnack(ctx) {
     portions: 2 + Math.floor(Math.random() * 3),
     quality: 55 + Math.floor(Math.random() * 20),
     desc: `${hit.name}：以${used.join("、") || "手头现成"}做成，${hit.cat}类小食，苏唐手作，火候与调味全凭她心意。`,
+    proc: `苏唐把${used.join("、") || "手头现成"}归置到案上，刀下手利落，火候拿捏得稳，不一会儿「${hit.name}」就出了锅。`,
     say: says[Math.floor(Math.random() * says.length)],
     mood: "专注", ai: false,
   };

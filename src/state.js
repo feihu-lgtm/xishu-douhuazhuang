@@ -45,6 +45,7 @@ export function newState() {
     aff: {},                 // 好感度 {guestId: 0-100}
     skills: { 刀法: 10, 剑法: 10, 拳掌: 10, 枪法: 10, 投掷: 10, 轻功: 10, 内功: 10 },
     suSkills: { 刀法: 20, 剑法: 10, 拳掌: 15, 枪法: 10, 投掷: 15, 轻功: 15, 内功: 15 }, // 苏唐的
+    suAff: 0,                // 苏唐好感（对话/备菜就加）
     snacks: {},              // 备好的小吃 {name: 份数}
     snackRecipes: [],        // 苏唐菜单 [{name,cat,tag,used,quality,desc}]
     menu: [],                // 师兄菜单 [{name,used,desc}]
