@@ -242,6 +242,36 @@ body {
 .scard.owned .sbuy { color: var(--mute); cursor: default; }
 .scard.owned .sname { color: var(--ink-dim); }
 
+/* 探秘地图（全屏 · 图钉流） */
+.map-head { display: flex; align-items: center; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line-soft); }
+.map-title { font-size: 15px; letter-spacing: 4px; color: var(--ink-bright); }
+.map-body { flex: 1; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 20px; }
+.map-frame {
+  position: relative; flex-shrink: 0; overflow: hidden;
+  border: 1px solid var(--line);
+  outline: 1px solid var(--line-soft);
+  outline-offset: 3px;
+  aspect-ratio: 3 / 2; /* 占位比例，图片 onload 后按真实宽高比覆盖 */
+}
+.map-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.map-pin {
+  position: absolute; transform: translate(-50%, -100%);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer;
+}
+.map-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--gold); border: 1px solid var(--bg-deep);
+  box-shadow: 0 0 8px rgba(216, 180, 106, .7);
+}
+.map-pin:hover .map-dot { background: var(--ink-bright); box-shadow: 0 0 10px rgba(227, 190, 180, .9); }
+.map-label {
+  font-size: 12px; letter-spacing: 1px; color: var(--ink-bright);
+  background: rgba(14, 28, 44, .85); border: 1px solid var(--line-soft);
+  padding: 2px 8px; white-space: nowrap;
+}
+.map-pin:hover .map-label { border-color: var(--line); color: var(--gold); }
+
 /* 做菜界面 */
 #modal-root .modal:has(.ck-slots) { width: 960px; }
 .ck-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }

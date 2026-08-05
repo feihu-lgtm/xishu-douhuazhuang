@@ -1,7 +1,7 @@
 // 西蜀豆花庄 · 界面层（DOM）
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
-  ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS,
+  ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP,
 } from "./data.js";
 import { judgeStove, shopStock, currentGuest, affName, SKILLS } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
@@ -508,6 +508,51 @@ export function openShop(st, { onBuy, onLeave, onRefresh }) {
   renderGrid(false);
 }
 
+// ── 探秘地图（全屏 · 图钉流，点据点去对应主题探秘）──────────────────
+export function openMap(st, { onGo }) {
+  let fit = () => {};
+  const cleanup = () => window.removeEventListener("resize", fit);
+  const modal = openModal(`
+    <div class="map-head">
+      <span class="map-title">探 秘 · 择地而往</span>
+      <span class="return" data-leave style="margin-left:auto">Return · 返回</span>
+    </div>
+    <div class="map-body">
+      <div class="map-frame">
+        <img class="map-img" src="./assets/map_bg.png" alt="">
+        ${EXPEDITION_MAP.map(n => `
+          <div class="map-pin" data-id="${n.id}" style="top:${n.top}%;left:${n.left}%" title="${n.category}">
+            <span class="map-dot"></span>
+            <span class="map-label">${n.name}</span>
+          </div>`).join("")}
+      </div>
+    </div>
+  `, cleanup, "fullscreen");
+
+  const body = modal.querySelector(".map-body");
+  const frame = modal.querySelector(".map-frame");
+  const img = modal.querySelector(".map-img");
+  fit = () => {
+    const availW = body.clientWidth - 40;
+    const availH = body.clientHeight - 40;
+    const ratio = (img.naturalWidth && img.naturalHeight) ? img.naturalWidth / img.naturalHeight : 3 / 2;
+    let w = availW, h = w / ratio;
+    if (h > availH) { h = availH; w = h * ratio; }
+    frame.style.width = `${Math.round(w)}px`;
+    frame.style.height = `${Math.round(h)}px`;
+  };
+  fit(); // 先按占位比例定一次，不等图片——图没加载出来/404 时也不会缩没
+  img.onload = fit;
+  img.onerror = fit;
+  window.addEventListener("resize", fit);
+
+  modal.querySelectorAll("[data-id]").forEach(el => el.onclick = () => {
+    const node = EXPEDITION_MAP.find(n => n.id === el.dataset.id);
+    if (node) onGo(node);
+  });
+  modal.querySelector("[data-leave]").onclick = () => closeModal(cleanup);
+}
+
 // ── 小吃面板（玩家只口述，苏唐自决；已会的可复做）──────────────────
 export function openSnack(st, { onRequest, onRemake, onTag }) {
   let note = "";
@@ -742,7 +787,7 @@ export function openHelp() {
       卯时开门，迎三位客人。客人点菜，你开灶：四格料槽 + 技法 + 炊具 + 味型，开火。<br>
       命中配方是名菜；配不上就「妙手偶得」，灶神（AI）即兴起名写味。<br>
       佐餐之后客人按口味付文钱——味型、技法、兴趣食材对上，钱就多。<br>
-      三位送完自动收功，逛商店：厨具 / 技法 / 食材 / 味型；还可「探秘」寻带星高级食材。然后「下一日」。
+      三位送完自动收功，逛商店：厨具 / 技法 / 食材 / 味型；还可「探秘」——点开地图选个据点，去寻带星高级食材。然后「下一日」。
     </div>
     <div class="ck-label">终端命令</div>
     <div class="sdesc" style="min-height:0;text-align:left;line-height:2">

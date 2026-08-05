@@ -1,5 +1,5 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXP_SCEN } from "./data.js";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
@@ -11,7 +11,7 @@ import {
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
 import {
-  narr, say, sys, gold, playerLine, renderAll, openCook, openShop,
+  narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
   commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate,
 } from "./ui.js";
@@ -32,7 +32,7 @@ const handlers = {
   trace: () => openTrace(),
   notes: () => openNotes(st),
   su: () => openSuPanel(st, { onTalk: (txt) => doSuTalk(txt) }),
-  exp: () => doExpedition(),
+  exp: () => openExpeditionMap(),
   nsfw: () => { setNsfw(!getNsfw()); sys(getNsfw() ? "■ 模式开启：相关写作规则强制注入。" : "■ 模式关闭。"); renderAll(st, handlers); },
   save: () => { saveGame(st); sys("存档完毕。"); },
   help: () => openHelp(),
@@ -309,8 +309,14 @@ async function doReview() {
   st.dayLog = [];
 }
 
-// ── 副本·探秘（收功后，武功+智慧+苏唐 寻稀有食材）──────────────────
-async function doExpedition() {
+// ── 副本·探秘（先点地图选据点，再去，武功+智慧+苏唐 寻稀有食材）────
+function openExpeditionMap() {
+  if (!(st.phase === "closing" || st.served >= 3)) return sys("送完三位客人才好出门探秘。");
+  if (busy) return sys("正忙着呢。");
+  openMap(st, { onGo: (node) => { closeModal(); doExpedition(node); } });
+}
+
+async function doExpedition(node) {
   if (!(st.phase === "closing" || st.served >= 3)) return sys("送完三位客人才好出门探秘。");
   if (busy) return sys("正忙着呢。");
   busy = true;
@@ -319,10 +325,12 @@ async function doExpedition() {
   const avgv = (o) => { const v = Object.values(o || {}); return v.reduce((a, b) => a + b, 0) / (v.length || 1); };
   const skillAvg = Math.round(avgv(st.skills));
   const suAvg = Math.round(avgv(st.suSkills));
-  const pool = EXP_SCEN.filter(s => s !== st.lastScen);   // 100 种，不重复上次
-  const scenario = pool[Math.floor(Math.random() * pool.length)];
-  st.lastScen = scenario;
-  sys(`【探秘】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……`);
+  const catPool = EXP_SCEN_BY_CAT[node.category] || [];
+  st.lastScenByNode = st.lastScenByNode || {};
+  const pool = catPool.filter(s => s !== st.lastScenByNode[node.id]);   // 一据点一类十条，不重复该据点上次
+  const scenario = (pool.length ? pool : catPool)[Math.floor(Math.random() * (pool.length ? pool.length : catPool.length))];
+  st.lastScenByNode[node.id] = scenario;
+  sys(`【探秘·${node.name}】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……`);
   const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st) });
   await narr(r.narrative);
   if (r.comment) await commentLine(r.comment);
@@ -335,8 +343,8 @@ async function doExpedition() {
     st.stars[s.name] = s.stars;
     await narr(`【收获】「${s.name}」${"★".repeat(s.stars)} —— ${s.desc}`);
   }
-  note("探秘", `副本(${scenario})寻得 ${special.map(s => s.name).join("、")}。`);
-  endTrace(`探秘·${scenario}·得${special.map(s => s.name).join("、")}`);
+  note("探秘", `${node.name}(${scenario})寻得 ${special.map(s => s.name).join("、")}。`);
+  endTrace(`探秘·${node.name}·${scenario}·得${special.map(s => s.name).join("、")}`);
   } finally { busy = false; }
   renderAll(st, handlers);
   saveGame(st);
@@ -524,7 +532,7 @@ async function onCommand(text) {
   if (["上菜", "端菜", "佐餐"].includes(cmd)) return doZuocan();
   if (["小吃", "零食"].includes(cmd)) return doSnackPanel();
   if (["商店", "买", "逛街"].includes(cmd)) return doShop();
-  if (["探秘", "副本", "exp"].includes(cmd)) return doExpedition();
+  if (["探秘", "副本", "exp"].includes(cmd)) return openExpeditionMap();
   if (["■", "黑方块", "nsfw", "模式"].includes(cmd)) return handlers.nsfw();
   if (["下一日", "下一天", "等待", "睡觉", "明儿"].includes(cmd)) return doNext();
   if (["背包", "包袱"].includes(cmd)) return openBag(st);
