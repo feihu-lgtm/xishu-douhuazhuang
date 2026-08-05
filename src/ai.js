@@ -451,7 +451,7 @@ export function parseSnack(t, ctx) {
   return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃", desc: o.desc || "", proc: o.proc || "", note: o.note || "", flavor: fl ? fl.id : null };
 }
 
-const SU_SNACK_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好。你是店家，对顾客要客气热情、招呼周到；对师兄则调情撒娇、逗他嗔他带甜，绝不责备。小剧情分 3-5 个自然段，段间空一行。先写小剧情，再输出 JSON。";
+const SU_SNACK_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好。你是店家，对顾客要客气热情、招呼周到；对师兄则调情撒娇、逗他嗔他带甜，绝不责备。小剧情分 3-5 个自然段、段间空一行；对话用「」（不要用“”），心理用 *...*。先写小剧情，再输出 JSON。";
 export async function genSnack(cfg, ctx) {
   if (cfgReady(cfg)) {
     const invStr = Object.entries(ctx.inv).map(([n, c]) => `${n}×${c}`).join("、") || "（没有）";

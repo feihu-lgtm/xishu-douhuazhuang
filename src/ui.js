@@ -22,8 +22,8 @@ const escapeHtml = (s) => String(s)
 const RICH = new Set(["narr", "say", "su"]); // su=苏唐，右栏分段+变色
 function richHtml(text) {
   const esc = escapeHtml(text);
-  const colored = esc.replace(/(「[^」]*」|\*[^*\n]+\*)/g, (m) =>
-    m[0] === "「" ? `<span class="seg-say">${m}</span>` : `<span class="seg-thought">${m}</span>`);
+  const colored = esc.replace(/(「[^」]*」|“[^”\n]*”|\*[^*\n]+\*)/g, (m) =>
+    (m[0] === "「" || m[0] === "“") ? `<span class="seg-say">${m}</span>` : `<span class="seg-thought">${m}</span>`);
   return colored.split(/\n{2,}/)
     .map(p => `<p class="para">${p.replace(/\n/g, "<br>")}</p>`).join("");
 }
@@ -85,7 +85,7 @@ export function log(type, text, { instant = false } = {}) {
 // 右栏·苏唐日志（粉色，即时，带时间戳）
 export function slog(type, text) {
   const bd = mkEntry($("#sulog"), type);
-  bd.textContent = text;
+  if (RICH.has(type)) bd.innerHTML = richHtml(text); else bd.textContent = text;
   $("#sulog").scrollTop = $("#sulog").scrollHeight;
 }
 // 流式上屏：AI 边写边长，返回句柄。
