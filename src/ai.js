@@ -451,7 +451,7 @@ export function parseSnack(t, ctx) {
   return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃", desc: o.desc || "", proc: o.proc || "", note: o.note || "", flavor: fl ? fl.id : null };
 }
 
-const SU_SNACK_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好。你是店家，对顾客要客气热情、招呼周到；嘴硬心软只在对师兄时，对客人务必友好。先写做小吃的小剧情，再输出 JSON。";
+const SU_SNACK_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好。你是店家，对顾客要客气热情、招呼周到；对师兄则调情撒娇、逗他嗔他带甜，绝不责备。小剧情分 3-5 个自然段，段间空一行。先写小剧情，再输出 JSON。";
 export async function genSnack(cfg, ctx) {
   if (cfgReady(cfg)) {
     const invStr = Object.entries(ctx.inv).map(([n, c]) => `${n}×${c}`).join("、") || "（没有）";
@@ -496,7 +496,7 @@ function fallbackSnack(ctx) {
 
 // ── 收工总评（苏唐逐客复盘）──────────────────────────────────────────
 // ── 苏唐长对话（右栏，好感只要对话就加）──────────────────────────────
-const SU_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好，嘴硬心软。直接以苏唐的身份回应师兄，可带「」对话与 *心理*，不要写旁白总结。";
+const SU_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好。你对师兄是调情、撒娇、打情骂俏：嘴上逗他、嗔他、撩他，嗔怪里带甜，心里喜欢他；绝不是责备、嫌弃或骂他。回话分 3-5 个自然段，段间空一行；可带「」对话与 *心理*，不要写旁白总结。";
 function fallbackSuTalk() {
   return "【苏唐】师兄说什么呢，灶上还忙着，别逗我。";
 }
@@ -506,8 +506,8 @@ export async function genSuTalk(cfg, ctx, onChunk) {
       `师兄对苏唐说：${ctx.text}`,
       `苏唐对师兄的好感为 ${ctx.suAff ?? 0}。`,
       tierGuide(ctx.suTier || 1, "苏唐手艺"),
-      `以苏唐的口吻与动作回一段话，约 ${ctx.words || 300} 字，嘴硬心软；好感越高语气越软。`,
-      `回话末尾单独一行「好感：+N」，N 取 0-3，由你当时心情决定（被逗乐、暖心就高，被气就 0）。`,
+      `以苏唐的口吻与动作回话，约 ${ctx.words || 300} 字，分 3-5 个自然段；对师兄调情撒娇、逗他嗔他带甜，不要责备他；好感越高越撩越软。`,
+      `回话末尾单独一行「好感：+N」，N 取 0-3，由你当时心情决定（被逗乐、暖心就高）。`,
     ].join("\n");
     const t0 = Date.now();
     try {

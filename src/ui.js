@@ -19,7 +19,7 @@ const escapeHtml = (s) => String(s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 // 旁白/对话「」/心理 *...* 三色渲染 + 多分段左对齐
-const RICH = new Set(["narr", "say"]);
+const RICH = new Set(["narr", "say", "su"]); // su=苏唐，右栏分段+变色
 function richHtml(text) {
   const esc = escapeHtml(text);
   const colored = esc.replace(/(「[^」]*」|\*[^*\n]+\*)/g, (m) =>
@@ -132,16 +132,17 @@ export function logStream(type) {
 // 右栏（苏唐）流式上屏
 export function slogStream(type) {
   let entry = null, bd = null, text = "", ready = false;
+  const putR = (s) => { if (RICH.has(type)) bd.innerHTML = richHtml(s); else bd.textContent = s; };
   queue = queue.then(() => new Promise(done => {
     bd = mkEntry($("#sulog"), type);
     entry = bd.parentElement;
-    if (text) bd.textContent = text;
+    if (text) putR(text);
     ready = true;
     $("#sulog").scrollTop = $("#sulog").scrollHeight;
     done();
   }));
   return {
-    append(c) { text += c; if (ready) { bd.textContent = text; $("#sulog").scrollTop = $("#sulog").scrollHeight; } },
+    append(c) { text += c; if (ready) { putR(text); $("#sulog").scrollTop = $("#sulog").scrollHeight; } },
     remove() { if (ready) entry.remove(); else queue = queue.then(() => entry?.remove()); },
     get text() { return text; },
   };
