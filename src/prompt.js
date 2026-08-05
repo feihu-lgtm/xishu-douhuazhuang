@@ -56,6 +56,7 @@ export function dishUser(ctx) {
 // ── 苏唐备小吃 user 块 ──────────────────────────────────────────────
 export function snackUser(ctx) {
   return (
+    sec("上下文", ctx.context || "") +
     sec("师兄吩咐", ctx.request || "（没说什么，随你发挥）") +
     sec("做给谁", ctx.guest ? `这小吃是做给当前客人 ${ctx.guest.name}（${ctx.guest.ident}）吃的，不是给师兄。TA 说「${ctx.guest.order}」。你要照着客人的口味来做。` : "") +
     sec("现有食材", ctx.invStr) +

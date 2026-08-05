@@ -503,6 +503,7 @@ function fallbackSuTalk() {
 export async function genSuTalk(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const user = [
+      ctx.context ? `【上下文】\n${ctx.context}` : "",
       `师兄对苏唐说：${ctx.text}`,
       `苏唐对师兄的好感为 ${ctx.suAff ?? 0}。`,
       tierGuide(ctx.suTier || 1, "苏唐手艺"),
@@ -555,14 +556,15 @@ const CHAT_FALLBACK = [
 ];
 let chatIdx = 0;
 
-export async function genChat(cfg, text, onChunk) {
+export async function genChat(cfg, text, onChunk, context) {
   if (cfgReady(cfg)) {
     const sys = STYLE + `\n师兄在日记里写了句话，你以日记的笔法接下去，分 2-4 段，用上对话「」与心理 *...*。正文总字数约 ${cfg.chatWords || 160} 字（±${cfg.tolPct ?? 15}%）。末尾照例附「苏唐批：」一句和「心情：」一个词（八个里选）。`;
+    const user = (context ? `【上下文】\n${context}\n` : "") + `【师兄写道】${text}`;
     const t0 = Date.now();
     try {
       const raw = streamOn(cfg) && onChunk
-        ? await callAIStream(cfg, sys, `师兄写道：${text}`, onChunk, "闲聊")
-        : await callAI(cfg, sys, `师兄写道：${text}`, "闲聊");
+        ? await callAIStream(cfg, sys, user, onChunk, "闲聊")
+        : await callAI(cfg, sys, user, "闲聊");
       const ms = Date.now() - t0;
       if (raw && raw.trim()) {
         const { main, comment, mood } = extractComment(raw.trim());

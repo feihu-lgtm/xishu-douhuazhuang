@@ -73,6 +73,18 @@ async function guestArrives() {
   await narr(`门帘一掀，${g.name}（${g.ident}）走了进来，找个灶边位子坐下。`);
   await say(`「${g.order}」`);
   sys(`第 ${st.served + 1} 位客人。右栏「灶台」开火，做好了「上菜」。`);
+  note("迎客", `第${st.served + 1}位客人 ${g.name} 进门，说「${g.order}」。`);
+}
+
+// 情境上下文：当前客人+近况小纸条，喂给各 AI 调用
+function ctxLine(s) {
+  const g = currentGuest(s);
+  const notes = (s.notes || []).slice(-5).map(n => `[${n.act}]${n.text}`).join("；");
+  return [
+    `今日第${s.day}天，已送${s.served}客。`,
+    g ? `当前客人：${g.name}（${g.ident}），点菜时说「${g.order}」。` : `当前无客人。`,
+    notes ? `近况小纸条：${notes}` : "",
+  ].filter(Boolean).join("\n");
 }
 
 // ── 做菜 ───────────────────────────────────────────────────────────────
@@ -354,7 +366,7 @@ async function doSnackRequest(txt) {
   startTrace("备小吃");
   suSys(`【行动·备小吃】师兄说：${txt || "随便"}`);
   const cfg = loadCfg();
-  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), words: cfg.snackWords || 300 });
+  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), words: cfg.snackWords || 300, context: ctxLine(st) });
   for (const m of r.used) {
     st.inv[m] = (st.inv[m] || 0) - 1;
     if (st.inv[m] <= 0) delete st.inv[m];
@@ -411,7 +423,7 @@ async function doSuTalk(text) {
   startTrace("苏唐对话");
   const h = slogStream("su");
   const r = await genSuTalk(loadCfg(), {
-    text, words: loadCfg().suWords || 300, suAff: st.suAff || 0, suTier: suTierOf(st),
+    text, words: loadCfg().suWords || 300, suAff: st.suAff || 0, suTier: suTierOf(st), context: ctxLine(st),
   }, c => h.append(c));
   if (!r.ai || !h.text) { h.remove(); await suLine(r.text); }
   const gain = r.aff ?? 1;
@@ -478,7 +490,7 @@ async function onCommand(text) {
   busy = true;
   startTrace("闲聊");
   const h = logStream("narr");
-  const r = await genChat(loadCfg(), t, c => h.append(c));
+  const r = await genChat(loadCfg(), t, c => h.append(c), ctxLine(st));
   note("闲聊", `师兄说「${t.slice(0, 18)}」，说书人接了一段。`);
   endTrace("闲聊一段");
   if (r.ai && h.text) {
