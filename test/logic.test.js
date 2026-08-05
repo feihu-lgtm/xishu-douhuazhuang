@@ -1,0 +1,215 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  newState, guestsOfDay, matchRecipe, judgeStove, scoreDish, tierOf, payOf,
+  shopStock, buyItem, nextDay, currentGuest, GUESTS_PER_DAY,
+  applyMartialExp, computeBaseScore, refreshShop, shopIngOf, applySuExp,
+} from "../src/state.js";
+import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME } from "../src/data.js";
+import {
+  normalizeEndpoint, parseJSONRescue, fallbackDishName,
+  parseDishText, parseSayText, baseForModels, extractComment, fallbackDish,
+  moodIndex, splitSayMood, parseMartial,
+} from "../src/ai.js";
+
+test("guestsOfDay：3 位不重复，同一天确定", () => {
+  const a = guestsOfDay(3), b = guestsOfDay(3);
+  assert.equal(a.length, GUESTS_PER_DAY);
+  assert.deepEqual(a.map(g => g.id), b.map(g => g.id));
+  assert.equal(new Set(a.map(g => g.id)).size, 3);
+  for (const g of a) assert.ok(GUESTS.some(x => x.id === g.id));
+});
+
+test("matchRecipe：冷锅鱼命中 / 技法错不中", () => {
+  const mats = ["青衣江团鱼", "熊山花椒", "雅江菜籽油"];
+  assert.equal(matchRecipe(mats, "炒").name, "冷锅鱼");
+  assert.equal(matchRecipe(mats, "炖"), null);
+  assert.equal(matchRecipe([...mats].reverse(), "炒").name, "冷锅鱼");
+  assert.equal(matchRecipe([], "炖"), null);
+});
+
+test("judgeStove：空槽/蒸无笼/妙手/味型核心调料", () => {
+  const st = newState();
+  assert.equal(judgeStove(st, [null, null, null, null], "炖", "jiutieguo", null).ok, false);
+  assert.equal(judgeStove(st, ["雪山雪鸡肉"], "蒸", "jiutieguo", null).ok, false);
+  const free = judgeStove(st, ["玉泉寨土豆"], "炖", "jiutieguo", null);
+  assert.equal(free.ok, true);
+  assert.equal(free.freestyle, true);
+
+  st.inv["熊山花椒"] = 1;
+  const noUnlock = judgeStove(st, ["熊山花椒", "牦牛腱子肉"], "炖", "jiutieguo", "mala");
+  assert.equal(noUnlock.ok, true);
+  assert.equal(noUnlock.flavorId, null, "未学味型不算");
+
+  st.flavors.push("mala");
+  st.techs.push("炒");
+  const un = judgeStove(st, ["熊山花椒", "牦牛腱子肉"], "炒", "jiutieguo", "mala");
+  assert.equal(un.flavorId, "mala");
+});
+
+test("scoreDish：全对封顶 100，pay 至少 1", () => {
+  const st = newState();
+  st.flavors.push("mala"); st.techs.push("炒");
+  const j = judgeStove(st, ["青衣江团鱼", "熊山花椒", "雅江菜籽油"], "炒", "jiutieguo", "mala");
+  const dish = { materials: j.materials, technique: "炒", flavorId: j.flavorId, baseScore: 80 };
+  const g = GUESTS.find(x => x.id === "qingyilou");
+  const score = scoreDish(dish, g);
+  assert.equal(score, 100); // 80 + 味型10 + 技法4 + 兴趣6
+  assert.ok(payOf(g, score) >= 1);
+  assert.equal(tierOf(100), 0);
+  assert.equal(tierOf(44), 3);
+});
+
+test("武学：练功加经验、基础分组合", () => {
+  const st = newState();
+  const got = applyMartialExp(st, ["刀法", "拳掌"], true, 3);
+  assert.deepEqual(got, ["刀法", "拳掌", "内功"]);
+  assert.equal(st.skills["刀法"], 13);
+  assert.equal(st.skills["内功"], 13);
+  const b = computeBaseScore(st, { technique: "炒", cookware: { quality: "白" }, synergy: 80, external: ["刀法", "拳掌"] });
+  assert.ok(b >= 0 && b <= 100);
+  // 外功13*0.3 + 内功13*0.2 + 炒55*0.2 + 配合80*0.2 + 炊具0 = 3.9+2.6+11+16 = 33.5 → 34
+  assert.equal(b, 34);
+});
+
+test("parseMartial：过滤非法外功、夹取 synergy", () => {
+  const o = parseMartial('{"external":["刀法","野球拳","轻功"],"internal":true,"synergy":150}');
+  assert.deepEqual(o.external, ["刀法", "轻功"]);
+  assert.equal(o.internal, true);
+  assert.equal(o.synergy, 100);
+  assert.equal(parseMartial('{"external":[],"internal":false}'), null);
+});
+
+test("商店：买不起/买技/买食材/炊具不重复", () => {
+  const st = newState();
+  st.coins = 5;
+  assert.equal(buyItem(st, "cookware", "chaoguo").ok, false);
+  st.coins = 20;
+  assert.equal(buyItem(st, "tech", "烤").ok, true);
+  assert.ok(st.techs.includes("烤"));
+  assert.equal(buyItem(st, "tech", "烤").ok, false, "不能重复买");
+  assert.ok(!st.techs.includes("卤"), "卤是后期学，未买不该有");
+  const before = st.inv["贡措海盐"] || 0;
+  assert.equal(buyItem(st, "ingredient", "贡措海盐").ok, true);
+  assert.equal(st.inv["贡措海盐"], before + 1);
+  assert.ok(shopStock(st).cookware.find(c => c.id === "jiutieguo") === undefined, "默认锅不上架");
+});
+
+test("商店刷新：常备总在架", () => {
+  const st = newState();
+  assert.ok(shopIngOf(st).includes("贡措海盐"));
+  refreshShop(st);
+  assert.ok(shopIngOf(st).includes("贡措海盐"), "刷新后常备仍在架");
+  assert.ok(shopIngOf(st).length >= 8);
+});
+
+test("苏唐练功：小吃经验给她", () => {
+  const st = newState();
+  const got = applySuExp(st, 3);
+  assert.ok(got.includes("内功"));
+  assert.equal(st.suSkills["内功"], 18);
+});
+
+test("日循环：三客后收功，nextDay 复位", () => {
+  const st = newState();
+  st.served = 3;
+  st.phase = "closing";
+  nextDay(st);
+  assert.equal(st.day, 2);
+  assert.equal(st.served, 0);
+  assert.equal(st.phase, "guest");
+  assert.ok(currentGuest(st));
+});
+
+test("配方用料都在食材表里", () => {
+  for (const r of RECIPES) for (const m of r.materials) {
+    assert.ok(ING_BY_NAME[m], `${r.name} 的用料 ${m} 不在食材表`);
+  }
+  for (const f of Object.values(FLAVOR_BY_ID)) for (const req of f.requires) {
+    assert.ok(ING_BY_NAME[req], `味型 ${f.name} 的核心调料 ${req} 不在食材表`);
+  }
+  for (const g of GUESTS) {
+    assert.ok(FLAVOR_BY_ID[g.flavor], `客人 ${g.name} 的味型未定义`);
+    assert.ok(ING_BY_NAME[g.fav], `客人 ${g.name} 的兴趣食材不在食材表`);
+  }
+});
+
+test("normalizeEndpoint / parseJSONRescue", () => {
+  assert.equal(normalizeEndpoint("https://api.deepseek.com"),
+    "https://api.deepseek.com/v1/chat/completions");
+  assert.equal(normalizeEndpoint("https://x.com/v1"), "https://x.com/v1/chat/completions");
+  assert.equal(normalizeEndpoint("https://x.com/v1/chat/completions"), "https://x.com/v1/chat/completions");
+  assert.equal(normalizeEndpoint(""), "https://api.openai.com/v1/chat/completions");
+
+  const a = parseJSONRescue('```json\n{"name":"冷锅鱼","prose":"香。"}\n```');
+  assert.equal(a.name, "冷锅鱼");
+  const b = parseJSONRescue('废话前缀 {"name":"x","prose":"y"} 尾巴');
+  assert.equal(b.prose, "y");
+  const c = parseJSONRescue('{"name":"截断","prose":"没写完');
+  assert.equal(c.name, "截断");
+});
+
+test("parseDishText：流式纯文本格式 / JSON 兜底 / 空文本", () => {
+  const ctx = { materials: ["牦牛腱子肉"], technique: "炖" };
+  const a = parseDishText("菜名：「牦牛骨汤」\n骨髓熬化了，汤白得像奶。", ctx);
+  assert.equal(a.name, "牦牛骨汤");
+  assert.ok(a.prose.startsWith("骨髓"));
+  const b = parseDishText('菜名：即兴\n正文：香。', ctx);
+  assert.equal(b.name, "即兴");
+  assert.equal(b.prose, "香。");
+  const c = parseDishText('{"name":"x","prose":"y"}', ctx);
+  assert.equal(c.prose, "y");
+  assert.equal(parseDishText("", ctx), null);
+  assert.equal(parseDishText("菜名：只有名字没有正文", ctx), null);
+});
+
+test("extractComment / 苏唐批 + 心情进解析", () => {
+  const a = extractComment("正文一二三。\n苏唐批：咸了半口。\n心情：不满");
+  assert.equal(a.main, "正文一二三。");
+  assert.equal(a.comment, "咸了半口。");
+  assert.equal(a.mood, "不满");
+  assert.equal(extractComment("没有批语").comment, "");
+  assert.equal(extractComment("没有批语").mood, "");
+
+  const d = parseDishText("菜名：「牦牛骨汤」\n汤白得像奶。\n苏唐批：今日算过关。\n心情：开心", {});
+  assert.equal(d.name, "牦牛骨汤");
+  assert.equal(d.prose, "汤白得像奶。");
+  assert.equal(d.comment, "今日算过关。");
+  assert.equal(d.mood, 0);
+
+  const f = fallbackDish({ materials: ["玉泉寨土豆"], technique: "炖", cookware: { name: "溪边旧铁锅", desc: "" } });
+  assert.ok(f.comment, "降级模板也要有苏唐批");
+  assert.ok(Number.isInteger(f.mood) && f.mood >= 0 && f.mood < 8);
+});
+
+test("moodIndex / splitSayMood", () => {
+  assert.equal(moodIndex("开心"), 0);
+  assert.equal(moodIndex("专注"), 7);
+  assert.equal(moodIndex("高兴"), 0, "近义词兜底");
+  assert.equal(moodIndex(""), null);
+  const r = splitSayMood("「好手艺！」\n心情：兴奋");
+  assert.equal(r.say, "好手艺！");
+  assert.equal(r.mood, "兴奋");
+});
+
+test("parseSayText：去前缀引号 / JSON 兜底", () => {
+  assert.equal(parseSayText("「好手艺！」"), "好手艺！");
+  assert.equal(parseSayText("客人：好手艺！\n多余行"), "好手艺！");
+  assert.equal(parseSayText('{"say":"嗯"}'), "嗯");
+  assert.equal(parseSayText("  "), null);
+});
+
+test("baseForModels：砍尾巴 / 裸域名补 v1", () => {
+  assert.equal(baseForModels("https://api.deepseek.com/v1/chat/completions"),
+    "https://api.deepseek.com/v1");
+  assert.equal(baseForModels("https://api.deepseek.com"), "https://api.deepseek.com/v1");
+  assert.equal(baseForModels("https://dashscope.aliyuncs.com/compatible-mode/v1"),
+    "https://dashscope.aliyuncs.com/compatible-mode/v1");
+  assert.equal(baseForModels(""), "https://api.openai.com/v1");
+});
+
+test("fallbackDishName：配方名优先 / 自由组合拼名", () => {
+  assert.equal(fallbackDishName({ recipeName: "冷锅鱼", materials: [], technique: "炒" }), "冷锅鱼");
+  const n = fallbackDishName({ materials: ["牦牛腱子肉", "贡措海盐"], technique: "炖", flavorId: "xianxiang" });
+  assert.ok(n.includes("炖") && n.includes("牦牛腱子肉"));
+});

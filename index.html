@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>西蜀豆花庄 · 小厨</title>
+<link rel="stylesheet" href="./style.css" />
+<link rel="icon" href="data:," />
+</head>
+<body>
+<div id="frame"></div>
+<div id="sutang" class="sutang" aria-hidden="true"></div>
+<svg id="spiral" viewBox="0 0 24 24" fill="none" stroke="#c9a19b" stroke-width="1.4">
+  <path d="M12 12c0-1.5 2-1.6 2 0 0 2-3 2.4-4 0-1.2-3 2.6-4.6 5-3 3 2 2 6.6-1.5 7.5-4.4 1.2-8-2.4-7-6.5C7.6 5.5 13 3.6 17 6c4.4 2.6 4 9-.5 11.5"/>
+</svg>
+
+<div id="app">
+  <header id="topbar">
+  <span class="title">西蜀豆花庄</span>
+  <span class="sub">小厨 · 说书人终端</span>
+  <span id="rate" class="rate" title="反代限流：1分钟5次·间隔12s"></span>
+  <span class="status" id="status"></span>
+  </header>
+  <div id="main">
+    <aside id="left"></aside>
+    <section id="term">
+      <div id="log"></div>
+      <div id="inputline">
+        <span class="prompt">＞</span>
+        <input id="cmd" autocomplete="off" placeholder="说点什么，或输入「帮助」" />
+      </div>
+    </section>
+    <aside id="side"></aside>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+
+<div id="start">
+  <div class="big">西蜀豆花庄</div>
+  <div class="small">曲措乡 · 鱼定村 · 溪边灶房 —— 你是师兄，小厨</div>
+  <div class="small">和红衣汉服的师妹苏唐合写一本日记。做菜，迎客，收功逛商店。</div>
+  <div class="btns">
+    <span class="btn" id="btn-new">开 张</span>
+    <span class="btn" id="btn-cont" style="display:none">继 续</span>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
