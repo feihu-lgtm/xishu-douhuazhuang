@@ -1,6 +1,17 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
 import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, ING_BY_NAME, SNACKS, starLabel } from "./data.js";
+import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
+
+// ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
+let nsfwOn = true;
+export const setNsfw = (v) => { nsfwOn = !!v; };
+export const getNsfw = () => nsfwOn;
+const sysWithMode = (sys) => nsfwOn ? sys + "\n" + NSFW_RULES : sys;
+const msgsWithMode = (system, user) =>
+  nsfwOn
+    ? [{ role: "system", content: system }, ...MODE_PRIMER_MESSAGES, { role: "user", content: user }]
+    : [{ role: "system", content: system }, { role: "user", content: user }];
 import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser } from "./prompt.js";
 export { tierOfScore, tierGuide };
 
@@ -137,10 +148,7 @@ export async function callAI(cfg, system, user, label) {
         model: cfg.model,
         temperature: 0.9,
         max_tokens: cfg.maxTokens || 200000,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
+        messages: msgsWithMode(sysWithMode(system), user),
       }),
       signal: ctrl.signal,
     });
@@ -176,10 +184,7 @@ export async function callAIStream(cfg, system, user, onChunk, label) {
         temperature: 0.9,
         max_tokens: cfg.maxTokens || 200000,
         stream: true,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
+        messages: msgsWithMode(sysWithMode(system), user),
       }),
       signal: ctrl.signal,
     });

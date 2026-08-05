@@ -8,7 +8,7 @@ import {
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition,
   extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
-  startTrace, stepTrace, endTrace,
+  startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop,
@@ -33,6 +33,7 @@ const handlers = {
   notes: () => openNotes(st),
   su: () => openSuPanel(st, { onTalk: (txt) => doSuTalk(txt) }),
   exp: () => doExpedition(),
+  nsfw: () => { setNsfw(!getNsfw()); sys(getNsfw() ? "■ 模式开启：相关写作规则强制注入。" : "■ 模式关闭。"); renderAll(st, handlers); },
   save: () => { saveGame(st); sys("存档完毕。"); },
   help: () => openHelp(),
 };
@@ -524,6 +525,7 @@ async function onCommand(text) {
   if (["小吃", "零食"].includes(cmd)) return doSnackPanel();
   if (["商店", "买", "逛街"].includes(cmd)) return doShop();
   if (["探秘", "副本", "exp"].includes(cmd)) return doExpedition();
+  if (["■", "黑方块", "nsfw", "模式"].includes(cmd)) return handlers.nsfw();
   if (["下一日", "下一天", "等待", "睡觉", "明儿"].includes(cmd)) return doNext();
   if (["背包", "包袱"].includes(cmd)) return openBag(st);
   if (["设置"].includes(cmd)) return openSettings();
@@ -578,7 +580,7 @@ function bind() {
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();
-    const map = { c: "cook", x: "snack", b: "su", s: "serve", v: "set", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
+    const map = { c: "cook", x: "snack", b: "su", g: "nsfw", s: "serve", v: "set", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
     if (map[k]) handlers[map[k]]();
   });
   $("#btn-new").onclick = () => startNew();

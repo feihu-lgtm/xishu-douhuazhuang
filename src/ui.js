@@ -4,7 +4,7 @@ import {
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS,
 } from "./data.js";
 import { judgeStove, shopStock, currentGuest, affName, SKILLS } from "./state.js";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState } from "./ai.js";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -235,6 +235,7 @@ export function renderSide(st, h) {
     item("灶台", "C", can.cook, "cook") +
     item("小吃", "X", can.snack, "snack") +
     item("苏唐", "B", true, "su") +
+    item(`■ 模式·${getNsfw() ? "开" : "关"}`, "G", true, "nsfw") +
     item("佐餐", "S", can.serve, "serve") +
     item("商店", "T", can.shop, "shop") +
     item("探秘", "M", can.next, "exp") +
