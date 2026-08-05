@@ -124,7 +124,8 @@ async function cookNarrate(j) {
   st.dish.martial = martial;
   renderAll(st, handlers);
   sys(`练功：${got.join("、")} 各+3 · 食材配合 ${martial.synergy} · 基础分 ${baseScore}`);
-  // 第二轮·出菜叙事
+  // 第二轮·出菜叙事（带上任务：做给谁、TA 爱什么味）
+  const g = currentGuest(st);
   const h = logStream("narr");
   const res = await genDish(cfg, {
     materials: j.materials,
@@ -134,6 +135,7 @@ async function cookNarrate(j) {
     flavorId: j.flavorId,
     recipeName: j.recipe?.name || null,
     martial, baseScore,
+    guest: g,
   }, c => h.append(c));
   if (res.ai && h.text) {
     const { main, comment, mood } = extractComment(h.text);

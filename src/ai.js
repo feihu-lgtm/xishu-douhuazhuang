@@ -328,6 +328,7 @@ export async function genDish(cfg, ctx, onChunk) {
       `技法：${ctx.technique}（${TECHNIQUES[ctx.technique].desc}）`,
       `炊具：${ctx.cookware.name}（${ctx.cookware.desc}）`,
       fl ? `味型：${fl.name}——${fl.label}` : `味型：家常，未刻意调味`,
+      ctx.guest ? `任务：这道菜是做给 ${ctx.guest.name}（${ctx.guest.ident}）的。TA 点菜时说「${ctx.guest.order}」，偏好${FLAVOR_BY_ID[ctx.guest.flavor]?.name || ""}味、最好有${ctx.guest.fav}。正文里把"为TA做、对上TA口味"自然写进去。` : ``,
       ctx.recipeName ? `这搭配正中配方「${ctx.recipeName}」，菜名必须用它。` : `这搭配没有固定配方，请你即兴起一个贴切的菜名。`,
       ctx.martial ? `武学：这一勺练到 ${ctx.martial.external.join("、") || "基本功"}${ctx.martial.internal ? "，并运了内功" : ""}；食材配合 ${ctx.martial.synergy} 分；成菜基础分 ${ctx.baseScore}。正文里把这套身手自然带出来。` : ``,
       lenNote(cfg.dishWords || 360, cfg.tolPct ?? 15),
