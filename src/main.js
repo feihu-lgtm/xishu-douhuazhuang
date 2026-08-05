@@ -294,7 +294,7 @@ async function doReview() {
   if ((st.reviewedDay || 0) === st.day) return;
   st.reviewedDay = st.day;
   startTrace("收工");
-  const r = await genReview(loadCfg(), { dayLog: st.dayLog || [] });
+  const r = await genReview(loadCfg(), { dayLog: st.dayLog || [], snacks: st.todaySnacks || [] });
   for (const line of r.text.split("\n")) if (line.trim()) await suLine(line.trim());
   for (const d of (st.dayLog || [])) {
     if (d.tier <= 1 && d.id) {
@@ -321,9 +321,10 @@ async function doExpedition() {
   const SCEN = ["市井讨价还价", "奇遇", "劫镖", "探山洞", "穿密林", "下地宫"];
   const scenario = SCEN[Math.floor(Math.random() * SCEN.length)];
   sys(`【探秘】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……`);
-  const h = logStream("narr");
-  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st) }, c => h.append(c));
-  if (!r.ai || !h.text) { h.remove(); await narr(r.narrative); }
+  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st) });
+  await narr(r.narrative);
+  if (r.comment) await commentLine(r.comment);
+  setMood(r.mood ?? 0);
   const special = (r.special && r.special.length) ? r.special : fallbackSpecial();
   await sys("【探秘】掀开包袱——");
   st.stars = st.stars || {};
@@ -423,6 +424,7 @@ async function doSnackRequest(txt) {
   }
   st.snacks = st.snacks || {};
   st.snacks[r.made] = (st.snacks[r.made] || 0) + r.portions;
+  (st.todaySnacks = st.todaySnacks || []).push({ name: r.made, quality: r.quality, flavor: r.flavor });
   st.snackRecipes = st.snackRecipes || [];
   const srec = st.snackRecipes.find(x => x.name === r.made);
   if (srec) { srec.desc = r.desc || srec.desc; srec.used = r.used; srec.quality = r.quality; srec.flavor = r.flavor || srec.flavor; }
@@ -455,6 +457,7 @@ async function doRemake(name) {
   for (const m of rec.used) { st.inv[m] -= 1; if (st.inv[m] <= 0) delete st.inv[m]; }
   st.snacks = st.snacks || {};
   st.snacks[name] = (st.snacks[name] || 0) + 3;
+  (st.todaySnacks = st.todaySnacks || []).push({ name, quality: rec.quality, flavor: rec.flavor });
   const got = applySuExp(st);
   st.suAff = (st.suAff || 0) + 1;
   if (rec.proc) await suLine(rec.proc);

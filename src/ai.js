@@ -501,8 +501,8 @@ function fallbackSuTalk() {
   return "【苏唐】师兄说什么呢，灶上还忙着，别逗我。";
 }
 
-// ── 副本·探秘（轻度武侠：市井讨价还价/奇遇/劫镖/山洞/密林/地宫）──
-const EXP_SYS = "你是轻度武侠副本的旁白：市井烟火与江湖险恶交织，白描、有烟火气，不写美食猎人式的奇幻夸张；可写讨价还价、奇遇、劫镖、探山洞、穿密林、下地宫。中文，分 3-5 段。";
+// ── 副本·探秘（轻度武侠，统一主叙事文风：第三人称师兄/苏唐+苏唐批）──
+const EXP_SYS = STYLE + "\n这是探秘副本叙事：轻度武侠，市井烟火与江湖险恶交织，可写讨价还价、奇遇、劫镖、探山洞、穿密林、下地宫；不写美食猎人式奇幻夸张。一律第三人称写师兄与苏唐，不要写「你」。";
 export async function genExpedition(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const user = [
@@ -510,26 +510,26 @@ export async function genExpedition(cfg, ctx, onChunk) {
       `今次的情境是：${ctx.scenario}。`,
       `师兄（武功约 ${ctx.skillAvg}、凭平日见识与智慧）与苏唐（手艺 ${ctx.suAvg}）同行，寻稀有食材。`,
       `请你即兴发明 1-2 种【高级带星食材】：名字要有武侠/市井感、不要与商店常见食材重复；每种 stars 取 1-3、desc 一句。`,
-      `写 3-5 段轻度武侠叙事：师兄以武功或智慧化解阻碍、苏唐辨认并得手；收尾回店。不要夸张奇幻。`,
-      `结尾另起一行输出 JSON：{"special":[{"name":"","stars":1,"desc":""}]}`,
+      `写 3-5 段第三人称叙事：师兄以武功或智慧化解阻碍、苏唐辨认并得手，穿插「」对话与 *心理*；收尾回店。`,
+      `再一行「苏唐批：」苏唐的吐槽/评价；再一行「心情：」一个词（八个里选）。`,
+      `最后另起一行输出 JSON：{"special":[{"name":"","stars":1,"desc":""}]}`,
     ].filter(Boolean).join("\n");
     const t0 = Date.now();
     try {
-      const raw = streamOn(cfg) && onChunk
-        ? await callAIStream(cfg, EXP_SYS, user, onChunk, "探秘")
-        : await callAI(cfg, EXP_SYS, user, "探秘");
+      const raw = await callAI(cfg, EXP_SYS, user, "探秘");
       const o = parseJSONRescue(raw);
       let special = Array.isArray(o.special) ? o.special : [];
       special = special.filter(s => s && s.name).map(s => ({
         name: s.name, stars: Math.max(1, Math.min(3, parseInt(s.stars, 10) || 2)), desc: s.desc || "",
       }));
-      let narrative = (raw || "").trim();
-      const ji = narrative.indexOf("{");
-      if (ji >= 0) narrative = narrative.slice(0, ji).trim();
-      return { narrative, special, ms: Date.now() - t0, ai: true };
+      let text = (raw || "").trim();
+      const ji = text.indexOf("{");
+      if (ji >= 0) text = text.slice(0, ji).trim();
+      const ex = extractComment(text);
+      return { narrative: ex.main, comment: ex.comment, mood: moodIndex(ex.mood), special, ms: Date.now() - t0, ai: true };
     } catch { /* 降级 */ }
   }
-  return { narrative: "师兄与苏唐深入险地，凭一身武功与苏唐的眼力，觅得几样罕见食材，满载而归。", special: [], ai: false };
+  return { narrative: "师兄与苏唐深入险地，凭一身武功与苏唐的眼力，觅得几样罕见食材，满载而归。", comment: "师兄腿脚还行，就是话少。", mood: 4, special: [], ai: false };
 }
 export async function genSuTalk(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
@@ -558,8 +558,10 @@ export async function genReview(cfg, ctx) {
   if (cfgReady(cfg)) {
     const lines = (ctx.dayLog || []).map(d =>
       `客人${d.name}，点菜时说「${d.order}」，师兄做了「${d.dish}」，${d.flavorMatch ? "合口味" : "不合口味"}${d.favMatch ? "、正中TA兴趣的料" : ""}，满意度${d.score}。`);
+    const snackLines = (ctx.snacks || []).map(s => `苏唐自己做了「${s.name}」（品质${s.quality}）。`);
     const user = ["今日收工，逐客复盘：", ...lines,
-      `请苏唐总评：每位客人是怎么说的、她推测TA爱吃什么、师兄做的好不好。用苏唐口吻，分短段，嘴硬心软。`].join("\n");
+      ...(snackLines.length ? ["今日苏唐做的小吃：", ...snackLines] : []),
+      `请苏唐总评：每位客人是怎么说的、她推测TA爱吃什么、师兄做的好不好；也要评一评她自己今日做的小吃（得意/嫌弃/自省）。用苏唐口吻，分短段，嘴硬心软。`].join("\n");
     try {
       const raw = await callAI(cfg, "你是苏唐，西蜀豆花庄的师妹，红衣汉服，嘴硬心软，眼力好。只输出总评文字。", user, "苏唐总评");
       if (raw && raw.trim()) return { text: raw.trim(), ai: true };
@@ -568,10 +570,13 @@ export async function genReview(cfg, ctx) {
   return { text: fallbackReview(ctx), ai: false };
 }
 function fallbackReview(ctx) {
-  if (!(ctx.dayLog || []).length) return "【苏唐】今日没开张，锅都凉了，省柴。";
-  return (ctx.dayLog || []).map(d =>
-    `【苏唐】${d.name} 那桌，${d.flavorMatch ? "口味对上了，下回还这么配。" : `没对上，TA 要的是那口，你偏了。`} ${d.tier === 0 ? "师兄这手，我服。" : d.tier === 1 ? "还行，凑合。" : "得练。"}`
-  ).join("\n");
+  const dl = ctx.dayLog || [];
+  const sn = ctx.snacks || [];
+  if (!dl.length && !sn.length) return "【苏唐】今日没开张，锅都凉了，省柴。";
+  const guest = dl.map(d =>
+    `【苏唐】${d.name} 那桌，${d.flavorMatch ? "口味对上了，下回还这么配。" : `没对上，TA 要的是那口，你偏了。`} ${d.tier === 0 ? "师兄这手，我服。" : d.tier === 1 ? "还行，凑合。" : "得练。"}`);
+  const self = sn.map(s => `【苏唐】我自个儿的「${s.name}」，${s.quality >= 80 ? "火候拿捏得正好，得意。" : s.quality >= 60 ? "还成，下回更细些。" : "失手了，下回找补。"}`);
+  return [...guest, ...self].join("\n");
 }
 
 // ── 自由闲聊（终端里跟说书人说话）────────────────────────────────────

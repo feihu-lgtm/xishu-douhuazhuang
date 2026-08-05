@@ -50,6 +50,7 @@ export function newState() {
     snackRecipes: [],        // 苏唐菜单 [{name,cat,tag,used,quality,desc}]
     menu: [],                // 师兄菜单 [{name,used,desc}]
     notes: [],               // 小纸条：每轮动作/对话的小总结 [{day,ts,act,text}]
+    todaySnacks: [],         // 今日苏唐做的小吃 [{name,quality,flavor}]
     pendingSet: null,        // 上菜时配的 set
     shopSeed: 1,
     shopIng: null,           // 刷新后的在架食材
@@ -230,6 +231,7 @@ export function nextDay(st) {
   st.phase = "guest";
   st.guests = guestsOfDay(st.day).map(g => g.id);
   st.dish = null;
+  st.todaySnacks = [];
   return st;
 }
 
