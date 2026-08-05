@@ -3,7 +3,7 @@ import { ING_BY_NAME, RECIPES } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
-  applyMartialExp, computeBaseScore, refreshShop, shopStock,
+  applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
 } from "./state.js";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview,
@@ -12,7 +12,7 @@ import {
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop,
   openBag, openSettings, openHelp, openTrace, closeModal, logStream,
-  commentLine, setMood, suLine, openSnack, openSet, renderRate,
+  commentLine, setMood, suLine, suSys, openSnack, openSet, renderRate,
 } from "./ui.js";
 
 let st = null;
@@ -304,7 +304,8 @@ async function doSnackRequest(txt) {
   if (busy) return sys("苏唐正忙着呢。");
   busy = true;
   closeModal();
-  await narr(`苏唐应了声「知道了」，挽起袖子正在备菜……`);
+  suSys(`【行动·备小吃】师兄说：${txt || "随便"}`);
+  suLine(`苏唐应了声「知道了」，挽起袖子正在备菜……`);
   const cfg = loadCfg();
   const r = await genSnack(cfg, { request: txt, inv: st.inv });
   for (const m of r.used) {
@@ -319,7 +320,7 @@ async function doSnackRequest(txt) {
   const got = applySuExp(st);
   setMood(moodIndex(r.mood) ?? 7);
   await suLine(`【苏唐】${r.say}`);
-  suSys(`【苏唐】备下「${r.made}」${r.portions} 份 · 用 ${r.used.join("、") || "手头现成的"} · 品质 ${r.quality}`);
+  suSys(`【回复·备小吃】备下「${r.made}」${r.portions} 份 · 用 ${r.used.join("、") || "手头现成的"} · 品质 ${r.quality}`);
   suSys(`【苏唐】练功：${got.join("、")} 各+3`);
   busy = false;
   renderAll(st, handlers);
@@ -333,12 +334,13 @@ async function doRemake(name) {
   for (const m of rec.used) if ((st.inv[m] || 0) <= 0) return sys(`缺「${m}」，苏唐巧妇难为无米之炊。`);
   busy = true;
   closeModal();
-  await narr(`苏唐照旧方复做「${name}」，手法熟得很。`);
+  suSys(`【行动·复做】师兄点名：${name}`);
+  suLine(`苏唐照旧方复做「${name}」，手法熟得很。`);
   for (const m of rec.used) { st.inv[m] -= 1; if (st.inv[m] <= 0) delete st.inv[m]; }
   st.snacks = st.snacks || {};
   st.snacks[name] = (st.snacks[name] || 0) + 3;
   const got = applySuExp(st);
-  suSys(`【苏唐】复做「${name}」3 份 · 品质 ${rec.quality}`);
+  suSys(`【回复·复做】「${name}」3 份 · 品质 ${rec.quality}`);
   suSys(`【苏唐】练功：${got.join("、")} 各+3`);
   busy = false;
   renderAll(st, handlers);

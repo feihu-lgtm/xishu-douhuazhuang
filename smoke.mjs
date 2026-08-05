@@ -65,6 +65,14 @@ try {
     await waitServed(i + 2);
   }
 
+  // ── 小吃：口述→苏唐自决→右栏叙事 ──
+  await page.click('#side [data-act="snack"]');
+  await page.waitForSelector("#sn-note");
+  await page.fill("#sn-note", "甜的");
+  await page.click("[data-go]");
+  await page.waitForFunction(() => (document.querySelector("#sulog")?.textContent || "").includes("备下"), null, { timeout: 8000 });
+  if (!(await page.textContent("#sulog")).includes("行动")) throw new Error("苏唐备小吃行动未上右栏");
+
   // ── 收功：市集不自动开，手动进出，下一日才翻篇 ──
   await page.waitForSelector('#side [data-act="next"]:not(.disabled)', { timeout: 8000 });
   if (await page.$(".shop-grid")) throw new Error("市集不应自动弹出");
