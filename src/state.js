@@ -53,13 +53,11 @@ export function newState() {
     todaySnacks: [],         // 今日苏唐做的小吃 [{name,quality,flavor}]
     pendingSet: null,        // 上菜时配的 set
     shopSeed: 1,
-    shopIng: null,           // 刷新后的在架食材
+    shopIng: rollShopIng(1), // 刷新后的在架食材（种子对应 shopSeed: 1）
     buyQty: {},              // 每样固定买几份（锁定，免手动调）
     dayLog: [],              // 今日逐客记录（收工总评用）
     reviewedDay: 0,          // 已总评的天
   };
-  st.shopIng = rollShopIng(st.shopSeed);
-  return st;
 }
 
 // 商店在架食材：常备 + 种子滚出的流动货
