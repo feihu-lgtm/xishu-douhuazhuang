@@ -1,5 +1,5 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel } from "./data.js";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXP_SCEN } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
@@ -318,8 +318,9 @@ async function doExpedition() {
   const avgv = (o) => { const v = Object.values(o || {}); return v.reduce((a, b) => a + b, 0) / (v.length || 1); };
   const skillAvg = Math.round(avgv(st.skills));
   const suAvg = Math.round(avgv(st.suSkills));
-  const SCEN = ["市井讨价还价", "奇遇", "劫镖", "探山洞", "穿密林", "下地宫"];
-  const scenario = SCEN[Math.floor(Math.random() * SCEN.length)];
+  const pool = EXP_SCEN.filter(s => s !== st.lastScen);   // 100 种，不重复上次
+  const scenario = pool[Math.floor(Math.random() * pool.length)];
+  st.lastScen = scenario;
   sys(`【探秘】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……`);
   const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st) });
   await narr(r.narrative);
@@ -417,7 +418,8 @@ async function doSnackRequest(txt) {
   startTrace("备小吃");
   suSys(`【行动·备小吃】师兄说：${txt || "随便"}`);
   const cfg = loadCfg();
-  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), words: cfg.snackWords || 300, context: ctxLine(st) });
+  const mv = Math.round(Object.values(st.skills).reduce((a, b) => a + b, 0) / 7);
+  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), martialTier: tierOfScore(mv), words: cfg.snackWords || 300, context: ctxLine(st) });
   for (const m of r.used) {
     st.inv[m] = (st.inv[m] || 0) - 1;
     if (st.inv[m] <= 0) delete st.inv[m];

@@ -507,7 +507,7 @@ export async function genExpedition(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const user = [
       ctx.context ? `【上下文】\n${ctx.context}` : "",
-      `今次的情境是：${ctx.scenario}。`,
+      `今次的情境是：${ctx.scenario}。严格按此情境写，不要换成别的场景（不要总写山洞）。`,
       `师兄（武功约 ${ctx.skillAvg}、凭平日见识与智慧）与苏唐（手艺 ${ctx.suAvg}）同行，寻稀有食材。`,
       `请你即兴发明 1-2 种【高级带星食材】：名字要有武侠/市井感、不要与商店常见食材重复；每种 stars 取 1-3、desc 一句。`,
       `写 3-5 段第三人称叙事：师兄以武功或智慧化解阻碍、苏唐辨认并得手，穿插「」对话与 *心理*；收尾回店。`,
