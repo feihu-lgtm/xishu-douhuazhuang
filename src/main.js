@@ -315,18 +315,26 @@ async function doExpedition() {
   const avgv = (o) => { const v = Object.values(o || {}); return v.reduce((a, b) => a + b, 0) / (v.length || 1); };
   const skillAvg = Math.round(avgv(st.skills));
   const suAvg = Math.round(avgv(st.suSkills));
+  const SCEN = ["市井讨价还价", "奇遇", "劫镖", "探山洞", "穿密林", "下地宫"];
+  const scenario = SCEN[Math.floor(Math.random() * SCEN.length)];
   const rarePool = INGREDIENTS.filter(i => i.price >= 4);
   const n = (skillAvg + suAvg) / 2 >= 20 ? 2 : 1;
   const found = [];
   for (let i = 0; i < n; i++) found.push(rarePool[Math.floor(Math.random() * rarePool.length)].name);
-  sys(`【探秘】师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……`);
+  sys(`【探秘】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……`);
   const h = logStream("narr");
-  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, found, context: ctxLine(st) }, c => h.append(c));
+  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, found, scenario, context: ctxLine(st) }, c => h.append(c));
   if (!r.ai || !h.text) { h.remove(); await narr(r.narrative); }
-  for (const f of found) { st.inv[f] = (st.inv[f] || 0) + 1; }
-  note("探秘", `副本寻得 ${found.join("、")}。`);
-  sys(`【探秘】收获：${found.join("、")}。`);
-  endTrace(`探秘·得${found.join("、")}`);
+  // 仪式感：单独出食材，带星
+  await sys("【探秘】掀开包袱——");
+  for (const f of found) {
+    const ing = ING_BY_NAME[f];
+    const stars = "★".repeat(ing && ing.price >= 5 ? 3 : ing && ing.price >= 4 ? 2 : 1);
+    st.inv[f] = (st.inv[f] || 0) + 1;
+    await narr(`【收获】「${f}」${stars} —— ${ing ? ing.lore : ""}`);
+  }
+  note("探秘", `副本(${scenario})寻得 ${found.join("、")}。`);
+  endTrace(`探秘·${scenario}·得${found.join("、")}`);
   busy = false;
   renderAll(st, handlers);
   saveGame(st);

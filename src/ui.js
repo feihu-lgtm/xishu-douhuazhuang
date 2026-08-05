@@ -237,7 +237,6 @@ export function renderSide(st, h) {
     item("小吃", "X", can.snack, "snack") +
     item("苏唐", "B", true, "su") +
     item("佐餐", "S", can.serve, "serve") +
-    item("收功", "R", can.close, "close") +
     item("商店", "T", can.shop, "shop") +
     item("探秘", "M", can.next, "exp") +
     item("下一日", "N", can.next, "next") +
@@ -248,7 +247,6 @@ export function renderSide(st, h) {
     item("纸条", "P", true, "notes") +
     item("存档", "Q", true, "save") +
     item("帮助", "H", true, "help") +
-    `<div class="hint">说书人听着呢——<br>终端里直接说话也行，<br>说「做 XX」就开灶。</div>` +
     `<div class="sucard" aria-hidden="true">
        <div id="sutang" class="sutang" style="background-position:${moodPos(currentMood)}"></div>
        <div class="suname">苏唐</div>
