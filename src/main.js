@@ -75,6 +75,11 @@ async function guestArrives() {
   await say(`「${g.order}」`);
   sys(`第 ${st.served + 1} 位客人。右栏「灶台」开火，做好了「上菜」。`);
   note("迎客", `第${st.served + 1}位客人 ${g.name} 进门，说「${g.order}」。`);
+  if (g.sister) {
+    setMood(5); // 苏唐掉脸
+    await suLine(`【苏唐】……她怎么来了。师兄你眼睛往哪儿看呢，菜自己做去。`);
+    note("迎客", `苏酥（苏唐姐姐）上门，苏唐吃醋掉脸。`);
+  }
 }
 
 // 情境上下文：当前客人+近况小纸条，喂给各 AI 调用
@@ -84,6 +89,7 @@ function ctxLine(s) {
   return [
     `今日第${s.day}天，已送${s.served}客。`,
     g ? `当前客人：${g.name}（${g.ident}），点菜时说「${g.order}」。` : `当前无客人。`,
+    g && g.sister ? `（苏酥是苏唐的亲姐姐，在座。苏唐正吃醋掉脸，语气带酸带嗔，一边防着姐姐勾引师兄、一边防着师兄献殷勤。）` : "",
     notes ? `近况小纸条：${notes}` : "",
   ].filter(Boolean).join("\n");
 }
