@@ -11,7 +11,7 @@ import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FL
 import {
   normalizeEndpoint, parseJSONRescue, fallbackDishName,
   parseDishText, parseSayText, baseForModels, extractComment, fallbackDish,
-  moodIndex, splitSayMood, parseMartial,
+  moodIndex, splitSayMood, parseMartial, extractFace, POSE_INDEX,
 } from "../src/ai.js";
 
 test("guestsOfDay：3 位不重复，同一天确定", () => {
@@ -327,4 +327,14 @@ test("guestsOfDay：苏酥首客加权（长样本在合理区间）", () => {
 test("newState：带星食材描述落盘字段 starLore 就位", () => {
   const st = newState();
   assert.deepEqual(st.starLore, {}, "新档 starLore 为空对象，探秘收获时写入");
+});
+
+test("NSFW表情按情节匹配：extractFace/POSE_INDEX", () => {
+  assert.equal(POSE_INDEX["脸红出汗"], 0);
+  assert.equal(POSE_INDEX["娇羞比耶"], 7);
+  assert.equal(extractFace("正文……\n表情：微微翻白眼"), "微微翻白眼");
+  assert.equal(extractFace("正文……\n表情：平常"), "平常");
+  assert.equal(extractFace("正文……"), "");
+  assert.equal(Number.isInteger(POSE_INDEX[extractFace("表情：平常")]), false, "「平常」不触发 NSFW 表情");
+  assert.equal(Number.isInteger(POSE_INDEX[extractFace("表情：wink")]), true, "「wink」触发");
 });

@@ -169,7 +169,22 @@ export function setMood(i) {
   if (Number.isInteger(i) && i >= 0 && i < 8) currentMood = i;
   const el = document.querySelector(".sutang");
   if (!el) return;
+  el.style.backgroundImage = "";   // 回到默认 sutang.png（清掉 NSFW 表情皮肤）
   el.style.backgroundPosition = moodPos(currentMood);
+  el.classList.remove("pop");
+  void el.offsetWidth;
+  el.classList.add("pop");
+}
+
+// ── NSFW 表情：■模式+闲聊区，按 AI 情节标签匹配姿势（poseIdx=8姿势帧序）──
+// 只用这一套（红衣浴袍·出浴 8 姿势），别的删掉了。
+const NSFW_SKIN = "assets/sutang_nsfw.png";
+export function rollNsfwFace(poseIdx) {
+  const el = document.querySelector(".sutang");
+  if (!el) return;
+  el.style.backgroundImage = `url(${NSFW_SKIN})`;
+  const i = Number.isInteger(poseIdx) ? poseIdx : Math.floor(Math.random() * 8); // 脸红出汗/翻白眼/憋气/吐舌/wink/嘟嘴/鼓气/娇羞比耶
+  el.style.backgroundPosition = moodPos(i);
   el.classList.remove("pop");
   void el.offsetWidth;
   el.classList.add("pop");

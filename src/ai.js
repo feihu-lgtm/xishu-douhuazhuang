@@ -664,6 +664,13 @@ export async function genNewGuest(cfg) {
   return null;
 }
 
+// ── 苏唐 NSFW 表情映射（三套精灵图的 8 姿势帧序，见 assets/sutang_nsfw*.png）──
+export const POSE_INDEX = { 脸红出汗: 0, 微微翻白眼: 1, 憋气: 2, 吐舌: 3, wink: 4, 嘟嘴: 5, 鼓气: 6, 娇羞比耶: 7 };
+export function extractFace(t) {
+  const m = (t || "").match(/表情[：:]\s*([^\n]+)/);
+  return m ? m[1].trim() : "";
+}
+
 export async function genSuTalk(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const user = [
@@ -673,6 +680,7 @@ export async function genSuTalk(cfg, ctx, onChunk) {
       tierGuide(ctx.suTier || 1, "苏唐手艺"),
       `以苏唐的口吻与动作回话，约 ${ctx.words || 300} 字，分 3-5 个自然段；对师兄调情撒娇、逗他嗔他带甜，不要责备他；好感越高越撩越软。`,
       `回话末尾单独一行「好感：+N」，N 取 0-3，由你当时心情决定（被逗乐、暖心就高）。`,
+      `再单独一行「表情：」——若这回应答里真有暧昧/亲密/逗弄氛围，从 脸红出汗/微微翻白眼/憋气/吐舌/wink/嘟嘴/鼓气/娇羞比耶 里选一个最贴的；否则就写「平常」。`,
     ].join("\n");
     const t0 = Date.now();
     try {
@@ -727,7 +735,7 @@ let chatIdx = 0;
 
 export async function genChat(cfg, text, onChunk, context) {
   if (cfgReady(cfg)) {
-    const sys = STYLE + `\n师兄在日记里写了句话，你以日记的笔法接下去，分 2-4 段，用上对话「」与心理 *...*。正文总字数约 ${cfg.chatWords || 160} 字（±${cfg.tolPct ?? 15}%）。末尾照例附「苏唐批：」一句和「心情：」一个词（八个里选）。`;
+    const sys = STYLE + `\n师兄在日记里写了句话，你以日记的笔法接下去，分 2-4 段，用上对话「」与心理 *...*。正文总字数约 ${cfg.chatWords || 160} 字（±${cfg.tolPct ?? 15}%）。末尾照例附「苏唐批：」一句和「心情：」一个词（八个里选）；再一行「表情：」——若这回应答里有暧昧/亲密/逗弄氛围，从 脸红出汗/微微翻白眼/憋气/吐舌/wink/嘟嘴/鼓气/娇羞比耶 里选一个最贴的，否则写「平常」。`;
     const user = (context ? `【上下文】\n${context}\n` : "") + `【师兄写道】${text}`;
     const t0 = Date.now();
     try {

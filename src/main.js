@@ -9,13 +9,13 @@ import {
 } from "./state.js";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest,
-  extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
+  extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate, rollNsfwFace,
 } from "./ui.js";
 
 let st = null;
@@ -562,12 +562,15 @@ async function doSuTalk(text) {
     text, words: loadCfg().suWords || 300, suAff: st.suAff || 0, suTier: suTierOf(st), context: ctxLine(st),
   }, c => h.append(c));
   if (!r.ai || !h.text) { h.remove(); await suLine(r.text); }
+  // ■模式·闲聊区：苏唐回复标了暧昧表情才按情节换 NSFW 表情
+  const faceIdx = POSE_INDEX[extractFace(r.text || "")];
   const gain = r.aff ?? 1;
   st.suAff = Math.max(0, Math.min(100, (st.suAff || 0) + gain));
   note("苏唐对话", `师兄说「${text.slice(0, 14)}」，苏唐回了一段，好感+${gain}。`);
   suSys(`【苏唐】好感+${gain}（今 ${st.suAff}）`);
   endTrace(`苏唐对话·好感+${gain}`);
   setMood(3);
+  if (getNsfw() && Number.isInteger(faceIdx)) rollNsfwFace(faceIdx);
   busy = false;
   renderAll(st, handlers);
   saveGame(st);
@@ -660,6 +663,9 @@ async function onCommand(text) {
     if (r.comment) await commentLine(r.comment);
     setMood(r.mood ?? 0);
   }
+  // ■模式·闲聊区：AI 标了暧昧表情才按情节换 NSFW 表情，否则保持正常心情表情
+  const faceIdx = POSE_INDEX[extractFace(r.ai && h.text ? h.text : r.prose)];
+  if (getNsfw() && Number.isInteger(faceIdx)) rollNsfwFace(faceIdx);
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)} · ${r.prose.length} 字`);
   busy = false;
 }
