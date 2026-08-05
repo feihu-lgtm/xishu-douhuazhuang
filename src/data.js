@@ -3,7 +3,7 @@
 
 export const QUAL_BONUS = { 白: 0, 绿: 5, 蓝: 10, 紫: 15 };
 
-// ── 技法（5 种）· unlock=0 表示初始掌握 ────────────────────────────────
+// ── 技法（图鉴扩充）· unlock=0 初始掌握；from/need=练功可学（用前置技法N次解锁）──
 export const TECHNIQUES = {
   炖: { id: "炖", icon: "🍲", needsSteamer: false, unlock: 0,
     desc: "文火慢煨，什么都能炖。不挑调料，新手保底。" },
@@ -23,6 +23,39 @@ export const TECHNIQUES = {
     desc: "老卤慢浸，五香入骨，一锅老汤养十年。" },
   凉拌: { id: "凉拌", icon: "🥢", needsSteamer: false, unlock: 8,
     desc: "不点火，红油一拌就成，夏天最开胃。" },
+  // ── 水传热：从「炖/蒸」练功解锁 ───────────────────────────────
+  煨: { id: "煨", icon: "🫕", needsSteamer: false, unlock: 16, from: "炖", need: 3,
+    desc: "微火久煨，汤浓味醇，一罐煨一夜，急不得。" },
+  焖: { id: "焖", icon: "🥘", needsSteamer: false, unlock: 28, from: "炖", need: 5,
+    desc: "盖紧锅盖，靠水汽焖透，省水省火，油焖大虾焖锅饭。" },
+  炆: { id: "炆", icon: "🔥", needsSteamer: false, unlock: 32, from: "炖", need: 8,
+    desc: "文火炆烧，汁浓肉耙，川粤同法的慢功夫。" },
+  烩: { id: "烩", icon: "🥣", needsSteamer: false, unlock: 18, from: "炖", need: 6,
+    desc: "多料同锅，薄芡收汤，汤汤水水一锅烩。" },
+  烧: { id: "烧", icon: "🍖", needsSteamer: false, unlock: 24, from: "炖", need: 4,
+    desc: "先炸后烧，汁浓味厚，红烧的路子。" },
+  焯: { id: "焯", icon: "♨", needsSteamer: false, unlock: 14, from: "蒸", need: 3,
+    desc: "滚水快焯，断生即起，锁住青菜的脆。" },
+  灼: { id: "灼", icon: "♨", needsSteamer: false, unlock: 26, from: "蒸", need: 5,
+    desc: "白水灼熟，原汁原味，白灼虾就靠它。" },
+  // ── 火传热：从「烤」练功解锁 ─────────────────────────────────
+  烘: { id: "烘", icon: "🔥", needsSteamer: false, unlock: 20, from: "烤", need: 3,
+    desc: "炭火余温慢烘，干香回脆，面点干货的巧宗。" },
+  烙: { id: "烙", icon: "🥞", needsSteamer: false, unlock: 22, from: "烤", need: 5,
+    desc: "平底干烙，两面微焦，饼子锅盔都用它。" },
+  燎: { id: "燎", icon: "⚡", needsSteamer: false, unlock: 30, from: "烤", need: 8,
+    desc: "明火燎烧，去毛燎皮，虎皮椒和猪蹄的狠活。" },
+  // ── 油传热：从「炒/炸/煎」练功解锁 ───────────────────────────
+  爆: { id: "爆", icon: "💥", needsSteamer: false, unlock: 20, from: "炒", need: 6,
+    desc: "急火快爆，油花四溅，葱爆腰花的狠劲。" },
+  炝: { id: "炝", icon: "🔥", needsSteamer: false, unlock: 16, from: "炒", need: 3,
+    desc: "热油炝锅，一炝出香，炝拌菜的底子。" },
+  煸: { id: "煸", icon: "🥘", needsSteamer: false, unlock: 22, from: "炒", need: 5,
+    desc: "干煸出油，焦香不柴，干煸豆角四季豆。" },
+  熘: { id: "熘", icon: "🍽", needsSteamer: false, unlock: 26, from: "炒", need: 8,
+    desc: "先炸后熘，挂汁挂浆，糖醋里脊的熘。" },
+  贴: { id: "贴", icon: "🫓", needsSteamer: false, unlock: 34, from: "煎", need: 6,
+    desc: "锅贴似的，底贴锅面煎脆，上边焖熟。" },
 };
 export const TECHNIQUE_IDS = Object.keys(TECHNIQUES);
 
@@ -52,7 +85,8 @@ export const COOKWARE = [
 export const COOKWARE_BY_ID = Object.fromEntries(COOKWARE.map(c => [c.id, c]));
 export const DEFAULT_COOKWARE_ID = "jiutieguo";
 
-// ── 六大味型 · requires=核心调料（必须在料槽里才算调出此味）────────────
+// ── 川味型图鉴 · requires=核心调料（必须在料槽里才算调出此味）──────────
+// from/need=练功可学（用前置味型N次解锁），unlock=商店价
 export const FLAVORS = [
   { id: "xianxiang", name: "鲜香", label: "清鲜本味，盐提鲜、酱生香", unlock: 0,
     requires: ["贡措海盐"], desc: "咸鲜为主，宁淡勿咸。盐、酱、孜然皆在此味。" },
@@ -66,6 +100,25 @@ export const FLAVORS = [
     requires: ["雪山野蜂蜜"], desc: "野蜂蜜入膳，甜得干净。" },
   { id: "tiansuan", name: "甜酸", label: "甜酸味厚，似荔枝酸甜", unlock: 16,
     requires: ["黑风寨苞谷醋", "雪山野蜂蜜"], desc: "糖醋路子，先酸后甜，席面收尾的味。" },
+  // ── 川菜进阶味型（练功可学，或商店买）───────────────────────────
+  { id: "hongyou", name: "红油", label: "辣油鲜亮，香辣不燥", unlock: 18, from: "mala", need: 3,
+    requires: ["二荆条辣椒", "雅江菜籽油"], desc: "红油亮、辣子香，凉拌面食的点睛。" },
+  { id: "jiachang", name: "家常", label: "豆瓣回锅，家常味厚", unlock: 18, from: "xianxiang", need: 4,
+    requires: ["锦官豆瓣酱"], desc: "豆瓣酱打底，回锅肉、麻婆豆腐都是它。" },
+  { id: "yuxiang", name: "鱼香", label: "泡椒豆瓣，酸甜咸辣，鱼香不鱼", unlock: 20, from: "suanla", need: 4,
+    requires: ["泡海椒"], desc: "鱼香不见鱼——泡椒豆瓣糖醋蒜，四味一体。" },
+  { id: "suanni", name: "蒜泥", label: "蒜香冲鼻，咸鲜微辣", unlock: 20, from: "qingdan", need: 4,
+    requires: ["雅江独蒜", "天都镇酱油"], desc: "蒜泥白肉、蒜泥茄子的蒜香路子。" },
+  { id: "hula", name: "糊辣", label: "干椒糊香，麻而不燥", unlock: 22, from: "mala", need: 4,
+    requires: ["二荆条辣椒", "熊山花椒"], desc: "干辣椒花椒炸出糊香，宫保鸡丁的魂。" },
+  { id: "jiangxiang", name: "酱香", label: "豆豉酱香，浓郁回甜", unlock: 22, from: "xianxiang", need: 5,
+    requires: ["潼川豆豉"], desc: "豆豉吊出酱香，回锅肉炒饭都吃它。" },
+  { id: "jiaoma", name: "椒麻", label: "花椒葱香，麻香清口", unlock: 24, from: "mala", need: 6,
+    requires: ["汉源清溪花椒", "鱼定村野葱油"], desc: "青花椒配葱油，椒麻鸡的清爽麻香。" },
+  { id: "zaoxiang", name: "糟香", label: "醪糟酒香，甜润微醺", unlock: 26, from: "tian", need: 5,
+    requires: ["鱼定村醪糟"], desc: "醪糟入菜，糟香四溢，醉鸡糟鱼甜口。" },
+  { id: "guaiwei", name: "怪味", label: "咸甜麻辣酸，五味调和", unlock: 30, from: "tiansuan", need: 6,
+    requires: ["汉源清溪花椒", "黑风寨苞谷醋", "雪山野蜂蜜"], desc: "五味调和互不压，怪味胡豆怪味鸡。" },
 ];
 export const FLAVOR_BY_ID = Object.fromEntries(FLAVORS.map(f => [f.id, f]));
 
@@ -154,6 +207,10 @@ export const INGREDIENTS = [
     lore: "傣家香茅，手一拍就出柠檬香，烤鱼包肉都用它。" },
   { name: "单山蘸水", kind: "调味品", flavor: "mala", price: 2,
     lore: "昆明单山蘸水，辣椒面配了十几种香料，蘸什么都香。" },
+  { name: "雅江独蒜", kind: "调味品", flavor: "qingdan", price: 2,
+    lore: "独头蒜，辣而不冲，蒜泥白肉的魂，一瓣顶三瓣。" },
+  { name: "鱼定村醪糟", kind: "调味品", flavor: "tian", price: 3,
+    lore: "糯米酒酿，甜润带酒香，醪糟汤圆、糟香菜的底子。" },
   { name: "宣威火腿", kind: "食材", price: 4,
     lore: "滇腿，切开是玫瑰色，咸香吊汤第一，切片空口吃也行。" },
   { name: "见手青", kind: "食材", price: 3,

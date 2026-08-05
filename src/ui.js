@@ -392,7 +392,7 @@ export function openCook(st, { onFire, prefill } = {}) {
 }
 
 // ── 商店（全屏 · 钱数+购物车 · 份数锁定 · 标签筛选 · 买不跳顶）──────
-export function openShop(st, { onBuy, onLeave, onRefresh }) {
+export function openShop(st, { onBuy, onLeave, onRefresh, onBuyAll }) {
   let tab = "ingredient";
   let cartOpen = false;
   const excluded = new Set();
@@ -405,6 +405,7 @@ export function openShop(st, { onBuy, onLeave, onRefresh }) {
     <div class="shop-head">
       <span class="shop-coins" id="shop-coins">${st.coins} 文</span>
       <span class="shop-cartbtn" data-cart>🧺 购物车</span>
+      <span class="shop-refresh" data-stockall>备菜全套</span>
       <div class="shop-tabs">${Object.entries(TABS).map(([k, [label]]) =>
         `<span class="${k === tab ? "on" : ""}" data-tab="${k}">${label}</span>`).join("")}
         <span class="shop-refresh" data-refresh>↻ 刷新食材</span>
@@ -503,6 +504,11 @@ export function openShop(st, { onBuy, onLeave, onRefresh }) {
 
   modal.querySelectorAll("[data-tab]").forEach(el => el.onclick = () => { tab = el.dataset.tab; renderGrid(false); });
   modal.querySelector("[data-refresh]").onclick = () => { onRefresh?.(); renderGrid(true); };
+  modal.querySelector("[data-stockall]").onclick = () => {
+    const r = onBuyAll?.();
+    if (r?.ok && !cartOpen) { /* 已由回调刷新 */ }
+    renderGrid(true);
+  };
   modal.querySelector("[data-cart]").onclick = () => { cartOpen = !cartOpen; renderGrid(true); };
   modal.querySelector("[data-leave]").onclick = () => closeModal(onLeave);
   renderGrid(false);

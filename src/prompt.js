@@ -5,6 +5,11 @@ import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel } from "./data.js";
 // 标号块：空内容则整块省略，避免冗余空段
 export const sec = (t, b) => (b ? `【${t}】\n${b}\n` : "");
 
+// 苏酥是苏唐的亲姐姐：她是客人时，把人物关系写进 prompt，苏唐吃醋、苏酥撩拨
+export const sisterSec = (g) => g?.sister
+  ? sec("人物关系", "苏酥是苏唐的亲姐姐。苏唐在旁看得紧，既防姐姐勾引师兄、又防师兄献殷勤；苏酥偏偏故意撩拨，看妹妹吃醋。")
+  : "";
+
 // ── 身份 + 文风（所有说书人调用共用的 system 基座）────────────────────
 export const STYLE = [
   "你是《西蜀豆花庄》这本日记的笔。日记由师兄（小厨，玩家）与师妹苏唐合写。",
@@ -45,6 +50,7 @@ export function dishUser(ctx) {
     sec("炊具", `${ctx.cookware.name}（${ctx.cookware.desc}）`) +
     sec("味型", ctx.flavorId ? `${FLAVOR_BY_ID[ctx.flavorId].name}——${FLAVOR_BY_ID[ctx.flavorId].label}` : "家常，未刻意调味") +
     sec("任务", ctx.guest ? `这道菜做给 ${ctx.guest.name}。TA 点菜时说「${ctx.guest.order}」。你只知道 TA 说出口的这些，不知道 TA 没说出口的喜好，不要写得像早就知道 TA 爱吃什么。` : "") +
+    sisterSec(ctx.guest) +
     sec("约束", `只能使用这些料：${ctx.materials.join("、")}，不得凭空添加任何其他食材。`) +
     sec("配方", ctx.recipeName ? `这搭配正中配方「${ctx.recipeName}」，菜名必须用它。` : "这搭配没有固定配方，请你即兴起一个贴切的菜名。") +
     sec("武学", ctx.martial ? `这一勺练到 ${ctx.martial.external.join("、") || "基本功"}${ctx.martial.internal ? "，并运了内功" : ""}；食材配合 ${ctx.martial.synergy} 分；成菜基础分 ${ctx.baseScore}。正文里把这套身手自然带出来。` : "") +
@@ -62,6 +68,7 @@ export function snackUser(ctx) {
     sec("现有食材", ctx.invStr || "（没有）") +
     sec("星级", "带★的是顶级食材，极为珍贵；若用上，要写出它的难得。") +
     sec("做给谁", ctx.guest ? `这小吃是做给当前客人 ${ctx.guest.name}（${ctx.guest.ident}）吃的，不是给师兄。TA 说「${ctx.guest.order}」。你要照着客人的口味来做。` : "") +
+    sisterSec(ctx.guest) +
     sec("现有食材", ctx.invStr) +
     sec("苏唐自决", "你是苏唐，自己决定做什么小吃、用什么料（最多4样）、做几份、品质如何、是什么味型，师兄管不着。你是店家，对顾客要客气热情、招呼周到；对师兄则调情撒娇、逗他嗔他带甜，绝不责备。") +
     sec("可选味型", `选一个作为这小吃的味型：${FLAVORS.map(f => f.name).join("/")}。`) +
@@ -75,6 +82,7 @@ export function snackUser(ctx) {
 export function reactionUser(ctx) {
   return (
     sec("客人", `${ctx.guest.name}（${ctx.guest.ident}），点菜时说：「${ctx.guest.order}」`) +
+    sisterSec(ctx.guest) +
     sec("主菜", `「${ctx.dishName}」：${ctx.mainDesc || "（无描述）"}`) +
     sec("佐餐", ctx.snackName ? `小吃「${ctx.snackName}」：${ctx.snackDesc || "苏唐手作。"}` : "（这顿没有佐餐小吃）") +
     sec("裁决", `${ctx.tierDesc}（${ctx.score}分）。客人对师兄的好感为 ${ctx.aff ?? 0}（${ctx.affName || "面生"}）。`) +

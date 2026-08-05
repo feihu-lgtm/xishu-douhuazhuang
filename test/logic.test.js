@@ -5,8 +5,9 @@ import {
   shopStock, buyItem, nextDay, currentGuest, GUESTS_PER_DAY,
   applyMartialExp, computeBaseScore, refreshShop, shopIngOf, applySuExp,
   checkChance, rollCheck, rankLabel, checkDim, skillValueOf, ACHIEVE_DEFS, ACHIEVE_N, ATTR_DIMS, CHECK_DIMS,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients,
 } from "../src/state.js";
-import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME } from "../src/data.js";
+import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS } from "../src/data.js";
 import {
   normalizeEndpoint, parseJSONRescue, fallbackDishName,
   parseDishText, parseSayText, baseForModels, extractComment, fallbackDish,
@@ -275,4 +276,50 @@ test("checkDim：骰子维度计数走成就 / 属性维度走 skills 不计数"
   const r2 = checkDim(st, "见识");
   assert.ok(CHECK_DIMS.includes("见识"));
   assert.equal(st.checks["见识"].succ, r2.ok ? 1 : 0, "骰子维度成功才计数");
+});
+
+test("技法/味型练功解锁：炒3次顿悟炝，红油需麻辣3次", () => {
+  const st = newState();
+  for (let i = 0; i < 3; i++) registerUse(st, "炒", "xianxiang");
+  const p = unlockProgress(st);
+  assert.ok(p.tech.some(t => t.id === "炝"), "炒3次应解锁炝");
+  assert.ok(!p.flavor.some(f => f.id === "hongyou"), "红油需麻辣3次，还没用到麻辣");
+  const got = applyUnlocks(st, p);
+  assert.ok(st.techs.includes("炝"));
+  for (let i = 0; i < 3; i++) registerUse(st, "炖", "mala");
+  const p2 = unlockProgress(st);
+  assert.ok(p2.flavor.some(f => f.id === "hongyou"));
+  assert.ok(p2.tech.some(t => t.id === "煨"));
+});
+
+test("新技法/味型数据自洽：from/need 存在，requires 调料都在食材表", () => {
+  const ingNames = new Set(INGREDIENTS.map(i => i.name));
+  for (const t of Object.values(TECHNIQUES)) {
+    if (t.from) assert.ok(TECHNIQUES[t.from], `技法 ${t.id} 的前置 ${t.from} 必须存在`);
+    assert.ok(typeof t.needsSteamer === "boolean");
+  }
+  for (const f of FLAVORS) {
+    if (f.from) assert.ok(FLAVOR_BY_ID[f.from], `味型 ${f.id} 的前置 ${f.from} 必须存在`);
+    for (const req of f.requires) assert.ok(ingNames.has(req), `味型 ${f.name} 核心调料 ${req} 必须在食材表`);
+  }
+});
+
+test("一键备菜：钱够全买，不够提示差额", () => {
+  const st = newState();
+  st.coins = 1000;
+  const r = buyAllIngredients(st);
+  assert.equal(r.ok, true);
+  assert.ok(r.count > 0 && r.total > 0);
+  const st2 = newState();
+  st2.coins = 0;
+  const r2 = buyAllIngredients(st2);
+  assert.equal(r2.ok, false);
+  assert.ok(r2.warn.includes("差"));
+});
+
+test("guestsOfDay：苏酥首客加权（长样本在合理区间）", () => {
+  let su = 0, N = 3000;
+  for (let d = 1; d <= N; d++) if (guestsOfDay(d)[0]?.id === "susu") su++;
+  const pct = su / N;
+  assert.ok(pct > 0.28 && pct < 0.42, `苏酥首客率应在 ~35% 附近，实测 ${(pct * 100).toFixed(1)}%`);
 });

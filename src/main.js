@@ -5,9 +5,10 @@ import {
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest,
   extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
@@ -143,6 +144,11 @@ async function cookNarrate(j) {
     cookware: j.cookware, intended: j.intended, recipe: j.recipe,
   });
   const got = applyMartialExp(st, martial.external, martial.internal);
+  // 练功可学：记录本次技法/味型用法，检查是否顿悟新技法/味型
+  registerUse(st, st.dish.technique, j.flavorId);
+  const prog = unlockProgress(st);
+  const newly = applyUnlocks(st, prog);
+  if (newly.length) sys(`顿悟：${newly.join("、")} 新学得会了。`);
   const baseScore = computeBaseScore(st, {
     technique: st.dish.technique, cookware: j.cookware,
     synergy: martial.synergy, external: martial.external,
@@ -439,6 +445,15 @@ function doShop() {
     },
     onLeave: () => {}, // 返回只关市集，可再进；翻篇交给「下一日」
     onRefresh: () => { refreshShop(st); sys("货郎翻了翻担子，换了批食材。"); saveGame(st); },
+    onBuyAll: () => {
+      const r = buyAllIngredients(st);
+      if (!r.ok) { sys(r.warn); return { ok: false }; }
+      if (r.count) { sys(`备菜全套：${r.bought.join("、")} 各 1 份，花 ${r.total} 文。`); }
+      else sys("灶上家伙什都齐了，没什么要补的。");
+      saveGame(st);
+      renderAll(st, handlers);
+      return r;
+    },
   });
 }
 
@@ -572,7 +587,25 @@ async function doNext() {
   renderAll(st, handlers);
   saveGame(st);
   await narr(`第 ${st.day} 天，卯时。雾从溪面起来，小馆开门。`);
+  if (Math.random() < 0.3) await maybeNewGuest(); // 三成机会，溪边又来了新面孔
   await guestArrives();
+}
+
+// ── 招新客：AI 生成一位新顾客入册（日后可能被抽到）──────────────────
+async function maybeNewGuest(silent) {
+  if (busy) return false;
+  const g = await genNewGuest(loadCfg());
+  if (!g) { if (!silent) sys("门口晃了晃，没见生人（说书人未接线或失手）。"); return false; }
+  st.customGuests = st.customGuests || [];
+  st.customGuests.push(g);
+  saveGame(st);
+  if (!silent) await narr(`苏唐从溪边打水回来，念叨：「村里多了个生面孔，${g.name}，${g.ident}，说改天来坐坐。」`);
+  return true;
+}
+function doNewGuest() {
+  if (busy) return sys("正忙着呢。");
+  sys("【招客】苏唐往门口张望——");
+  maybeNewGuest();
 }
 
 // ── 终端输入 ───────────────────────────────────────────────────────────
@@ -587,6 +620,7 @@ async function onCommand(text) {
   if (["小吃", "零食"].includes(cmd)) return doSnackPanel();
   if (["商店", "买", "逛街"].includes(cmd)) return doShop();
   if (["探秘", "副本", "exp"].includes(cmd)) return openExpeditionMap();
+  if (["新客", "招客", "newguest"].includes(cmd)) return doNewGuest();
   if (["成就", "徽章", "ach"].includes(cmd)) return showAchievements();
   if (["■", "黑方块", "nsfw", "模式"].includes(cmd)) return handlers.nsfw();
   if (["下一日", "下一天", "等待", "睡觉", "明儿"].includes(cmd)) return doNext();

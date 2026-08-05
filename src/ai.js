@@ -1,6 +1,6 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
 import { CHECK_DIMS } from "./state.js";
 
@@ -629,6 +629,38 @@ export async function genSettlement(cfg, ctx) {
     } catch { /* 降级 */ }
   }
   return { text: "", ai: false };
+}
+
+// ── 新客生成：AI 生成一位新顾客，加入 st.customGuests 池（日后可能被抽到）──
+export async function genNewGuest(cfg) {
+  if (cfgReady(cfg)) {
+    const flavorList = FLAVORS.map(f => `${f.name}(${f.id})`).join("/");
+    const techList = TECHNIQUE_IDS.join("/");
+    const ingNames = INGREDIENTS.map(i => i.name).join("、");
+    const user = [
+      `【背景】鱼定村「西蜀豆花庄」门口来了个陌生客人。`,
+      `只输出 JSON：{"name":"名字（2-3字，带村味）","ident":"身份一句","spend":20-90整数,"flavor":"从 ${flavorList} 里选一个","tech":"从 ${techList} 里选一个","fav":"从食材表里选一样，须一字不差：${ingNames}","order":"点菜时说的话，30字内，带口味偏好"}`,
+    ].join("\n");
+    try {
+      const raw = await callAI(cfg, "你是新客生成官，只输出 JSON，不写多余文字。", user, "新客", 60000, true);
+      const o = parseJSONRescue(raw);
+      const name = (o.name || "").trim();
+      if (name && FLAVOR_BY_ID[o.flavor] && TECHNIQUES[o.tech]) {
+        return {
+          id: "cg_" + Date.now(),
+          name,
+          ident: (o.ident || "路过的客人").trim(),
+          spend: Math.max(10, Math.min(120, parseInt(o.spend, 10) || 30)),
+          flavor: o.flavor,
+          tech: o.tech,
+          fav: ING_BY_NAME[o.fav] ? o.fav : null,
+          order: (o.order || "来份拿手的。").trim(),
+          custom: true,
+        };
+      }
+    } catch { /* 降级 */ }
+  }
+  return null;
 }
 
 export async function genSuTalk(cfg, ctx, onChunk) {

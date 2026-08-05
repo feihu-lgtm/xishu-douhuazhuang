@@ -17,11 +17,16 @@ export function mulberry32(a) {
   };
 }
 
-export function guestsOfDay(day) {
+export function guestsOfDay(day, customGuests) {
   const rnd = mulberry32(day * 7919 + 13);
-  const pool = [...GUESTS];
+  const pool = [...GUESTS, ...(customGuests || [])];
   const picked = [];
   for (let i = 0; i < GUESTS_PER_DAY; i++) {
+    if (i === 0 && !picked.some(g => g.id === "susu") && rnd() < 0.35) {
+      const su = pool.find(g => g.id === "susu");
+      if (su) { picked.push(su); pool.splice(pool.indexOf(su), 1); continue; }
+    }
+    if (!pool.length) break;
     const idx = Math.floor(rnd() * pool.length);
     picked.push(pool.splice(idx, 1)[0]);
   }
@@ -62,6 +67,9 @@ export function newState() {
       口才: { succ: 0, achieve: false },
       赌博: { succ: 0, achieve: false },
     },
+    techUses: {},            // 技法练功次数 {技法: n}（用前置技法N次解锁进阶）
+    flavorUses: {},          // 味型练功次数 {味型id: n}
+    customGuests: [],        // AI 生成的新顾客池 [{...GUESTS 同构, custom:true}]
   };
 }
 
@@ -232,7 +240,7 @@ export function nextDay(st) {
   st.day += 1;
   st.served = 0;
   st.phase = "guest";
-  st.guests = guestsOfDay(st.day).map(g => g.id);
+  st.guests = guestsOfDay(st.day, st.customGuests).map(g => g.id);
   st.dish = null;
   st.todaySnacks = [];
   return st;
@@ -315,4 +323,44 @@ export function checkDim(st, dim) {
   const p = Math.min(95, Math.max(5, skillValueOf(st, dim)));
   const ok = Math.random() * 100 < p;
   return { ok, p, achieve: false };
+}
+
+// ── 技法/味型 · 练功可学（用前置技法/味型 N 次解锁进阶）──────────────
+export function registerUse(st, techId, flavorId) {
+  st.techUses = st.techUses || {};
+  st.flavorUses = st.flavorUses || {};
+  if (techId) st.techUses[techId] = (st.techUses[techId] || 0) + 1;
+  if (flavorId) st.flavorUses[flavorId] = (st.flavorUses[flavorId] || 0) + 1;
+}
+// 返回已达门槛、尚未学会的技法/味型
+export function unlockProgress(st) {
+  const tu = st.techUses || {}, fu = st.flavorUses || {};
+  const tech = Object.values(TECHNIQUES)
+    .filter(t => t.from && !(st.techs || []).includes(t.id))
+    .filter(t => (tu[t.from] || 0) >= t.need)
+    .map(t => ({ id: t.id, from: t.from, used: tu[t.from] || 0, need: t.need }));
+  const flavor = Object.values(FLAVOR_BY_ID)
+    .filter(f => f.from && !(st.flavors || []).includes(f.id))
+    .filter(f => (fu[f.from] || 0) >= f.need)
+    .map(f => ({ id: f.id, from: f.from, used: fu[f.from] || 0, need: f.need }));
+  return { tech, flavor };
+}
+export function applyUnlocks(st, prog) {
+  const got = [];
+  for (const t of (prog.tech || [])) if (!st.techs.includes(t.id)) { st.techs.push(t.id); got.push(t.id); }
+  for (const f of (prog.flavor || [])) if (!st.flavors.includes(f.id)) { st.flavors.push(f.id); got.push(f.id); }
+  return got;
+}
+
+// ── 商店 · 一键备菜：在架食材每种至少备 1 份 ─────────────────────────
+export function buyAllIngredients(st) {
+  const want = shopIngOf(st)
+    .filter(n => (st.inv[n] || 0) < 1)          // 已有就不重复买
+    .map(n => ({ name: n, price: ING_BY_NAME[n]?.price || 0 }));
+  if (!want.length) return { ok: true, total: 0, count: 0, bought: [] };
+  const total = want.reduce((a, b) => a + b.price, 0);
+  if (st.coins < total) return { ok: false, warn: `备一套需 ${total} 文，还差 ${total - st.coins} 文。` };
+  st.coins -= total;
+  for (const x of want) st.inv[x.name] = (st.inv[x.name] || 0) + 1;
+  return { ok: true, total, count: want.length, bought: want.map(x => x.name) };
 }
