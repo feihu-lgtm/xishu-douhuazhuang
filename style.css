@@ -364,7 +364,7 @@ body {
   white-space: pre-wrap; word-break: break-word;
   font-size: 11px; line-height: 1.5; color: var(--ink);
   background: var(--bg-deep); border: 1px solid var(--line-soft);
-  padding: 6px 8px; max-height: 200px; overflow-y: auto;
+  padding: 6px 8px; /* 不截断，全部注入内容展开可见 */
   font-family: var(--serif);
 }
 

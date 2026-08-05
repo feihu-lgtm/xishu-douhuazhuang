@@ -320,6 +320,20 @@ export async function genMartial(cfg, ctx) {
 // ── 出菜叙事（第二轮）─────────────────────────────────────────────────
 const DISH_SYS = STYLE + "\n严格按指定格式输出，禁止多余内容。";
 
+// 武学档位→描写细致度（属性越高越细致），1-5 档各档重点+示例，一起发给模型
+const TIERS = [
+  { t: 1, focus: "只写动作与结果，不写过程，句子短。", ex: "师兄把料下锅，炒熟，端上桌。" },
+  { t: 2, focus: "加一两个动作细节（刀/火/手）。", ex: "师兄手腕一抖，锅里菜翻了个身。" },
+  { t: 3, focus: "写刀工+火候+身法的连贯动作，带声音与热气。", ex: "菜刀笃笃两声食材已匀；火苗被压得温顺，咕嘟冒泡。" },
+  { t: 4, focus: "内力/轻功/刀法融入每一步，多感官（声色香味触），招式有名。", ex: "手掌悬锅，内力沉沉压下；脚尖一点身形拔高取油罐，正是梯云纵；刀化残影剁碎海椒。" },
+  { t: 5, focus: "举重若轻、道法自然，动作如艺术，环境与气息呼应，收放自如。", ex: "刀快得只剩红影，火随刀旺；沸汤冲碗一瞬烫熟，灶房潮气与香气一同蒸腾。" },
+];
+export function tierOfScore(s) { return Math.max(1, Math.min(5, Math.ceil((s || 0) / 20) || 1)); }
+function tierGuide(tier) {
+  return "武学档位与描写细致度（档位越高越细致，本次按第" + tier + "档写）：\n" +
+    TIERS.map(x => `${x.t}档·${x.focus} 例:${x.ex}${x.t === tier ? "  ←当前" : ""}`).join("\n");
+}
+
 export async function genDish(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const fl = ctx.flavorId ? FLAVOR_BY_ID[ctx.flavorId] : null;
@@ -333,6 +347,7 @@ export async function genDish(cfg, ctx, onChunk) {
       ctx.guest ? `任务：这道菜是做给 ${ctx.guest.name}（${ctx.guest.ident}）的。TA 点菜时说「${ctx.guest.order}」，偏好${FLAVOR_BY_ID[ctx.guest.flavor]?.name || ""}味、最好有${ctx.guest.fav}。正文里把"为TA做、对上TA口味"自然写进去。` : ``,
       ctx.recipeName ? `这搭配正中配方「${ctx.recipeName}」，菜名必须用它。` : `这搭配没有固定配方，请你即兴起一个贴切的菜名。`,
       ctx.martial ? `武学：这一勺练到 ${ctx.martial.external.join("、") || "基本功"}${ctx.martial.internal ? "，并运了内功" : ""}；食材配合 ${ctx.martial.synergy} 分；成菜基础分 ${ctx.baseScore}。正文里把这套身手自然带出来。` : ``,
+      tierGuide(tierOfScore(ctx.baseScore)),
       lenNote(cfg.dishWords || 360, cfg.tolPct ?? 15),
       `输出格式：第一行「菜名：「xxx」」，换行后写正文——分 3-6 段，穿插对话「」与心理 *...*，写师兄掌勺、火候、成菜色香味；然后一行「菜单：」用约100字写这道菜的品名+用料+风味（供记入菜单）；再一行「苏唐批：」师妹的评价，最后一行「心情：」一个词（八个里选）。`,
     ];
