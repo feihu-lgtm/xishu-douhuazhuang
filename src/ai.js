@@ -344,7 +344,8 @@ export async function genDish(cfg, ctx, onChunk) {
       `技法：${ctx.technique}（${TECHNIQUES[ctx.technique].desc}）`,
       `炊具：${ctx.cookware.name}（${ctx.cookware.desc}）`,
       fl ? `味型：${fl.name}——${fl.label}` : `味型：家常，未刻意调味`,
-      ctx.guest ? `任务：这道菜是做给 ${ctx.guest.name}（${ctx.guest.ident}）的。TA 点菜时说「${ctx.guest.order}」，偏好${FLAVOR_BY_ID[ctx.guest.flavor]?.name || ""}味、最好有${ctx.guest.fav}。正文里把"为TA做、对上TA口味"自然写进去。` : ``,
+      ctx.guest ? `任务：这道菜是做给 ${ctx.guest.name} 的。TA 点菜时说「${ctx.guest.order}」。你只知道TA说出口的这些，不知道TA没说出口的喜好，不要写得像早就知道TA爱吃什么。` : ``,
+      `只能使用这些料：${ctx.materials.join("、")}，不得凭空添加任何其他食材。`,
       ctx.recipeName ? `这搭配正中配方「${ctx.recipeName}」，菜名必须用它。` : `这搭配没有固定配方，请你即兴起一个贴切的菜名。`,
       ctx.martial ? `武学：这一勺练到 ${ctx.martial.external.join("、") || "基本功"}${ctx.martial.internal ? "，并运了内功" : ""}；食材配合 ${ctx.martial.synergy} 分；成菜基础分 ${ctx.baseScore}。正文里把这套身手自然带出来。` : ``,
       tierGuide(tierOfScore(ctx.baseScore)),
@@ -427,28 +428,37 @@ export async function genReaction(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const user = [
       `客人：${ctx.guest.name}（${ctx.guest.ident}），点菜时说：「${ctx.guest.order}」`,
-      `想吃：${FLAVOR_BY_ID[ctx.guest.flavor].name}味、${ctx.guest.tech}的、最好有${ctx.guest.fav}。`,
-      `端上去的是「${ctx.dishName}」，系统裁决：${TIER_DESC[ctx.tier]}（${ctx.score}分）。`,
-      ctx.mainDesc ? `主菜描述：${ctx.mainDesc}` : ``,
-      ctx.snackName ? `佐餐小吃「${ctx.snackName}」：${ctx.snackDesc || "苏唐手作。"}` : ``,
-      `客人对师兄的好感为 ${ctx.aff ?? 0}（${ctx.affName || "面生"}）。`,
-      ctx.tier === 0 ? `客人吃美了——要真心实意夸师兄手艺，夸得具体、带点人设的小动作；好感越高夸得越亲。` : ``,
-      `按裁决档位替客人写一到两句反应，带点人设口吻，不要越档夸、也不要越档骂。`,
-      `第一行只输出客人说的话本身，不带引号、不带前后缀；第二行输出「心情：」一个词（苏唐在一旁旁观的心情，八个里选）。`,
+      `端上主菜「${ctx.dishName}」：${ctx.mainDesc || "（无描述）"}`,
+      ctx.snackName ? `佐餐小吃「${ctx.snackName}」：${ctx.snackDesc || "苏唐手作。"}` : `（这顿没有佐餐小吃）`,
+      `系统裁决：${TIER_DESC[ctx.tier]}（${ctx.score}分）。客人对师兄的好感为 ${ctx.aff ?? 0}（${ctx.affName || "面生"}）。`,
+      `写 2-4 段出餐品尝场景：客人尝主菜、也尝${ctx.snackName ? `小吃「${ctx.snackName}」` : "桌上吃食"}的反应，两道都要评到（小吃也要评），要有客人说出口的「」对话，动作带人设，按裁决档位不越档夸、不越档骂。`,
+      ctx.tier === 0 ? `客人吃美了——真心实意夸师兄手艺，夸得具体；好感越高夸得越亲。` : ``,
+      `最后一行单独输出「心情：」一个词（苏唐在一旁旁观的心情，八个里选）。`,
     ].filter(Boolean).join("\n");
     const t0 = Date.now();
     try {
-      const sys = STYLE + "\n现在替客人写反应。";
+      const sys = STYLE + "\n现在写出餐品尝场景。";
       const raw = streamOn(cfg) && onChunk
-        ? await callAIStream(cfg, sys, user, onChunk, "客人反应")
-        : await callAI(cfg, sys, user, "客人反应");
+        ? await callAIStream(cfg, sys, user, onChunk, "客人品尝")
+        : await callAI(cfg, sys, user, "客人品尝");
       const ms = Date.now() - t0;
-      const { say, mood } = splitSayMood(raw);
-      if (say) return { say, mood: moodIndex(mood), ms, ai: true };
+      const { mood } = splitSayMood(raw);
+      return { mood: moodIndex(mood), ms, ai: true };
     } catch { /* 降级 */ }
   }
-  const i = Math.floor(Math.random() * 2);
-  return { say: TIER_SAY[ctx.tier][i], prose: "", mood: null, ms: null, ai: false };
+  return { mood: null, ms: null, ai: false, scene: fallbackScene(ctx) };
+}
+
+function fallbackScene(ctx) {
+  const g = ctx.guest;
+  const snack = ctx.snackName ? `又尝了口「${ctx.snackName}」，神色稍缓。` : "";
+  const react = [
+    `「这味正，合我意。」${g.name} 筷子没停，碗底见空。`,
+    `「还行，吃得舒坦。」${g.name} 抹了抹嘴。`,
+    `「差点意思。」${g.name} 吃了一半便放下筷子。`,
+    `「不是我想吃的那个味。」${g.name} 扒了两口，不再动筷。`,
+  ][ctx.tier] || "";
+  return `${g.name} 先尝了口「${ctx.dishName}」，${snack}${react}`;
 }
 
 // ── 苏唐备小吃（玩家只口述，做什么/用料/几份/品质全凭她）──────────────

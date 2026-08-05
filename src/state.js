@@ -95,8 +95,9 @@ export function affName(v) {
   return "面生";
 }
 // 满意度→好感增量，口味匹配再加成（满意度-好感-口味勾连）
+// 好感只增不扣：满意多加，不满意不扣（ coxy 游戏，不惩罚）
 export function affDeltaFor(tier, flavorMatch, favMatch) {
-  let d = [3, 2, 0, -2][tier] ?? 0;
+  let d = [3, 2, 1, 0][tier] ?? 0;
   if (flavorMatch) d += 1;
   if (favMatch) d += 1;
   return d;

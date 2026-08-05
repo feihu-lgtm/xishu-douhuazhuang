@@ -198,18 +198,16 @@ async function doServe() {
     await suLine(`【苏唐】顺手给 ${g.name} 搭了份「${setName}」，算我请的边角。`);
     if (snackDesc) await narr(`【菜牌】${snackDesc}`);
   }
-  const h = logStream("say");
+  const h = logStream("narr"); // 品尝场景进左栏
   const r = await genReaction(loadCfg(), {
     guest: g, dishName: dish.name, score, tier,
     aff: affNow, affName: affName(affNow),
     mainDesc, snackName: setName, snackDesc,
   }, c => h.append(c));
   if (r.ai && h.text) {
-    const { say: s, mood } = splitSayMood(h.text);
-    h.apply(s || "", "");
-    setMood(moodIndex(mood) ?? [2, 0, 5, 6][tier]);
+    setMood(r.mood ?? [2, 0, 5, 6][tier]);
   } else {
-    h.remove(); await say(`「${r.say}」`);
+    h.remove(); await narr(r.scene || "");
     setMood(r.mood ?? [2, 0, 5, 6][tier]);
   }
   // 好感结算：满意度+口味匹配+配set 勾连
