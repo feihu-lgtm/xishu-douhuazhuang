@@ -516,23 +516,26 @@ export function openSnack(st, { onRequest, onRemake, onTag }) {
   return { redraw: draw };
 }
 
-// ── 配set（上菜时搭一个备好的小吃）──────────────────────────────────
+// ── 佐餐（选小吃 → 出餐按钮）────────────────────────────────────────
 export function openSet(st, { onSet }) {
+  let sel = null;
   const stock = Object.entries(st.snacks || {}).filter(([, n]) => n > 0);
-  const modal = openModal(`
-    <h2>佐 餐 · 上菜搭个边</h2>
-    <div class="set-note">给客人多搭一份苏唐备的小吃，客人更受用。当前：${st.pendingSet || "不佐餐"}。</div>
-    <div class="ck-mats">
-      <span class="ck-mat ${st.pendingSet ? "" : "zero"}" data-set="">不佐餐</span>
-      ${stock.map(([n, c]) => `<span class="ck-mat" data-set="${n}">${n} ×${c}</span>`).join("")}
-    </div>
-    <span class="return" data-back>Return · 返回</span>
-  `, () => {});
-  modal.querySelectorAll("[data-set]").forEach(el => el.onclick = () => {
-    onSet(el.dataset.set || null);
-    closeModal();
-  });
-  modal.querySelector("[data-back]").onclick = () => closeModal();
+  function draw() {
+    const modal = openModal(`
+      <h2>佐 餐 · 上菜搭个边</h2>
+      <div class="set-note">给客人多搭一份苏唐备的小吃。选好点「出餐」。当前：${sel || "不佐餐"}。</div>
+      <div class="ck-mats">
+        <span class="ck-mat ${sel === null ? "zero" : ""}" data-set="">不佐餐</span>
+        ${stock.map(([n, c]) => `<span class="ck-mat ${sel === n ? "" : "zero"}" data-set="${n}" style="${sel === n ? "border-color:var(--gold);color:var(--gold)" : ""}">${n} ×${c}</span>`).join("")}
+      </div>
+      <div class="ck-btns"><span class="ck-btn" data-serve>出 餐</span></div>
+      <span class="return" data-back>Return · 返回</span>
+    `, () => {});
+    modal.querySelectorAll("[data-set]").forEach(el => el.onclick = () => { sel = el.dataset.set || null; draw(); });
+    modal.querySelector("[data-serve]").onclick = () => { onSet(sel); closeModal(); };
+    modal.querySelector("[data-back]").onclick = () => closeModal();
+  }
+  draw();
 }
 
 // ── 背包 ───────────────────────────────────────────────────────────────
@@ -551,6 +554,12 @@ export function openBag(st) {
       ${st.techs.map(t => `<span class="ck-chip off">${t}</span>`).join("")}
       ${st.flavors.map(f => `<span class="ck-chip off">${FLAVOR_BY_ID[f].name}</span>`).join("")}
     </div>
+    <div class="ck-label">师兄菜单（大菜）</div>
+    <div class="menu-list">${(st.menu || []).length ? (st.menu || []).map(m =>
+      `<div class="menu-item-card"><b>「${m.name}」</b><i>${(m.used || []).join("、")}</i><p>${m.desc || ""}</p></div>`).join("") : `<span class="ck-mat zero">还没做过大菜。</span>`}</div>
+    <div class="ck-label">苏唐菜单（小吃）</div>
+    <div class="menu-list">${(st.snackRecipes || []).length ? (st.snackRecipes || []).map(m =>
+      `<div class="menu-item-card"><b>「${m.name}」</b><i>${m.tag} · ${(m.used || []).join("、")}</i><p>${m.desc || ""}</p></div>`).join("") : `<span class="ck-mat zero">苏唐还没做过小吃。</span>`}</div>
     <span class="return" data-back>Return · 返回</span>
   `, () => {});
   document.querySelector("#modal-root [data-back]").onclick = () => closeModal();

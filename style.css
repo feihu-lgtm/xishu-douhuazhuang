@@ -212,6 +212,11 @@ body {
 .tagchip { cursor: pointer; border: 1px solid var(--line-soft); padding: 3px 12px; font-size: 12.5px; }
 .tagchip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .tagchip.off { color: var(--mute); text-decoration: line-through; }
+.menu-list { display: flex; flex-direction: column; gap: 8px; }
+.menu-item-card { border: 1px solid var(--line-soft); padding: 8px 12px; }
+.menu-item-card b { color: var(--ink-bright); font-weight: normal; }
+.menu-item-card i { color: var(--ink-dim); font-style: normal; font-size: 11px; margin-left: 8px; }
+.menu-item-card p { color: var(--ink); font-size: 12px; margin-top: 4px; }
 .sn-list { display: flex; flex-direction: column; gap: 8px; }
 .sn-row { display: flex; align-items: center; gap: 10px; }
 .sn-name { flex: 1; color: var(--ink); font-size: 14px; }

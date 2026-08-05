@@ -46,7 +46,8 @@ export function newState() {
     skills: { 刀法: 10, 剑法: 10, 拳掌: 10, 枪法: 10, 投掷: 10, 轻功: 10, 内功: 10 },
     suSkills: { 刀法: 20, 剑法: 10, 拳掌: 15, 枪法: 10, 投掷: 15, 轻功: 15, 内功: 15 }, // 苏唐的
     snacks: {},              // 备好的小吃 {name: 份数}
-    snackRecipes: [],        // 苏唐已会的小吃 [{name,cat,tag,used,quality}]
+    snackRecipes: [],        // 苏唐菜单 [{name,cat,tag,used,quality,desc}]
+    menu: [],                // 师兄菜单 [{name,used,desc}]
     pendingSet: null,        // 上菜时配的 set
     shopSeed: 1,
     shopIng: null,           // 刷新后的在架食材

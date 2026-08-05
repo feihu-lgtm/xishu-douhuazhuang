@@ -7,7 +7,7 @@ import {
 } from "./state.js";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview,
-  extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState,
+  extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf,
 } from "./ai.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop,
@@ -147,6 +147,11 @@ async function cookNarrate(j) {
     setMood(res.mood ?? 0);
   }
   st.dish.name = res.name || st.dish.name;
+  st.dish.menuDesc = res.menu || menuDescOf({ materials: j.materials, technique: st.dish.technique, flavorId: j.flavorId }, st.dish.name);
+  st.menu = st.menu || [];
+  const mrec = st.menu.find(x => x.name === st.dish.name);
+  if (mrec) { mrec.desc = st.dish.menuDesc; mrec.used = j.materials; }
+  else st.menu.push({ name: st.dish.name, used: j.materials, desc: st.dish.menuDesc });
   gold(`「${st.dish.name}」出锅。`);
   if (res.ms != null) sys(`说书 ${fmtMs(res.ms)} · 正文 ${res.prose.length} 字`);
   if (!res.ai) sys("（说书人未接线，灶神模板白描。设置里填 AI 密钥可现写。）");
@@ -185,12 +190,19 @@ async function doServe() {
   st.aff = st.aff || {};
   const affNow = st.aff[g.id] || 0;
   const pay = payOf(g, score, affNow) + (setName ? 2 : 0);
+  const mainDesc = dish.menuDesc || "";
+  const snackDesc = setName ? ((st.snackRecipes || []).find(x => x.name === setName)?.desc || "") : "";
   await narr(`师兄把「${dish.name}」端上桌，往 ${g.name} 面前一放。`);
-  if (setName) await suLine(`【苏唐】顺手给 ${g.name} 搭了份「${setName}」，算我请的边角。`);
+  if (mainDesc) await narr(`【菜牌】${mainDesc}`);
+  if (setName) {
+    await suLine(`【苏唐】顺手给 ${g.name} 搭了份「${setName}」，算我请的边角。`);
+    if (snackDesc) await narr(`【菜牌】${snackDesc}`);
+  }
   const h = logStream("say");
   const r = await genReaction(loadCfg(), {
     guest: g, dishName: dish.name, score, tier,
     aff: affNow, affName: affName(affNow),
+    mainDesc, snackName: setName, snackDesc,
   }, c => h.append(c));
   if (r.ai && h.text) {
     const { say: s, mood } = splitSayMood(h.text);
@@ -317,8 +329,9 @@ async function doSnackRequest(txt) {
   st.snacks = st.snacks || {};
   st.snacks[r.made] = (st.snacks[r.made] || 0) + r.portions;
   st.snackRecipes = st.snackRecipes || [];
-  if (!st.snackRecipes.some(x => x.name === r.made))
-    st.snackRecipes.push({ name: r.made, cat: r.cat, tag: r.cat, used: r.used, quality: r.quality });
+  const srec = st.snackRecipes.find(x => x.name === r.made);
+  if (srec) { srec.desc = r.desc || srec.desc; srec.used = r.used; srec.quality = r.quality; }
+  else st.snackRecipes.push({ name: r.made, cat: r.cat, tag: r.cat, used: r.used, quality: r.quality, desc: r.desc });
   const got = applySuExp(st);
   setMood(moodIndex(r.mood) ?? 7);
   await suLine(`【苏唐】${r.say}`);

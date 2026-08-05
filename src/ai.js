@@ -217,17 +217,17 @@ export function parseJSONRescue(text) {
 // 出菜文本解析：优先 JSON 救援，否则「菜名：」行 + 其余正文
 export function parseDishText(t, ctx) {
   if (!t || !t.trim()) return null;
-  const { main, comment, mood } = extractComment(t);
+  const { main, comment, mood, menu } = extractComment(t);
   if (main.includes("{")) {
     const o = parseJSONRescue(main);
-    if (o.prose) return { name: o.name || fallbackDishName(ctx), prose: o.prose, comment, mood: moodIndex(mood) };
+    if (o.prose) return { name: o.name || fallbackDishName(ctx), prose: o.prose, comment, mood: moodIndex(mood), menu };
   }
   const m = main.match(/菜名[：:]\s*「?([^」\n]+)」?/);
   const nl = main.indexOf("\n");
   let prose = nl >= 0 ? main.slice(nl + 1) : "";
   prose = prose.replace(/^\s*正文[：:]\s*/, "").trim();
   if (!prose) return null;
-  return { name: (m && m[1].trim()) || fallbackDishName(ctx), prose, comment, mood: moodIndex(mood) };
+  return { name: (m && m[1].trim()) || fallbackDishName(ctx), prose, comment, mood: moodIndex(mood), menu };
 }
 
 // ── 体例（所有说书人调用共用）─────────────────────────────────────────
@@ -274,12 +274,14 @@ export function moodIndex(word) {
 // 拆出末尾的「苏唐批：」与「心情：」
 export function extractComment(t) {
   let s = (t || "");
-  let comment = "", mood = "";
+  let comment = "", mood = "", menu = "";
   const cm = s.match(/\n?[ \t]*苏唐批[：:][ \t]*([^\n]+)/);
   if (cm) { comment = cm[1].trim(); s = s.replace(cm[0], ""); }
   const mm = s.match(/\n?[ \t]*心情[：:][ \t]*([^\n]+)/);
   if (mm) { mood = mm[1].trim(); s = s.replace(mm[0], ""); }
-  return { main: s.trim(), comment, mood };
+  const mu = s.match(/\n?[ \t]*菜单[：:][ \t]*([^\n]+)/);
+  if (mu) { menu = mu[1].trim(); s = s.replace(mu[0], ""); }
+  return { main: s.trim(), comment, mood, menu };
 }
 
 // ── 第一轮·武学裁决：看食材/技法/意图，判练到哪几门功、配合几分 ─────────
@@ -332,7 +334,7 @@ export async function genDish(cfg, ctx, onChunk) {
       ctx.recipeName ? `这搭配正中配方「${ctx.recipeName}」，菜名必须用它。` : `这搭配没有固定配方，请你即兴起一个贴切的菜名。`,
       ctx.martial ? `武学：这一勺练到 ${ctx.martial.external.join("、") || "基本功"}${ctx.martial.internal ? "，并运了内功" : ""}；食材配合 ${ctx.martial.synergy} 分；成菜基础分 ${ctx.baseScore}。正文里把这套身手自然带出来。` : ``,
       lenNote(cfg.dishWords || 360, cfg.tolPct ?? 15),
-      `输出格式：第一行「菜名：「xxx」」，换行后写正文——分 3-6 段，穿插对话「」与心理 *...*，写师兄掌勺、火候、成菜色香味；紧接一行「苏唐批：」师妹的评价，最后一行「心情：」一个词（八个里选）。`,
+      `输出格式：第一行「菜名：「xxx」」，换行后写正文——分 3-6 段，穿插对话「」与心理 *...*，写师兄掌勺、火候、成菜色香味；然后一行「菜单：」用约100字写这道菜的品名+用料+风味（供记入菜单）；再一行「苏唐批：」师妹的评价，最后一行「心情：」一个词（八个里选）。`,
     ];
     const userText = lines.filter(Boolean).join("\n") + "\n（旁白里让师兄掌勺、苏唐在灶边，偶尔补她一句笔迹。）";
     const t0 = Date.now();
@@ -362,6 +364,10 @@ const FALLBACK_COMMENTS = [
   ["我在边上画了个小灶，灶边那个抹汗的是师兄。", 4],
 ];
 
+export function menuDescOf(ctx, name) {
+  const fl = ctx.flavorId ? FLAVOR_BY_ID[ctx.flavorId] : null;
+  return `${name}：以${ctx.materials.join("、")}入馔，用「${ctx.technique}」法，${fl ? fl.label : "家常滋味"}，火候到位，香气扑鼻。`;
+}
 export function fallbackDish(ctx) {
   const name = fallbackDishName(ctx);
   const fl = ctx.flavorId ? FLAVOR_BY_ID[ctx.flavorId] : null;
@@ -370,7 +376,7 @@ export function fallbackDish(ctx) {
     `苏唐在灶边添柴，${ctx.cookware.name}用得顺手。火候到了，${fl ? `调出一味「${fl.name}」——${fl.label}。` : "家常滋味，胜在踏实。"}` +
     `「${name}」出锅，香气从灶房一直飘到村口。`;
   const [comment, mood] = FALLBACK_COMMENTS[Math.floor(Math.random() * FALLBACK_COMMENTS.length)];
-  return { name, prose, comment, mood, ai: false };
+  return { name, prose, comment, mood, menu: menuDescOf(ctx, name), ai: false };
 }
 
 // ── 客人反应（只输出客人说的话，流式直接上屏）─────────────────────────
@@ -408,6 +414,8 @@ export async function genReaction(cfg, ctx, onChunk) {
       `客人：${ctx.guest.name}（${ctx.guest.ident}），点菜时说：「${ctx.guest.order}」`,
       `想吃：${FLAVOR_BY_ID[ctx.guest.flavor].name}味、${ctx.guest.tech}的、最好有${ctx.guest.fav}。`,
       `端上去的是「${ctx.dishName}」，系统裁决：${TIER_DESC[ctx.tier]}（${ctx.score}分）。`,
+      ctx.mainDesc ? `主菜描述：${ctx.mainDesc}` : ``,
+      ctx.snackName ? `佐餐小吃「${ctx.snackName}」：${ctx.snackDesc || "苏唐手作。"}` : ``,
       `客人对师兄的好感为 ${ctx.aff ?? 0}（${ctx.affName || "面生"}）。`,
       ctx.tier === 0 ? `客人吃美了——要真心实意夸师兄手艺，夸得具体、带点人设的小动作；好感越高夸得越亲。` : ``,
       `按裁决档位替客人写一到两句反应，带点人设口吻，不要越档夸、也不要越档骂。`,
@@ -442,7 +450,7 @@ export function parseSnack(t, ctx) {
   let q = parseInt(o.quality, 10);
   if (!Number.isFinite(q)) q = 60;
   q = Math.max(0, Math.min(100, q));
-  return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃" };
+  return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃", desc: o.desc || "" };
 }
 
 export async function genSnack(cfg, ctx) {
@@ -452,7 +460,7 @@ export async function genSnack(cfg, ctx) {
       `师兄对苏唐说：${ctx.request || "（没说什么，随你发挥）"}`,
       `现有食材：${invStr}`,
       `你是苏唐，自己决定做什么小吃、用什么料、做几份、品质如何，师兄管不着。`,
-      `只输出 JSON：{"made":"成品名","cat":"汤/饭/点心/串/小吃","used":[用掉的食材名,须来自现有且够数],"portions":1-6,"quality":0-100,"say":"苏唐说的话","mood":"八个心情词之一"}`,
+      `只输出 JSON：{"made":"成品名","cat":"汤/饭/点心/串/小吃","used":[用掉的食材名,须来自现有且够数],"portions":1-6,"quality":0-100,"desc":"约100字描述(品名+用料+风味,供记入菜单)","say":"苏唐说的话","mood":"八个心情词之一"}`,
     ].join("\n");
     try {
       const raw = await callAI(cfg,
@@ -482,6 +490,7 @@ function fallbackSnack(ctx) {
     made: hit.name, cat: hit.cat, used,
     portions: 2 + Math.floor(Math.random() * 3),
     quality: 55 + Math.floor(Math.random() * 20),
+    desc: `${hit.name}：以${used.join("、") || "手头现成"}做成，${hit.cat}类小食，苏唐手作，火候与调味全凭她心意。`,
     say: says[Math.floor(Math.random() * says.length)],
     mood: "专注", ai: false,
   };
