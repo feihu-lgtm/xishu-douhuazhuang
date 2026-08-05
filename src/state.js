@@ -353,10 +353,9 @@ export function applyUnlocks(st, prog) {
   return got;
 }
 
-// ── 商店 · 一键备菜：在架食材每种至少备 1 份 ─────────────────────────
+// ── 商店 · 一键备菜：在架食材每样都来 1 份（不管有没有）──────────────
 export function buyAllIngredients(st) {
   const want = shopIngOf(st)
-    .filter(n => (st.inv[n] || 0) < 1)          // 已有就不重复买
     .map(n => ({ name: n, price: ING_BY_NAME[n]?.price || 0 }));
   if (!want.length) return { ok: true, total: 0, count: 0, bought: [] };
   const total = want.reduce((a, b) => a + b.price, 0);
