@@ -261,12 +261,10 @@ async function doServe() {
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)}`);
   busy = false;
   if (st.served >= 3) {
-    st.phase = "closing";
-    await narr("最后一位客人走了。师兄卸下门板，灶膛压上火，抹了抹灶台。");
-    sys("今日收功。右栏「商店」学艺备菜，可进出自由；「下一日」才翻篇。");
+    await narr("最后一位客人走了。灶上还温着汤，今日不自动打烊。");
+    sys("三位送完。可逛「商店」/「探秘」，或点「下一日」翻篇。");
     renderAll(st, handlers);
     saveGame(st);
-    await doReview();
   } else {
     saveGame(st);
     await guestArrives();
@@ -308,7 +306,7 @@ async function doReview() {
 
 // ── 副本·探秘（收功后，武功+智慧+苏唐 寻稀有食材）──────────────────
 async function doExpedition() {
-  if (st.phase !== "closing") return sys("收功后才能去探秘。");
+  if (!(st.phase === "closing" || st.served >= 3)) return sys("送完三位客人才好出门探秘。");
   if (busy) return sys("正忙着呢。");
   busy = true;
   startTrace("探秘");
@@ -341,7 +339,7 @@ async function doExpedition() {
 }
 
 function doShop() {
-  if (st.phase !== "closing") { sys("收功之后货郎才摆摊。"); return; }
+  if (!(st.phase === "closing" || st.served >= 3)) { sys("送完三位客人才摆摊。"); return; }
   setMood(3);
   openShop(st, {
     onBuy: (cat, id, qty) => {
@@ -484,7 +482,8 @@ function doZuocan() {
 }
 
 async function doNext() {
-  if (st.phase !== "closing") { sys("还没收功呢。"); return; }
+  if (!(st.phase === "closing" || st.served >= 3)) { sys("还有客人没送完呢。"); return; }
+  await doReview();            // 收工总评在翻篇时做
   nextDay(st);
   setMood(0);
   renderAll(st, handlers);

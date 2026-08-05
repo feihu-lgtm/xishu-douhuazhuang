@@ -225,9 +225,8 @@ export function renderSide(st, h) {
     cook: st.phase === "guest",
     snack: true,
     serve: st.phase === "guest" && !!st.dish, // 佐餐（含佐餐set）
-    close: st.phase === "guest" && st.served >= 3,
-    shop: st.phase === "closing",
-    next: st.phase === "closing",
+    shop: st.phase === "closing" || st.served >= 3,
+    next: st.phase === "closing" || st.served >= 3,
   };
   const item = (label, key, enabled, fn) =>
     `<div class="menu-item ${enabled ? "" : "disabled"}" data-act="${fn}">
