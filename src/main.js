@@ -17,7 +17,8 @@ import {
 } from "./ui.js";
 
 let st = null;
-let busy = false;
+let busy = false;        // 说书/做菜/上菜/对话 通道
+let busySnack = false;   // 苏唐小吃 通道（可与做菜并行）
 
 const handlers = {
   cook: () => doCook(),
@@ -347,14 +348,13 @@ function note(act, text) {
 }
 
 async function doSnackRequest(txt) {
-  if (busy) return sys("苏唐正忙着呢。");
-  busy = true;
+  if (busySnack) return sys("苏唐正忙着备小吃呢。");
+  busySnack = true;
   closeModal();
   startTrace("备小吃");
   suSys(`【行动·备小吃】师兄说：${txt || "随便"}`);
-  suLine(`苏唐应了声「知道了」，挽起袖子正在备菜……`);
   const cfg = loadCfg();
-  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st) });
+  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), words: cfg.snackWords || 300 });
   for (const m of r.used) {
     st.inv[m] = (st.inv[m] || 0) - 1;
     if (st.inv[m] <= 0) delete st.inv[m];
@@ -363,18 +363,17 @@ async function doSnackRequest(txt) {
   st.snacks[r.made] = (st.snacks[r.made] || 0) + r.portions;
   st.snackRecipes = st.snackRecipes || [];
   const srec = st.snackRecipes.find(x => x.name === r.made);
-  if (srec) { srec.desc = r.desc || srec.desc; srec.used = r.used; srec.quality = r.quality; srec.proc = r.proc || srec.proc; srec.flavor = r.flavor || srec.flavor; }
-  else st.snackRecipes.push({ name: r.made, cat: r.cat, tag: r.cat, used: r.used, quality: r.quality, desc: r.desc, proc: r.proc, flavor: r.flavor });
+  if (srec) { srec.desc = r.desc || srec.desc; srec.used = r.used; srec.quality = r.quality; srec.flavor = r.flavor || srec.flavor; }
+  else st.snackRecipes.push({ name: r.made, cat: r.cat, tag: r.cat, used: r.used, quality: r.quality, desc: r.desc, flavor: r.flavor });
   const got = applySuExp(st);
   st.suAff = (st.suAff || 0) + 1;
   setMood(moodIndex(r.mood) ?? 7);
-  if (r.proc) await suLine(r.proc);
-  await suLine(`【苏唐】${r.say}`);
+  if (r.narrative) await suLine(r.narrative);   // 苏唐做小吃的~300字小剧情（右栏）
   suSys(`【回复·备小吃】备下「${r.made}」${r.portions} 份 · 用 ${r.used.join("、") || "手头现成的"} · 品质 ${r.quality}`);
   suSys(`【苏唐】练功：${got.join("、")} 各+3 · 好感+1（今 ${st.suAff}）`);
   note("备小吃", r.note || `苏唐备「${r.made}」${r.portions}份，品质${r.quality}，味型${r.flavor || "无"}。`);
   endTrace(`苏唐备「${r.made}」${r.portions}份·品质${r.quality}`);
-  busy = false;
+  busySnack = false;
   renderAll(st, handlers);
   saveGame(st);
 }
@@ -384,7 +383,8 @@ async function doRemake(name) {
   const rec = (st.snackRecipes || []).find(x => x.name === name);
   if (!rec) return;
   for (const m of rec.used) if ((st.inv[m] || 0) <= 0) return sys(`缺「${m}」，苏唐巧妇难为无米之炊。`);
-  busy = true;
+  if (busySnack) return sys("苏唐正忙着备小吃呢。");
+  busySnack = true;
   closeModal();
   startTrace("复做");
   suSys(`【行动·复做】师兄点名：${name}`);
@@ -399,7 +399,7 @@ async function doRemake(name) {
   suSys(`【苏唐】练功：${got.join("、")} 各+3 · 好感+1（今 ${st.suAff}）`);
   note("复做", `苏唐复做「${name}」3份，品质${rec.quality}。`);
   endTrace(`苏唐复做「${name}」3份`);
-  busy = false;
+  busySnack = false;
   renderAll(st, handlers);
   saveGame(st);
 }

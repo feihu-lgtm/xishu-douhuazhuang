@@ -629,6 +629,7 @@ export function openSettings() {
     <div class="set-row"><label>出菜字数</label><input id="set-dish" type="number" min="40" step="10" value="${cfg.dishWords ?? 360}"></div>
     <div class="set-row"><label>闲聊字数</label><input id="set-chat" type="number" min="20" step="10" value="${cfg.chatWords ?? 160}"></div>
     <div class="set-row"><label>苏唐对话字数</label><input id="set-suwords" type="number" min="50" step="10" value="${cfg.suWords ?? 300}"></div>
+    <div class="set-row"><label>小吃剧情字数</label><input id="set-snackwords" type="number" min="50" step="10" value="${cfg.snackWords ?? 300}"></div>
     <div class="set-row"><label>浮动 %</label><input id="set-tol" type="number" min="0" max="60" step="5" value="${cfg.tolPct ?? 15}"></div>
     <div class="set-note" id="set-msg">流式开着，说书人的字边写边上屏；关了则想完一次给出。<br>长度上限即 max_tokens，默认 200000，厂商报参数错就调小。<br>出菜/闲聊字数是说书人正文的目标字数（±浮动%），想长想短自己调。<br>不填也能玩——说书人退成模板白描，灶神照样起名。</div>
     <div class="ck-btns"><span class="ck-btn plain" data-save>保存</span></div>
@@ -669,6 +670,7 @@ export function openSettings() {
       dishWords: Number.isFinite(dw) && dw >= 40 ? dw : 360,
       chatWords: Number.isFinite(cw) && cw >= 20 ? cw : 160,
       suWords: Number.isFinite(sw) && sw >= 50 ? sw : 300,
+      snackWords: Number.isFinite(parseInt(q("#set-snackwords").value, 10)) && parseInt(q("#set-snackwords").value, 10) >= 50 ? parseInt(q("#set-snackwords").value, 10) : 300,
       tolPct: Number.isFinite(tl) && tl >= 0 && tl <= 60 ? tl : 15,
     });
     closeModal();

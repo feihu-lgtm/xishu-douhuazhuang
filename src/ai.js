@@ -9,9 +9,9 @@ const CFG_KEY = "xiaochu-ai-v1";
 export function loadCfg() {
   try {
     const raw = localStorage.getItem(CFG_KEY);
-    if (raw) return { stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, suWords: 300, tolPct: 15, ...JSON.parse(raw) };
+    if (raw) return { stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, suWords: 300, snackWords: 300, tolPct: 15, ...JSON.parse(raw) };
   } catch { /* noop */ }
-  return { endpoint: "", apiKey: "", model: "", stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, suWords: 300, tolPct: 15 };
+  return { endpoint: "", apiKey: "", model: "", stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, suWords: 300, snackWords: 300, tolPct: 15 };
 }
 export function saveCfg(cfg) {
   try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch { /* noop */ }
@@ -451,16 +451,18 @@ export function parseSnack(t, ctx) {
   return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃", desc: o.desc || "", proc: o.proc || "", note: o.note || "", flavor: fl ? fl.id : null };
 }
 
+const SU_SNACK_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好。你是店家，对顾客要客气热情、招呼周到；嘴硬心软只在对师兄时，对客人务必友好。先写做小吃的小剧情，再输出 JSON。";
 export async function genSnack(cfg, ctx) {
   if (cfgReady(cfg)) {
     const invStr = Object.entries(ctx.inv).map(([n, c]) => `${n}×${c}`).join("、") || "（没有）";
-    const user = snackUser({ ...ctx, invStr });
+    const user = snackUser({ ...ctx, invStr, words: ctx.words || cfg.snackWords || 300 });
     try {
-      const raw = await callAI(cfg,
-        "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好，嘴硬心软，做小吃是她的活计。只输出 JSON。",
-        user, "苏唐备小吃");
+      const raw = await callAI(cfg, SU_SNACK_SYS, user, "苏唐备小吃");
       const o = parseSnack(raw, ctx);
-      if (o) return { ...o, ai: true };
+      let narrative = (raw || "").trim();
+      const ji = narrative.indexOf("{");
+      if (ji >= 0) narrative = narrative.slice(0, ji).trim();
+      if (o) return { ...o, narrative, ai: true };
     } catch { /* 降级 */ }
   }
   return fallbackSnack(ctx);
@@ -487,6 +489,7 @@ function fallbackSnack(ctx) {
     proc: `苏唐把${used.join("、") || "手头现成"}归置到案上，刀下手利落，火候拿捏得稳，不一会儿「${hit.name}」就出了锅。`,
     say: says[Math.floor(Math.random() * says.length)],
     mood: "专注", ai: false,
+    narrative: `苏唐把${used.join("、") || "手头现成"}归置到案上，朝客人笑了笑：「稍等，这就来。」刀下手利落，火候拿捏得稳，不一会儿「${hit.name}」出了锅，香气扑鼻。`,
     flavor: req.includes("甜") ? "tian" : req.includes("酸") ? "suanla" : req.includes("辣") ? "mala" : (hit.cat === "点心" ? "tian" : "xianxiang"),
   };
 }
