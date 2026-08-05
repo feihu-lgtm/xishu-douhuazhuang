@@ -9,9 +9,9 @@ const CFG_KEY = "xiaochu-ai-v1";
 export function loadCfg() {
   try {
     const raw = localStorage.getItem(CFG_KEY);
-    if (raw) return { stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, tolPct: 15, ...JSON.parse(raw) };
+    if (raw) return { stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, suWords: 300, tolPct: 15, ...JSON.parse(raw) };
   } catch { /* noop */ }
-  return { endpoint: "", apiKey: "", model: "", stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, tolPct: 15 };
+  return { endpoint: "", apiKey: "", model: "", stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, suWords: 300, tolPct: 15 };
 }
 export function saveCfg(cfg) {
   try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch { /* noop */ }
@@ -23,18 +23,40 @@ export function streamOn(cfg) {
   return cfg.stream !== false;
 }
 
-// ── 调用 trace（学 qucuo actionTrace：记每次 AI 调用的 prompt/回复/耗时）──
+// ── 行动 trace（学 qucuo actionTrace：出动作就记，AI 回复继续记，实时可见）──
 const MAX_TRACE = 40;
 const traceLog = [];
+let currentTrace = null;
 export function getTrace() { return traceLog; }
 export function clearTrace() { traceLog.length = 0; }
 export function fmtMs(ms) {
   if (ms == null) return "";
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
-function pushTrace(e) {
-  traceLog.unshift(e);
+// 行动开始即入列（_running），后续 step / AI 调用往里挂，结束 endTrace
+export function startTrace(act) {
+  const t = { ts: Date.now(), act, steps: [], pipelines: [], _running: true };
+  traceLog.unshift(t);
   if (traceLog.length > MAX_TRACE) traceLog.length = MAX_TRACE;
+  currentTrace = t;
+  return t;
+}
+export function stepTrace(layer, status, detail) {
+  if (currentTrace) currentTrace.steps.push({ layer, status, detail, at: Date.now() });
+}
+export function endTrace(summary) {
+  if (!currentTrace) return;
+  currentTrace._running = false;
+  currentTrace.summary = summary || "";
+  currentTrace.totalMs = Date.now() - currentTrace.ts;
+  currentTrace = null;
+}
+// 每次 AI 调用把 完整注入(system+user)+回复 挂到当前行动
+function pushTrace(e) {
+  if (currentTrace) {
+    currentTrace.pipelines.push(e);
+    stepTrace(e.label, e.error ? "fail" : "pass", `${e.ms}ms${e.error ? " · " + e.error : ""}`);
+  }
 }
 
 // ── 限流：反代 1 分钟最多 5 次，间隔 12s ───────────────────────────────
@@ -266,7 +288,10 @@ export function extractComment(t) {
   if (mm) { mood = mm[1].trim(); s = s.replace(mm[0], ""); }
   const mu = s.match(/\n?[ \t]*菜单[：:][ \t]*([^\n]+)/);
   if (mu) { menu = mu[1].trim(); s = s.replace(mu[0], ""); }
-  return { main: s.trim(), comment, mood, menu };
+  let noteTxt = "";
+  const nt = s.match(/\n?[ \t]*纸条[：:][ \t]*([^\n]+)/);
+  if (nt) { noteTxt = nt[1].trim(); s = s.replace(nt[0], ""); }
+  return { main: s.trim(), comment, mood, menu, note: noteTxt };
 }
 
 // ── 第一轮·武学裁决：看食材/技法/意图，判练到哪几门功、配合几分 ─────────
@@ -423,7 +448,7 @@ export function parseSnack(t, ctx) {
   if (!Number.isFinite(q)) q = 60;
   q = Math.max(0, Math.min(100, q));
   const fl = FLAVORS.find(f => f.name === (o.flavor || "")) || null;
-  return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃", desc: o.desc || "", proc: o.proc || "", flavor: fl ? fl.id : null };
+  return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃", desc: o.desc || "", proc: o.proc || "", note: o.note || "", flavor: fl ? fl.id : null };
 }
 
 export async function genSnack(cfg, ctx) {
@@ -467,6 +492,30 @@ function fallbackSnack(ctx) {
 }
 
 // ── 收工总评（苏唐逐客复盘）──────────────────────────────────────────
+// ── 苏唐长对话（右栏，好感只要对话就加）──────────────────────────────
+const SU_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好，嘴硬心软。直接以苏唐的身份回应师兄，可带「」对话与 *心理*，不要写旁白总结。";
+function fallbackSuTalk() {
+  return "【苏唐】师兄说什么呢，灶上还忙着，别逗我。";
+}
+export async function genSuTalk(cfg, ctx, onChunk) {
+  if (cfgReady(cfg)) {
+    const user = [
+      `师兄对苏唐说：${ctx.text}`,
+      `苏唐对师兄的好感为 ${ctx.suAff ?? 0}。`,
+      tierGuide(ctx.suTier || 1, "苏唐手艺"),
+      `以苏唐的口吻与动作回一段话，约 ${ctx.words || 300} 字，嘴硬心软；好感越高语气越软。`,
+    ].join("\n");
+    const t0 = Date.now();
+    try {
+      const raw = streamOn(cfg) && onChunk
+        ? await callAIStream(cfg, SU_SYS, user, onChunk, "苏唐对话")
+        : await callAI(cfg, SU_SYS, user, "苏唐对话");
+      return { text: raw, ms: Date.now() - t0, ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { text: fallbackSuTalk(), ai: false };
+}
+
 export async function genReview(cfg, ctx) {
   if (cfgReady(cfg)) {
     const lines = (ctx.dayLog || []).map(d =>
@@ -502,7 +551,7 @@ let chatIdx = 0;
 
 export async function genChat(cfg, text, onChunk) {
   if (cfgReady(cfg)) {
-    const sys = STYLE + `\n师兄在日记里写了句话，你以日记的笔法接下去，分 2-4 段，用上对话「」与心理 *...*。${lenNote(cfg.chatWords || 160, cfg.tolPct ?? 15)}末尾照例附「苏唐批：」一句和「心情：」一个词（八个里选）。`;
+    const sys = STYLE + `\n师兄在日记里写了句话，你以日记的笔法接下去，分 2-4 段，用上对话「」与心理 *...*。正文总字数约 ${cfg.chatWords || 160} 字（±${cfg.tolPct ?? 15}%）。末尾照例附「苏唐批：」一句和「心情：」一个词（八个里选）。`;
     const t0 = Date.now();
     try {
       const raw = streamOn(cfg) && onChunk

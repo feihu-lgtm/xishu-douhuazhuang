@@ -129,6 +129,24 @@ export function logStream(type) {
   };
 }
 
+// 右栏（苏唐）流式上屏
+export function slogStream(type) {
+  let entry = null, bd = null, text = "", ready = false;
+  queue = queue.then(() => new Promise(done => {
+    bd = mkEntry($("#sulog"), type);
+    entry = bd.parentElement;
+    if (text) bd.textContent = text;
+    ready = true;
+    $("#sulog").scrollTop = $("#sulog").scrollHeight;
+    done();
+  }));
+  return {
+    append(c) { text += c; if (ready) { bd.textContent = text; $("#sulog").scrollTop = $("#sulog").scrollHeight; } },
+    remove() { if (ready) entry.remove(); else queue = queue.then(() => entry?.remove()); },
+    get text() { return text; },
+  };
+}
+
 export const narr = (t) => log("narr", t);
 export const say = (t) => log("say", t);
 export const sys = (t) => log("sys", t, { instant: true });
@@ -594,6 +612,7 @@ export function openSettings() {
     <div class="set-row"><label>长度上限</label><input id="set-max" type="number" min="1" step="1" value="${cfg.maxTokens ?? 200000}"></div>
     <div class="set-row"><label>出菜字数</label><input id="set-dish" type="number" min="40" step="10" value="${cfg.dishWords ?? 360}"></div>
     <div class="set-row"><label>闲聊字数</label><input id="set-chat" type="number" min="20" step="10" value="${cfg.chatWords ?? 160}"></div>
+    <div class="set-row"><label>苏唐对话字数</label><input id="set-suwords" type="number" min="50" step="10" value="${cfg.suWords ?? 300}"></div>
     <div class="set-row"><label>浮动 %</label><input id="set-tol" type="number" min="0" max="60" step="5" value="${cfg.tolPct ?? 15}"></div>
     <div class="set-note" id="set-msg">流式开着，说书人的字边写边上屏；关了则想完一次给出。<br>长度上限即 max_tokens，默认 200000，厂商报参数错就调小。<br>出菜/闲聊字数是说书人正文的目标字数（±浮动%），想长想短自己调。<br>不填也能玩——说书人退成模板白描，灶神照样起名。</div>
     <div class="ck-btns"><span class="ck-btn plain" data-save>保存</span></div>
@@ -623,6 +642,7 @@ export function openSettings() {
     const mt = parseInt(q("#set-max").value, 10);
     const dw = parseInt(q("#set-dish").value, 10);
     const cw = parseInt(q("#set-chat").value, 10);
+    const sw = parseInt(q("#set-suwords").value, 10);
     const tl = parseInt(q("#set-tol").value, 10);
     saveCfg({
       endpoint: q("#set-url").value.trim(),
@@ -632,6 +652,7 @@ export function openSettings() {
       maxTokens: Number.isFinite(mt) && mt > 0 ? mt : 200000,
       dishWords: Number.isFinite(dw) && dw >= 40 ? dw : 360,
       chatWords: Number.isFinite(cw) && cw >= 20 ? cw : 160,
+      suWords: Number.isFinite(sw) && sw >= 50 ? sw : 300,
       tolPct: Number.isFinite(tl) && tl >= 0 && tl <= 60 ? tl : 15,
     });
     closeModal();
@@ -648,18 +669,22 @@ export function openTrace() {
       <h2>流 程 · 说书人调用日志（${traces.length} 条）</h2>
       <div class="ck-btns"><span class="ck-btn plain" data-clear>清空</span></div>
       ${traces.length === 0
-        ? `<div class="set-note">还没有调用记录。做道菜、说句话，这里就会记下喂给 AI 的完整 prompt、回复和每轮耗时。</div>`
+        ? `<div class="set-note">还没有行动记录。出动作就记，AI 回复继续记；展开可看每次调用注入的全部 system/输入/回复。</div>`
         : traces.map((t, i) => `
           <div class="tr-item">
             <div class="tr-head" data-open="${i}">
-              <span class="tr-label">${open === i ? "▾" : "▸"} ${escapeHtml(t.label)}</span>
-              <span class="tr-ms">${fmtMs(t.ms)}${t.error ? " · ✗" : ""}</span>
-              <span class="tr-cnt">prompt ${(t.system || "").length + (t.user || "").length} 字 · 回复 ${(t.response || "").length} 字</span>
+              <span class="tr-label">${open === i ? "▾" : "▸"} 【${escapeHtml(t.act || "")}】</span>
+              <span class="tr-ms">${t._running ? "⏳ 进行中" : `✓ ${fmtMs(t.totalMs)}`}</span>
+              <span class="tr-cnt">${(t.pipelines || []).length} 次调用${t.summary ? " · " + escapeHtml(t.summary) : ""}</span>
             </div>
             ${open === i ? `<div class="tr-body">
-              <div class="tr-sub">System Prompt</div><pre>${escapeHtml(t.system || "")}</pre>
-              <div class="tr-sub">输入</div><pre>${escapeHtml(t.user || "")}</pre>
-              <div class="tr-sub">AI 回复</div><pre>${escapeHtml(t.response || (t.error ? "报错：" + t.error : "（无）"))}</pre>
+              ${(t.steps || []).map(s => `<div class="tr-step"><i>${s.status === "pass" ? "✓" : "✗"}</i> [${escapeHtml(s.layer)}] ${escapeHtml(s.detail || "")}</div>`).join("")}
+              ${(t.pipelines || []).map((p, pi) => `
+                <div class="tr-sub">调用${pi + 1} · ${escapeHtml(p.label || "")} · ${fmtMs(p.ms)}</div>
+                <div class="tr-sub">System Prompt</div><pre>${escapeHtml(p.system || "")}</pre>
+                <div class="tr-sub">输入</div><pre>${escapeHtml(p.user || "")}</pre>
+                <div class="tr-sub">AI 回复</div><pre>${escapeHtml(p.response || (p.error ? "报错：" + p.error : "（无）"))}</pre>
+              `).join("")}
             </div>` : ""}
           </div>`).join("")}
       <span class="return" data-back>Return · 返回</span>

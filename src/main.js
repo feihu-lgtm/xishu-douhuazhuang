@@ -6,13 +6,14 @@ import {
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk,
   extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
+  startTrace, stepTrace, endTrace,
 } from "./ai.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, openSnack, openSet, renderRate,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, renderRate,
 } from "./ui.js";
 
 let st = null;
@@ -83,6 +84,7 @@ function onFire(slots, techId, cwId, flavorId, intended) {
   const j = judgeStove(st, slots, techId, cwId, flavorId);
   if (!j.ok) return j;
   j.intended = intended || "";
+  startTrace("出菜");
   for (const m of j.materials) {
     st.inv[m] = (st.inv[m] || 0) - 1;
     if (st.inv[m] <= 0) delete st.inv[m];
@@ -125,6 +127,7 @@ async function cookNarrate(j) {
   st.dish.martial = martial;
   renderAll(st, handlers);
   sys(`练功：${got.join("、")} 各+3 · 食材配合 ${martial.synergy} · 基础分 ${baseScore}`);
+  stepTrace("武学裁决", "pass", `练${got.join("、")} · 配合${martial.synergy} · 基础分${baseScore}`);
   // 第二轮·出菜叙事（带上任务：做给谁、TA 爱什么味）
   const g = currentGuest(st);
   const h = logStream("narr");
@@ -138,10 +141,12 @@ async function cookNarrate(j) {
     martial, baseScore,
     guest: g,
   }, c => h.append(c));
+  let noteTxt = "";
   if (res.ai && h.text) {
-    const { main, comment, mood } = extractComment(h.text);
-    h.apply(main, comment ? `苏唐批：${comment}` : "");
-    setMood(moodIndex(mood) ?? 0);
+    const ex = extractComment(h.text);
+    noteTxt = ex.note || "";
+    h.apply(ex.main, ex.comment ? `苏唐批：${ex.comment}` : "");
+    setMood(moodIndex(ex.mood) ?? 0);
   } else {
     h.remove(); await narr(res.prose);
     if (res.comment) await commentLine(res.comment);
@@ -154,7 +159,8 @@ async function cookNarrate(j) {
   if (mrec) { mrec.desc = st.dish.menuDesc; mrec.used = j.materials; }
   else st.menu.push({ name: st.dish.name, used: j.materials, desc: st.dish.menuDesc });
   gold(`「${st.dish.name}」出锅。`);
-  note("出菜", `做「${st.dish.name}」给${g ? g.name : "自己"}，基础分${baseScore}。`);
+  note("出菜", noteTxt || `做「${st.dish.name}」给${g ? g.name : "自己"}，基础分${baseScore}。`);
+  endTrace(`「${st.dish.name}」基础分${baseScore}`);
   if (res.ms != null) sys(`说书 ${fmtMs(res.ms)} · 正文 ${res.prose.length} 字`);
   if (!res.ai) sys("（说书人未接线，灶神模板白描。设置里填 AI 密钥可现写。）");
   busy = false;
@@ -176,6 +182,7 @@ async function doServe() {
   const g = currentGuest(st);
   if (!g) return;
   busy = true;
+  startTrace("佐餐");
   const dish = st.dish;
   const flavorMatch = dish.flavorId === g.flavor;
   const favMatch = !!(g.fav && dish.materials.includes(g.fav));
@@ -209,7 +216,9 @@ async function doServe() {
     aff: affNow, affName: affName(affNow),
     mainDesc, snackName: setName, snackDesc,
   }, c => h.append(c));
+  let reactNote = "";
   if (r.ai && h.text) {
+    reactNote = extractComment(h.text).note || "";
     setMood(r.mood ?? [2, 0, 5, 6][tier]);
   } else {
     h.remove(); await narr(r.scene || "");
@@ -226,7 +235,8 @@ async function doServe() {
   st.pendingSet = null;
   gold(`${g.name} 放下 ${pay} 文铜钱。（满意度 ${score}）`);
   sys(`「好感」${g.name} ${d >= 0 ? "+" : ""}${d}（今 ${st.aff[g.id]} · ${affName(st.aff[g.id])}）`);
-  note("出餐", `给${g.name}上「${dish.name}」${setName ? `+「${setName}」` : ""}，满意度${score}，好感+${d}。`);
+  note("出餐", reactNote || `给${g.name}上「${dish.name}」${setName ? `+「${setName}」` : ""}，满意度${score}，好感+${d}。`);
+  endTrace(`给${g.name}·满意度${score}·好感+${d}`);
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)}`);
   busy = false;
   if (st.served >= 3) {
@@ -260,6 +270,7 @@ function doClose() {
 async function doReview() {
   if ((st.reviewedDay || 0) === st.day) return;
   st.reviewedDay = st.day;
+  startTrace("收工");
   const r = await genReview(loadCfg(), { dayLog: st.dayLog || [] });
   for (const line of r.text.split("\n")) if (line.trim()) await suLine(line.trim());
   for (const d of (st.dayLog || [])) {
@@ -270,6 +281,7 @@ async function doReview() {
   }
   if ((st.dayLog || []).some(d => d.tier <= 1)) sys("苏唐给今日顺眼的客人又添了分好感。");
   note("收工", `第${st.day}天送${(st.dayLog || []).length}客，苏唐总评已记。`);
+  endTrace(`第${st.day}天收工`);
   st.dayLog = [];
   setMood(4);
   renderAll(st, handlers);
@@ -337,6 +349,7 @@ async function doSnackRequest(txt) {
   if (busy) return sys("苏唐正忙着呢。");
   busy = true;
   closeModal();
+  startTrace("备小吃");
   suSys(`【行动·备小吃】师兄说：${txt || "随便"}`);
   suLine(`苏唐应了声「知道了」，挽起袖子正在备菜……`);
   const cfg = loadCfg();
@@ -358,7 +371,8 @@ async function doSnackRequest(txt) {
   await suLine(`【苏唐】${r.say}`);
   suSys(`【回复·备小吃】备下「${r.made}」${r.portions} 份 · 用 ${r.used.join("、") || "手头现成的"} · 品质 ${r.quality}`);
   suSys(`【苏唐】练功：${got.join("、")} 各+3 · 好感+1（今 ${st.suAff}）`);
-  note("备小吃", `苏唐备「${r.made}」${r.portions}份，品质${r.quality}，味型${r.flavor || "无"}。`);
+  note("备小吃", r.note || `苏唐备「${r.made}」${r.portions}份，品质${r.quality}，味型${r.flavor || "无"}。`);
+  endTrace(`苏唐备「${r.made}」${r.portions}份·品质${r.quality}`);
   busy = false;
   renderAll(st, handlers);
   saveGame(st);
@@ -371,6 +385,7 @@ async function doRemake(name) {
   for (const m of rec.used) if ((st.inv[m] || 0) <= 0) return sys(`缺「${m}」，苏唐巧妇难为无米之炊。`);
   busy = true;
   closeModal();
+  startTrace("复做");
   suSys(`【行动·复做】师兄点名：${name}`);
   suLine(`苏唐照旧方复做「${name}」，手法熟得很。`);
   for (const m of rec.used) { st.inv[m] -= 1; if (st.inv[m] <= 0) delete st.inv[m]; }
@@ -382,6 +397,27 @@ async function doRemake(name) {
   suSys(`【回复·复做】「${name}」3 份 · 品质 ${rec.quality}`);
   suSys(`【苏唐】练功：${got.join("、")} 各+3 · 好感+1（今 ${st.suAff}）`);
   note("复做", `苏唐复做「${name}」3份，品质${rec.quality}。`);
+  endTrace(`苏唐复做「${name}」3份`);
+  busy = false;
+  renderAll(st, handlers);
+  saveGame(st);
+}
+
+// ── 苏唐长对话（右栏，好感只要对话就加）──────────────────────────────
+async function doSuTalk(text) {
+  if (busy) return sys("苏唐正忙着呢。");
+  busy = true;
+  startTrace("苏唐对话");
+  const h = slogStream("su");
+  const r = await genSuTalk(loadCfg(), {
+    text, words: loadCfg().suWords || 300, suAff: st.suAff || 0, suTier: suTierOf(st),
+  }, c => h.append(c));
+  if (!r.ai || !h.text) { h.remove(); await suLine(r.text); }
+  st.suAff = (st.suAff || 0) + 1;
+  note("苏唐对话", `师兄说「${text.slice(0, 14)}」，苏唐回了一段，好感+1。`);
+  suSys(`【苏唐】好感+1（今 ${st.suAff}）`);
+  endTrace(`苏唐对话·好感+1`);
+  setMood(3);
   busy = false;
   renderAll(st, handlers);
   saveGame(st);
@@ -422,6 +458,7 @@ async function onCommand(text) {
   if (["设置"].includes(cmd)) return openSettings();
   if (["流程", "日志", "trace"].includes(cmd)) return openTrace();
   if (["纸条", "notes"].includes(cmd)) return openNotes(st);
+  if (/苏唐|小妹|师妹/.test(t)) return doSuTalk(t);
   if (["存档"].includes(cmd)) { saveGame(st); return sys("存档完毕。"); }
 
   // 说「做 XX」/ 提到菜名或食材 → 灶台自动备料
@@ -437,9 +474,11 @@ async function onCommand(text) {
 
   if (busy) return sys("说书人正忙着呢。");
   busy = true;
+  startTrace("闲聊");
   const h = logStream("narr");
   const r = await genChat(loadCfg(), t, c => h.append(c));
   note("闲聊", `师兄说「${t.slice(0, 18)}」，说书人接了一段。`);
+  endTrace("闲聊一段");
   if (r.ai && h.text) {
     const { main, comment, mood } = extractComment(h.text);
     h.apply(main, comment ? `苏唐批：${comment}` : "");
