@@ -21,8 +21,7 @@ let busy = false;
 const handlers = {
   cook: () => doCook(),
   snack: () => doSnackPanel(),
-  serve: () => doServe(),
-  set: () => doSetPanel(),
+  serve: () => doZuocan(),
   close: () => doClose(),
   shop: () => doShop(),
   next: () => doNext(),
@@ -284,39 +283,74 @@ function doShop() {
   });
 }
 
-// ── 小吃：招呼苏唐 ───────────────────────────────────────────────────
+// ── 小吃：招呼苏唐（玩家只口述，她自决）─────────────────────────────
 function doSnackPanel() {
-  openSnack(st, { onSnack: (snack, portions, note) => doSnack(snack, portions, note) });
+  openSnack(st, {
+    onRequest: (txt) => doSnackRequest(txt),
+    onRemake: (name) => doRemake(name),
+    onTag: (name) => { cycleTag(name); },
+  });
+}
+function cycleTag(name) {
+  const rec = (st.snackRecipes || []).find(x => x.name === name);
+  if (!rec) return;
+  const cats = ["汤", "饭", "点心", "串", "小吃"];
+  rec.tag = cats[(cats.indexOf(rec.tag) + 1) % cats.length];
+  saveGame(st);
+  doSnackPanel();
 }
 
-async function doSnack(snack, portions, note) {
+async function doSnackRequest(txt) {
   if (busy) return sys("苏唐正忙着呢。");
   busy = true;
   closeModal();
+  await narr(`苏唐应了声「知道了」，挽起袖子正在备菜……`);
   const cfg = loadCfg();
-  const r = await genSnack(cfg, {
-    snack: snack.name, cat: snack.cat, portions, note, inv: st.inv,
-  });
-  // 扣料（她用的）
+  const r = await genSnack(cfg, { request: txt, inv: st.inv });
   for (const m of r.used) {
     st.inv[m] = (st.inv[m] || 0) - 1;
     if (st.inv[m] <= 0) delete st.inv[m];
   }
   st.snacks = st.snacks || {};
   st.snacks[r.made] = (st.snacks[r.made] || 0) + r.portions;
+  st.snackRecipes = st.snackRecipes || [];
+  if (!st.snackRecipes.some(x => x.name === r.made))
+    st.snackRecipes.push({ name: r.made, cat: r.cat, tag: r.cat, used: r.used, quality: r.quality });
   const got = applySuExp(st);
   setMood(moodIndex(r.mood) ?? 7);
   await suLine(`【苏唐】${r.say}`);
-  await suLine(`【苏唐】备下「${r.made}」${r.portions} 份，用了 ${r.used.join("、") || "手头现成的"}，品质 ${r.quality}。`);
-  sys(`苏唐练功：${got.join("、")} 各+3`);
+  suSys(`【苏唐】备下「${r.made}」${r.portions} 份 · 用 ${r.used.join("、") || "手头现成的"} · 品质 ${r.quality}`);
+  suSys(`【苏唐】练功：${got.join("、")} 各+3`);
   busy = false;
   renderAll(st, handlers);
   saveGame(st);
 }
 
-// ── 配set ───────────────────────────────────────────────────────────
-function doSetPanel() {
-  openSet(st, { onSet: (name) => { st.pendingSet = name; sys(name ? `配set：${name}` : "不上set。"); renderAll(st, handlers); } });
+async function doRemake(name) {
+  if (busy) return sys("苏唐正忙着呢。");
+  const rec = (st.snackRecipes || []).find(x => x.name === name);
+  if (!rec) return;
+  for (const m of rec.used) if ((st.inv[m] || 0) <= 0) return sys(`缺「${m}」，苏唐巧妇难为无米之炊。`);
+  busy = true;
+  closeModal();
+  await narr(`苏唐照旧方复做「${name}」，手法熟得很。`);
+  for (const m of rec.used) { st.inv[m] -= 1; if (st.inv[m] <= 0) delete st.inv[m]; }
+  st.snacks = st.snacks || {};
+  st.snacks[name] = (st.snacks[name] || 0) + 3;
+  const got = applySuExp(st);
+  suSys(`【苏唐】复做「${name}」3 份 · 品质 ${rec.quality}`);
+  suSys(`【苏唐】练功：${got.join("、")} 各+3`);
+  busy = false;
+  renderAll(st, handlers);
+  saveGame(st);
+}
+
+// ── 佐餐（替代上菜+配set）──────────────────────────────────────────
+function doZuocan() {
+  if (st.phase !== "guest" || !st.dish) return;
+  const has = Object.values(st.snacks || {}).some(n => n > 0);
+  if (!has) return doServe();
+  openSet(st, { onSet: (name) => { st.pendingSet = name; doServe(); } });
 }
 
 async function doNext() {
@@ -337,9 +371,8 @@ async function onCommand(text) {
   const cmd = t.toLowerCase();
   if (["帮助", "help", "?"].includes(cmd)) return openHelp();
   if (["灶台", "做菜", "开灶"].includes(cmd)) return doCook();
-  if (["上菜", "端菜"].includes(cmd)) return doServe();
+  if (["上菜", "端菜", "佐餐"].includes(cmd)) return doZuocan();
   if (["小吃", "零食"].includes(cmd)) return doSnackPanel();
-  if (["配set", "set"].includes(cmd)) return doSetPanel();
   if (["收功", "打烊"].includes(cmd)) return doClose();
   if (["商店", "买", "逛街"].includes(cmd)) return doShop();
   if (["下一日", "下一天", "等待", "睡觉", "明儿"].includes(cmd)) return doNext();

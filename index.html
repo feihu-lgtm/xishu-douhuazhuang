@@ -9,10 +9,6 @@
 </head>
 <body>
 <div id="frame"></div>
-<div class="sucard" aria-hidden="true">
-  <div id="sutang" class="sutang"></div>
-  <div class="suname">苏唐</div>
-</div>
 <svg id="spiral" viewBox="0 0 24 24" fill="none" stroke="#c9a19b" stroke-width="1.4">
   <path d="M12 12c0-1.5 2-1.6 2 0 0 2-3 2.4-4 0-1.2-3 2.6-4.6 5-3 3 2 2 6.6-1.5 7.5-4.4 1.2-8-2.4-7-6.5C7.6 5.5 13 3.6 17 6c4.4 2.6 4 9-.5 11.5"/>
 </svg>
@@ -27,7 +23,10 @@
   <div id="main">
     <aside id="left"></aside>
     <section id="term">
-      <div id="log"></div>
+      <div id="logwrap">
+        <div id="log"></div>
+        <div id="sulog"></div>
+      </div>
       <div id="inputline">
         <span class="prompt">＞</span>
         <input id="cmd" autocomplete="off" placeholder="说点什么，或输入「帮助」" />

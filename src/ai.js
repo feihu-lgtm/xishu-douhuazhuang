@@ -1,6 +1,6 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, TECHNIQUES, ING_BY_NAME } from "./data.js";
+import { FLAVOR_BY_ID, TECHNIQUES, ING_BY_NAME, SNACKS } from "./data.js";
 
 const CFG_KEY = "xiaochu-ai-v1";
 
@@ -427,42 +427,50 @@ export async function genReaction(cfg, ctx, onChunk) {
   return { say: TIER_SAY[ctx.tier][i], prose: "", mood: null, ms: null, ai: false };
 }
 
-// ── 苏唐备小吃（她自己决定用料/品质，玩家只能言语描述）──────────────
+// ── 苏唐备小吃（玩家只口述，做什么/用料/几份/品质全凭她）──────────────
 export function parseSnack(t, ctx) {
   if (!t) return null;
   const o = t.includes("{") ? parseJSONRescue(t) : {};
-  const made = o.made || ctx.snack;
+  if (!o.made && !o.say) return null;
+  const made = o.made || "苏唐小吃";
   let used = Array.isArray(o.used) ? o.used : [];
   used = used.filter(n => (ctx.inv[n] || 0) > 0);
+  let portions = parseInt(o.portions, 10);
+  if (!Number.isFinite(portions)) portions = 3;
+  portions = Math.max(1, Math.min(6, portions));
   let q = parseInt(o.quality, 10);
   if (!Number.isFinite(q)) q = 60;
   q = Math.max(0, Math.min(100, q));
-  if (!o.say) return null;
-  return { made, used, quality: q, say: o.say, mood: o.mood || "" };
+  return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃" };
 }
 
 export async function genSnack(cfg, ctx) {
   if (cfgReady(cfg)) {
     const invStr = Object.entries(ctx.inv).map(([n, c]) => `${n}×${c}`).join("、") || "（没有）";
     const user = [
-      `苏唐要在西蜀豆花庄备小吃。品类：${ctx.snack}（${ctx.cat}），打算备 ${ctx.portions} 份。`,
+      `师兄对苏唐说：${ctx.request || "（没说什么，随你发挥）"}`,
       `现有食材：${invStr}`,
-      `师兄嘱咐：${ctx.note || "（没说什么，随你发挥）"}`,
-      `你自己决定用什么料、做出来品质如何，师兄管不着。只输出 JSON：`,
-      `{"made":"成品名","used":[用掉的食材名,须来自现有且够数],"quality":0-100,"say":"苏唐说的话","mood":"八个心情词之一"}`,
+      `你是苏唐，自己决定做什么小吃、用什么料、做几份、品质如何，师兄管不着。`,
+      `只输出 JSON：{"made":"成品名","cat":"汤/饭/点心/串/小吃","used":[用掉的食材名,须来自现有且够数],"portions":1-6,"quality":0-100,"say":"苏唐说的话","mood":"八个心情词之一"}`,
     ].join("\n");
     try {
       const raw = await callAI(cfg,
         "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好，嘴硬心软，做小吃是她的活计。只输出 JSON。",
         user, "苏唐备小吃");
       const o = parseSnack(raw, ctx);
-      if (o) return { ...o, portions: ctx.portions, ai: true };
+      if (o) return { ...o, ai: true };
     } catch { /* 降级 */ }
   }
   return fallbackSnack(ctx);
 }
 
 function fallbackSnack(ctx) {
+  const req = ctx.request || "";
+  const hit = SNACKS.find(s => req.includes(s.name))
+    || (req.includes("甜") ? SNACKS.find(s => s.cat === "点心") : null)
+    || (req.includes("汤") ? SNACKS.find(s => s.cat === "汤") : null)
+    || (req.includes("串") ? SNACKS.find(s => s.cat === "串") : null)
+    || SNACKS[Math.floor(Math.random() * SNACKS.length)];
   const used = Object.keys(ctx.inv).slice(0, 2);
   const says = [
     "就这些料？行吧，凑合做，不好吃别赖我。",
@@ -470,9 +478,11 @@ function fallbackSnack(ctx) {
     "这锅我掌着，你忙你的去。",
   ];
   return {
-    made: ctx.snack, used, quality: 55 + Math.floor(Math.random() * 20),
+    made: hit.name, cat: hit.cat, used,
+    portions: 2 + Math.floor(Math.random() * 3),
+    quality: 55 + Math.floor(Math.random() * 20),
     say: says[Math.floor(Math.random() * says.length)],
-    mood: "专注", portions: ctx.portions, ai: false,
+    mood: "专注", ai: false,
   };
 }
 

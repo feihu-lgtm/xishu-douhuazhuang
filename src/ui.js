@@ -41,26 +41,36 @@ export const ICONS = {
 };
 const coin = (n) => `${n} <span class="coin-ic" style="display:inline-block;width:12px;height:12px">${ICONS.coin}</span>`;
 
-// ── 终端日志（打字机 + 队列，点击跳过）────────────────────────────────
+// ── 终端日志（打字机 + 队列，点击跳过，带时间戳）──────────────────────
 let queue = Promise.resolve();
 let skip = false;
 document.addEventListener("click", (e) => { if (e.target.closest("#log")) skip = true; });
+const ts = () => {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+};
+const mkEntry = (target, type) => {
+  const div = document.createElement("div");
+  div.className = `entry ${type}`;
+  div.innerHTML = `<span class="ts">${ts()}</span><span class="bd"></span>`;
+  target.appendChild(div);
+  return div.querySelector(".bd");
+};
 
 export function log(type, text, { instant = false } = {}) {
   queue = queue.then(() => new Promise((done) => {
-    const div = document.createElement("div");
-    div.className = `entry ${type}`;
-    $("#log").appendChild(div);
-    const put = (str) => { if (RICH.has(type)) div.innerHTML = richHtml(str); else div.textContent = str; };
+    const bd = mkEntry($("#log"), type);
+    const put = (str) => { if (RICH.has(type)) bd.innerHTML = richHtml(str); else bd.textContent = str; };
     const finish = () => {
       put(text);
-      div.classList.remove("typing");
+      bd.parentElement.classList.remove("typing");
       $("#log").scrollTop = $("#log").scrollHeight;
       skip = false;
       done();
     };
     if (instant || skip) return finish();
-    div.classList.add("typing");
+    bd.parentElement.classList.add("typing");
     let i = 0;
     const timer = setInterval(() => {
       i += 5;
@@ -71,32 +81,37 @@ export function log(type, text, { instant = false } = {}) {
   }));
   return queue;
 }
+
+// 右栏·苏唐日志（粉色，即时，带时间戳）
+export function slog(type, text) {
+  const bd = mkEntry($("#sulog"), type);
+  bd.textContent = text;
+  $("#sulog").scrollTop = $("#sulog").scrollHeight;
+}
 // 流式上屏：AI 边写边长，返回句柄。
 // 走同一条日志队列排队创建 div，保证排在未打完的条目之后（不往上插）。
 export function logStream(type) {
-  let div = null, text = "", ready = false;
+  let entry = null, bd = null, text = "", ready = false, pendingApply = null;
+  const put = (str) => { if (RICH.has(type)) bd.innerHTML = richHtml(str); else bd.textContent = str; };
+  const doApply = (main, comment) => {
+    put(main);
+    if (comment) {
+      const c = document.createElement("div");
+      c.className = "entry comment";
+      c.innerHTML = `<span class="ts">${ts()}</span><span class="bd">${escapeHtml(comment)}</span>`;
+      entry.after(c);
+    }
+    $("#log").scrollTop = $("#log").scrollHeight;
+  };
   queue = queue.then(() => new Promise(done => {
-    div = document.createElement("div");
-    div.className = `entry ${type}`;
-    $("#log").appendChild(div);
+    bd = mkEntry($("#log"), type);
+    entry = bd.parentElement;
     if (text) put(text);
     ready = true;
     if (pendingApply) { doApply(pendingApply.main, pendingApply.comment); pendingApply = null; }
     $("#log").scrollTop = $("#log").scrollHeight;
     done();
   }));
-  let pendingApply = null;
-  const put = (str) => { if (RICH.has(type)) div.innerHTML = richHtml(str); else div.textContent = str; };
-  const doApply = (main, comment) => {
-    put(main);
-    if (comment) {
-      const c = document.createElement("div");
-      c.className = "entry comment";
-      c.textContent = comment;
-      div.after(c);
-    }
-    $("#log").scrollTop = $("#log").scrollHeight;
-  };
   return {
     append(c) {
       text += c;
@@ -107,8 +122,8 @@ export function logStream(type) {
       else pendingApply = { main, comment };
     },
     remove() {
-      if (ready) div.remove();
-      else queue = queue.then(() => div?.remove());
+      if (ready) entry.remove();
+      else queue = queue.then(() => entry?.remove());
     },
     get text() { return text; },
   };
@@ -120,7 +135,8 @@ export const sys = (t) => log("sys", t, { instant: true });
 export const gold = (t) => log("gold", t);
 export const playerLine = (t) => log("player", t, { instant: true });
 export const commentLine = (t) => log("comment", `苏唐批：${t}`);
-export const suLine = (t) => log("su", t); // 苏唐的话，一律粉色
+export const suLine = (t) => slog("su", t);      // 苏唐的话 → 右栏，粉色
+export const suSys = (t) => slog("susys", t);    // 苏唐的练功/用料/买卖 → 右栏
 
 // ── 苏唐表情（左栏师妹栏目八格，随文本切换）───────────────────────────
 // 0 勺笑 1 比耶 2 握拳兴奋 3 捧心 4 攥拳得意 5 抱臂哼 6 吃惊 7 搅锅
@@ -185,12 +201,10 @@ function currentGuestSafe(st) {
 }
 
 export function renderSide(st, h) {
-  const hasSnack = Object.values(st.snacks || {}).some(n => n > 0);
   const can = {
     cook: st.phase === "guest",
     snack: true,
-    serve: st.phase === "guest" && !!st.dish,
-    set: st.phase === "guest" && hasSnack,
+    serve: st.phase === "guest" && !!st.dish, // 佐餐（含佐餐set）
     close: st.phase === "guest" && st.served >= 3,
     shop: st.phase === "closing",
     next: st.phase === "closing",
@@ -201,18 +215,21 @@ export function renderSide(st, h) {
   $("#side").innerHTML =
     item("灶台", "C", can.cook, "cook") +
     item("小吃", "X", can.snack, "snack") +
-    item("上菜", "S", can.serve, "serve") +
-    item("配set", "V", can.set, "set") +
+    item("佐餐", "S", can.serve, "serve") +
     item("收功", "R", can.close, "close") +
     item("商店", "T", can.shop, "shop") +
     item("下一日", "N", can.next, "next") +
     `<div class="sep"></div>` +
-    item("背包", "I", true, "bag") +
+    item("仓库", "I", true, "bag") +
     item("设置", "F", true, "settings") +
     item("流程", "L", true, "trace") +
     item("存档", "Q", true, "save") +
     item("帮助", "H", true, "help") +
-    `<div class="hint">说书人听着呢——<br>终端里直接说话也行，<br>说「做 XX」就开灶。</div>`;
+    `<div class="hint">说书人听着呢——<br>终端里直接说话也行，<br>说「做 XX」就开灶。</div>` +
+    `<div class="sucard" aria-hidden="true">
+       <div id="sutang" class="sutang" style="background-position:${moodPos(currentMood)}"></div>
+       <div class="suname">苏唐</div>
+     </div>`;
   $("#side").querySelectorAll(".menu-item:not(.disabled)").forEach(el => {
     el.onclick = () => h[el.dataset.act]?.();
   });
@@ -461,23 +478,27 @@ export function openShop(st, { onBuy, onLeave, onRefresh }) {
   renderGrid(false);
 }
 
-// ── 小吃面板（招呼苏唐备小吃，她自己决定用料/品质）──────────────────
-export function openSnack(st, { onSnack }) {
+// ── 小吃面板（玩家只口述，苏唐自决；已会的可复做）──────────────────
+export function openSnack(st, { onRequest, onRemake, onTag }) {
   let note = "";
+  const HINTS = ["甜的", "辣的", "酸的", "来点汤", "烤串", "豆花饭", "点心", "随便"];
   function draw() {
     const stock = Object.entries(st.snacks || {}).filter(([, n]) => n > 0);
+    const known = st.snackRecipes || [];
     const modal = openModal(`
       <h2>小 吃 · 招呼苏唐</h2>
-      <div class="set-note">小吃是苏唐的活计。你只能言语描述，用什么料、做几分、品质如何，全凭她自个儿。</div>
-      <div class="ck-label">跟苏唐说句话（可选）</div>
-      <input id="sn-note" class="ck-intent" placeholder="如：多放辣 / 给客人做软一点 / 随便" value="${note}">
-      <div class="ck-label">品类 · 备几份 / 来一锅</div>
-      <div class="sn-list">${SNACKS.map(s => `
+      <div class="set-note">小吃是苏唐的活计。你只能口述（师妹，甜的/烤串做几个），做什么、用料、几份、品质，全凭她判断，都会写进主叙事。</div>
+      <div class="ck-label">跟苏唐说</div>
+      <input id="sn-note" class="ck-intent" placeholder="如：师妹，小吃甜的 / 烤串做几个" value="${note}">
+      <div class="tagbar">${HINTS.map(hh => `<span class="tagchip on" data-hint="${hh}">${hh}</span>`).join("")}
+        <span class="ck-btn plain" data-go>招呼苏唐</span></div>
+      <div class="ck-label">已会的小吃 · 点标签换类，可复做</div>
+      <div class="sn-list">${known.length ? known.map(k => `
         <div class="sn-row">
-          <span class="sn-name">${s.name}<i>${s.cat}</i></span>
-          <span class="ck-btn plain" data-snack="${s.id}" data-portions="3">备几份</span>
-          <span class="ck-btn plain" data-snack="${s.id}" data-portions="6">来一锅</span>
-        </div>`).join("")}</div>
+          <span class="sn-name">${k.name}<i>${k.cat}</i></span>
+          <span class="tagchip on" data-tagcycle="${k.name}">${k.tag}</span>
+          <span class="ck-btn plain" data-remake="${k.name}">复做</span>
+        </div>`).join("") : `<span class="ck-mat zero">苏唐还没做过新小吃，先口述一个。</span>`}</div>
       <div class="ck-label">已备好</div>
       <div class="ck-mats">${stock.length ? stock.map(([n, c]) => `<span class="ck-mat zero">${n} ×${c}</span>`).join("") : `<span class="ck-mat zero">还没备。</span>`}</div>
       <div class="ck-label">苏唐手艺</div>
@@ -485,9 +506,10 @@ export function openSnack(st, { onSnack }) {
       <span class="return" data-back>Return · 返回</span>
     `, () => {});
     modal.querySelector("#sn-note").oninput = (e) => { note = e.target.value; };
-    modal.querySelectorAll("[data-snack]").forEach(el => el.onclick = () => {
-      onSnack(SNACKS.find(x => x.id === el.dataset.snack), +el.dataset.portions, note.trim());
-    });
+    modal.querySelectorAll("[data-hint]").forEach(el => el.onclick = () => { note = el.dataset.hint; draw(); });
+    modal.querySelector("[data-go]").onclick = () => onRequest(note.trim());
+    modal.querySelectorAll("[data-remake]").forEach(el => el.onclick = () => onRemake(el.dataset.remake));
+    modal.querySelectorAll("[data-tagcycle]").forEach(el => el.onclick = () => onTag(el.dataset.tagcycle));
     modal.querySelector("[data-back]").onclick = () => closeModal();
   }
   draw();
@@ -498,10 +520,10 @@ export function openSnack(st, { onSnack }) {
 export function openSet(st, { onSet }) {
   const stock = Object.entries(st.snacks || {}).filter(([, n]) => n > 0);
   const modal = openModal(`
-    <h2>配 set · 上菜搭个边</h2>
-    <div class="set-note">给客人多搭一份苏唐备的小吃，客人更受用。当前：${st.pendingSet || "不上set"}。</div>
+    <h2>佐 餐 · 上菜搭个边</h2>
+    <div class="set-note">给客人多搭一份苏唐备的小吃，客人更受用。当前：${st.pendingSet || "不佐餐"}。</div>
     <div class="ck-mats">
-      <span class="ck-mat ${st.pendingSet ? "" : "zero"}" data-set="">不上set</span>
+      <span class="ck-mat ${st.pendingSet ? "" : "zero"}" data-set="">不佐餐</span>
       ${stock.map(([n, c]) => `<span class="ck-mat" data-set="${n}">${n} ×${c}</span>`).join("")}
     </div>
     <span class="return" data-back>Return · 返回</span>
@@ -517,7 +539,7 @@ export function openSet(st, { onSet }) {
 export function openBag(st) {
   const mats = Object.entries(st.inv).filter(([, n]) => n > 0);
   openModal(`
-    <h2>包 袱</h2>
+    <h2>仓 库</h2>
     <div class="ck-label">文钱 · ${st.coins}</div>
     <div class="ck-label">食材与调味品</div>
     <div class="ck-mats">${mats.length ? mats.map(([n, c]) =>
