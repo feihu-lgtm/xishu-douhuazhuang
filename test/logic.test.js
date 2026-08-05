@@ -323,3 +323,8 @@ test("guestsOfDay：苏酥首客加权（长样本在合理区间）", () => {
   const pct = su / N;
   assert.ok(pct > 0.28 && pct < 0.42, `苏酥首客率应在 ~35% 附近，实测 ${(pct * 100).toFixed(1)}%`);
 });
+
+test("newState：带星食材描述落盘字段 starLore 就位", () => {
+  const st = newState();
+  assert.deepEqual(st.starLore, {}, "新档 starLore 为空对象，探秘收获时写入");
+});

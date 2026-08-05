@@ -134,7 +134,7 @@ async function cookNarrate(j) {
   renderAll(st, handlers);
   await narr("师兄开火。灶膛噼啪一声，火苗蹿高，苏唐往灶里添了把柴。");
   const lore = j.materials
-    .map(m => ING_BY_NAME[m]?.lore)
+    .map(m => ING_BY_NAME[m]?.lore || (st.starLore && st.starLore[m])) // 带星食材用探秘记下的描述
     .filter(Boolean)
     .map((l, i) => `${j.materials[i]}——${l}`);
   // 第一轮·武学裁决：练哪几门功 + 食材配合分
@@ -383,9 +383,11 @@ async function doExpedition(node) {
   // ③ 收获（检定的成败决定星级）
   await sys("【探秘】掀开包袱——");
   st.stars = st.stars || {};
+  st.starLore = st.starLore || {};
   for (const s of special) {
     st.inv[s.name] = (st.inv[s.name] || 0) + 1;
     st.stars[s.name] = s.stars;
+    if (s.desc) st.starLore[s.name] = s.desc;   // 记下简短描述，做菜时才不会变味
     await narr(`【收获】「${s.name}」${"★".repeat(s.stars)} —— ${s.desc}`);
   }
   note("探秘", `${node.name}(${scenario})寻得 ${special.map(s => s.name).join("、")}。`);
@@ -497,7 +499,7 @@ async function doSnackRequest(txt) {
   suSys(`【行动·备小吃】师兄说：${txt || "随便"}`);
   const cfg = loadCfg();
   const mv = Math.round(Object.values(st.skills).reduce((a, b) => a + b, 0) / 7);
-  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), martialTier: tierOfScore(mv), words: cfg.snackWords || 300, context: ctxLine(st) });
+  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), martialTier: tierOfScore(mv), words: cfg.snackWords || 300, context: ctxLine(st), stars: st.stars });
   for (const m of r.used) {
     st.inv[m] = (st.inv[m] || 0) - 1;
     if (st.inv[m] <= 0) delete st.inv[m];

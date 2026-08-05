@@ -70,6 +70,7 @@ export function newState() {
     techUses: {},            // 技法练功次数 {技法: n}（用前置技法N次解锁进阶）
     flavorUses: {},          // 味型练功次数 {味型id: n}
     customGuests: [],        // AI 生成的新顾客池 [{...GUESTS 同构, custom:true}]
+    starLore: {},            // 探秘带星食材的简短描述 {name: desc}（做菜/小吃时当 lore 注入，别让 AI 自己脑补成别的）
   };
 }
 

@@ -470,7 +470,8 @@ export function parseSnack(t, ctx) {
 const SU_SNACK_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好。你是店家，对顾客要客气热情、招呼周到；对师兄则调情撒娇、逗他嗔他带甜，绝不责备。小剧情分 3-5 个自然段、段间空一行；对话用「」（不要用“”），心理用 *...*。先写小剧情，再输出 JSON。";
 export async function genSnack(cfg, ctx) {
   if (cfgReady(cfg)) {
-    const invStr = Object.entries(ctx.inv).map(([n, c]) => `${n}${starLabel(n)}×${c}`).join("、") || "（没有）";
+    const starOfN = (n) => (ctx.stars && ctx.stars[n]) || 0;
+    const invStr = Object.entries(ctx.inv).map(([n, c]) => `${n}${starOfN(n) ? "★".repeat(starOfN(n)) : ""}×${c}`).join("、") || "（没有）";
     const user = snackUser({ ...ctx, invStr, words: ctx.words || cfg.snackWords || 300 });
     try {
       const raw = await callAI(cfg, SU_SNACK_SYS, user, "苏唐备小吃");
