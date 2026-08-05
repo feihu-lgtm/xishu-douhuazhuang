@@ -7,12 +7,12 @@ import {
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genChallenge, genSettlement,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement,
   extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
 import {
-  narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallenge,
+  narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
   commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate,
 } from "./ui.js";
@@ -332,42 +332,42 @@ async function doExpedition(node) {
   const scenario = (pool.length ? pool : catPool)[Math.floor(Math.random() * (pool.length ? pool.length : catPool.length))];
   st.lastScenByNode[node.id] = scenario;
   sys(`【探秘·${node.name}】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……`);
-  // ① 先叙事：背景、此行的处境
-  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st) });
+  // ① 一次调用：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special
+  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st), category: node.category, nodeName: node.name });
   await narr(r.narrative);
   if (r.comment) await commentLine(r.comment);
   setMood(r.mood ?? 0);
   let special = (r.special && r.special.length) ? r.special : fallbackSpecial();
-  // ② 出题：AI 一次出 题干 + 选项 + 鉴定要求（覆盖全维度，非止见识/口才/赌）
-  const ch = await genChallenge(loadCfg(), { category: node.category, nodeName: node.name, scenario, context: ctxLine(st) });
+  const ch = r.challenge || { prompt: "", options: [] };
+  stepTrace("出题", "pass", `${ch.options.length} 个选项（${ch.options.map(o => o.dim).join("/")}）`);
   await narr(`走到紧要处——${ch.prompt}`);
-  // 玩家读题干的同时，后台预生成每个选项的成败结算；选定后直接展示，不用等
   const background = `${scenario}。${(r.narrative || "").slice(0, 220)}`;
   const specialNames = special.map(s => `${s.name}${"★".repeat(s.stars)}`).join("、");
-  const settlePromise = genSettlement(loadCfg(), { background, prompt: ch.prompt, options: ch.options, special: specialNames });
   const outcome = await new Promise((resolve) => {
-    openChallenge(st, ch, {
+    openChallengePanel(st, ch, {
       onPick: (dim) => resolve({ act: "pick", dim }),
       onSkip: () => resolve({ act: "skip" }),
     });
   });
-  const { byDim } = await settlePromise;
   let check = null;
   if (outcome.act === "pick") {
     const opt = ch.options.find(o => o.dim === outcome.dim) || { text: outcome.dim, dim: outcome.dim };
     check = checkDim(st, outcome.dim);
-    const branch = (byDim || {})[outcome.dim];
+    const rank = CHECK_DIMS.includes(outcome.dim) ? rankLabel((st.checks[outcome.dim] || {}).succ || 0, !!((st.checks[outcome.dim] || {}).achieve)) : "";
+    stepTrace("鉴定", check.ok ? "pass" : "fail", `「${opt.text}」·${outcome.dim}·≈${check.p}%${rank ? "·" + rank : ""}${check.achieve ? "·★成就" : ""}`);
+    // 结算走 AI：500 字收尾叙事，回扣背景
+    const stt = await genSettlement(loadCfg(), { background, prompt: ch.prompt, choice: opt.text, dim: outcome.dim, ok: check.ok, special: specialNames });
+    if (stt.text) await narr(stt.text);
+    else await sys(check.ok ? `【检定】「${opt.text}」这一手成了（≈${check.p}%）${CHECK_DIMS.includes(outcome.dim) ? `，愈发老练（${rank}）` : ""}。` : `【检定】「${opt.text}」这一手没成（≈${check.p}%），白折腾半日。`);
     if (check.ok) {
-      if (branch?.pass) await narr(branch.pass);
-      else await sys(`【检定】「${opt.text}」这一手成了（≈${check.p}%）${CHECK_DIMS.includes(outcome.dim) ? `，愈发老练（${rankLabel((st.checks[outcome.dim] || {}).succ || 0, !!((st.checks[outcome.dim] || {}).achieve))}）` : ""}。`);
       special = special.map(s => ({ ...s, stars: Math.min(3, s.stars + 1) })); // 看得准，收获更佳
       note("探秘", `${node.name}·${scenario}·「${opt.text}」${outcome.dim}检定成了。`);
     } else {
-      if (branch?.fail) await narr(branch.fail);
-      else await sys(`【检定】「${opt.text}」这一手没成（≈${check.p}%），白折腾半日。`);
-      note("探秘", `${node.name}·${scenario}·「${opt.text}」${outcome.dim}检定落空。`);
+      special = special.map(s => ({ ...s, stars: Math.min(1, s.stars) }));     // 失手：只落普通料，白拿带星说不过去
+      note("探秘", `${node.name}·${scenario}·「${opt.text}」${outcome.dim}检定落空，收成潦草。`);
     }
   } else {
+    stepTrace("鉴定", "skip", "收手不掺和");
     await sys("师兄收手，不掺和这档子事。");
   }
   if (check?.achieve) {
@@ -384,7 +384,10 @@ async function doExpedition(node) {
   }
   note("探秘", `${node.name}(${scenario})寻得 ${special.map(s => s.name).join("、")}。`);
   endTrace(`探秘·${node.name}·${scenario}·得${special.map(s => s.name).join("、")}`);
-  } finally { busy = false; }
+  } finally {
+    busy = false;
+    endTrace("（探秘中断）"); // 兜底：正常结束已是 no-op；异常中断则闭合 trace，不卡「进行中」
+  }
   renderAll(st, handlers);
   saveGame(st);
 }

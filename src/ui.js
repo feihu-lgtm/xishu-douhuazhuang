@@ -553,16 +553,27 @@ export function openMap(st, { onGo }) {
   modal.querySelector("[data-leave]").onclick = () => closeModal(cleanup);
 }
 
-// ── 探秘关卡（叙事之后的决策：选维度骰检，或抽身）────────────────────
-export function openChallenge(st, ch, { onPick, onSkip }) {
-  const modal = openModal(`
-    <div class="ch-head">
-      <span class="map-title">关 口</span>
-      <span class="return" data-leave style="margin-left:auto">Return · 返回</span>
-    </div>
-    <div class="ch-prompt">${ch.prompt}</div>
-    <div class="ck-label">师兄，此事如何处置？</div>
-    <div class="ch-dims">
+// ── 探秘关卡：右栏(#sulog)临时"夺舍"成选项面板，左栏(#log)继续主叙事 ──
+let sulogSaved = null;
+export function takeoverSulog(html) {
+  const el = $("#sulog");
+  sulogSaved = el.innerHTML;              // 先存苏唐历史，探秘结束再还原
+  el.innerHTML = `<div class="exp-panel">${html}</div>`;
+  el.scrollTop = 0;
+}
+export function restoreSulog() {
+  if (sulogSaved !== null) {
+    $("#sulog").innerHTML = sulogSaved;
+    sulogSaved = null;
+    $("#sulog").scrollTop = $("#sulog").scrollHeight;
+  }
+}
+export function openChallengePanel(st, ch, { onPick, onSkip }) {
+  takeoverSulog(`
+    <div class="exp-panel-head">关 口</div>
+    <div class="exp-prompt">${ch.prompt}</div>
+    <div class="exp-label">师兄，此事如何处置？</div>
+    <div class="exp-opts">
       ${(ch.options || []).map(o => {
         const d = o.dim;
         const c = (st.checks || {})[d] || {};
@@ -570,16 +581,14 @@ export function openChallenge(st, ch, { onPick, onSkip }) {
         const rank = isDice ? rankLabel(c.succ || 0, !!c.achieve) : "";
         const hint = isDice ? (c.achieve ? "此道已臻化境" : "成不成的，全看平日熟不熟此道") : "这一下，全凭平日功夫";
         const icon = DIMENSIONS[d]?.icon;
-        return `<span class="ck-btn plain" data-dim="${d}" title="${hint}">
-          ${icon ? `<img class="fav" src="./assets/${icon}" alt="">` : ""}${o.text}${rank ? ` <i class="rank">${rank}</i>` : ""}</span>`;
+        return `<button class="exp-opt" data-dim="${d}" title="${hint}">
+          ${icon ? `<img class="fav" src="./assets/${icon}">` : ""}<span>${o.text}</span>${rank ? `<i class="rank">${rank}</i>` : ""}</button>`;
       }).join("")}
+      <button class="exp-opt skip" data-skip>算了，不掺和</button>
     </div>
-    <div class="ch-skip"><span class="ck-btn plain" data-skip>算了，不掺和</span></div>
-  `, () => onSkip?.());
-
-  modal.querySelectorAll("[data-dim]").forEach(el => el.onclick = () => { closeModal(); onPick(el.dataset.dim); });
-  modal.querySelector("[data-skip]").onclick = () => { closeModal(); onSkip?.(); };
-  modal.querySelector("[data-leave]").onclick = () => { closeModal(); onSkip?.(); };
+  `);
+  document.querySelectorAll("#sulog [data-dim]").forEach(el => el.onclick = () => { restoreSulog(); onPick(el.dataset.dim); });
+  document.querySelector("#sulog [data-skip]").onclick = () => { restoreSulog(); onSkip?.(); };
 }
 
 // ── 小吃面板（玩家只口述，苏唐自决；已会的可复做）──────────────────

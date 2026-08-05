@@ -242,14 +242,22 @@ body {
 .scard.owned .sbuy { color: var(--mute); cursor: default; }
 .scard.owned .sname { color: var(--ink-dim); }
 
-/* 探秘关卡（叙事后的决策：选维度骰检） */
-.ch-head { display: flex; align-items: center; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line-soft); }
-.ch-prompt { font-size: 14px; line-height: 2; color: var(--ink); padding: 18px 22px; border-bottom: 1px solid var(--line-soft); }
-.ch-dims { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 22px 0; }
-.ch-dims .ck-btn { display: inline-flex; align-items: baseline; gap: 8px; }
-.ch-dims .fav { width: 22px; height: 22px; image-rendering: pixelated; display: inline-block; vertical-align: middle; align-self: center; }
-.ch-dims .rank { font-size: 11px; color: var(--ink-dim); letter-spacing: 1px; }
-.ch-skip { padding: 14px 22px 20px; }
+/* 探秘关卡 · 右栏选项面板（#sulog 临时夺舍，左栏 #log 继续主叙事） */
+.exp-panel { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; min-height: 100%; }
+.exp-panel-head { font-size: 13px; letter-spacing: 4px; color: var(--ink-bright); border-bottom: 1px solid var(--line-soft); padding-bottom: 8px; }
+.exp-prompt { font-size: 13px; line-height: 1.9; color: var(--ink); }
+.exp-label { font-size: 11px; letter-spacing: 2px; color: var(--ink-dim); }
+.exp-opts { display: flex; flex-direction: column; gap: 8px; }
+.exp-opt {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 9px 12px; font-size: 13px; color: var(--ink); line-height: 1.5;
+  background: rgba(201, 161, 155, .08); border: 1px solid var(--line-soft); border-radius: 2px;
+  cursor: pointer; font-family: inherit;
+}
+.exp-opt:hover { background: rgba(201, 161, 155, .14); color: var(--ink-bright); }
+.exp-opt .fav { width: 22px; height: 22px; image-rendering: pixelated; flex-shrink: 0; }
+.exp-opt .rank { margin-left: auto; font-size: 11px; color: var(--ink-dim); letter-spacing: 1px; font-style: normal; flex-shrink: 0; }
+.exp-opt.skip { justify-content: center; color: var(--ink-dim); background: transparent; }
 
 /* 探秘地图（全屏 · 图钉流） */
 .map-head { display: flex; align-items: center; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line-soft); }

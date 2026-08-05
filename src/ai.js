@@ -133,11 +133,14 @@ export async function listModels(cfg) {
 }
 
 // max_tokens 默认 200000，设置里可调（厂商报错就调小）
-export async function callAI(cfg, system, user, label) {
+// timeoutMs：调用级覆盖；默认 cfg.timeoutMs 或 120s（探秘等大叙事给更长，见调用点）
+// skipMode：true 时跳过 ■NSFW 注入（探秘等纯叙事调用不需要色情规则，也免得拖慢/污染输出）
+export async function callAI(cfg, system, user, label, timeoutMs, skipMode) {
   await throttle();
   const t0 = Date.now();
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 60000);
+  const ms = timeoutMs || cfg.timeoutMs || 120000;
+  const timer = setTimeout(() => ctrl.abort(), ms);
   try {
     const res = await fetch(normalizeEndpoint(cfg.endpoint), {
       method: "POST",
@@ -149,7 +152,9 @@ export async function callAI(cfg, system, user, label) {
         model: cfg.model,
         temperature: 0.9,
         max_tokens: cfg.maxTokens || 200000,
-        messages: msgsWithMode(sysWithMode(system), user),
+        messages: skipMode
+          ? [{ role: "system", content: system }, { role: "user", content: user }]
+          : msgsWithMode(sysWithMode(system), user),
       }),
       signal: ctrl.signal,
     });
@@ -160,19 +165,21 @@ export async function callAI(cfg, system, user, label) {
     pushTrace({ ts: t0, label: label || "调用", system, user, response: text, ms: Date.now() - t0 });
     return text;
   } catch (e) {
-    pushTrace({ ts: t0, label: label || "调用", system, user, response: "", error: e.message, ms: Date.now() - t0 });
-    throw e;
+    const err = e?.name === "AbortError" ? new Error(`上游响应超时（${Math.round(ms / 1000)}s 未返回）`) : e;
+    pushTrace({ ts: t0, label: label || "调用", system, user, response: "", error: err.message, ms: Date.now() - t0 });
+    throw err;
   } finally {
     clearTimeout(timer);
   }
 }
 
 // 流式调用：SSE data: 行，逐块回调 onChunk，返回全文
-export async function callAIStream(cfg, system, user, onChunk, label) {
+export async function callAIStream(cfg, system, user, onChunk, label, timeoutMs, skipMode) {
   await throttle();
   const t0 = Date.now();
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 120000);
+  const ms = timeoutMs || cfg.timeoutMs || 120000;
+  const timer = setTimeout(() => ctrl.abort(), ms);
   try {
     const res = await fetch(normalizeEndpoint(cfg.endpoint), {
       method: "POST",
@@ -185,7 +192,9 @@ export async function callAIStream(cfg, system, user, onChunk, label) {
         temperature: 0.9,
         max_tokens: cfg.maxTokens || 200000,
         stream: true,
-        messages: msgsWithMode(sysWithMode(system), user),
+        messages: skipMode
+          ? [{ role: "system", content: system }, { role: "user", content: user }]
+          : msgsWithMode(sysWithMode(system), user),
       }),
       signal: ctrl.signal,
     });
@@ -219,8 +228,9 @@ export async function callAIStream(cfg, system, user, onChunk, label) {
     pushTrace({ ts: t0, label: label || "流式", system, user, response: full, ms: Date.now() - t0 });
     return full;
   } catch (e) {
-    pushTrace({ ts: t0, label: label || "流式", system, user, response: "", error: e.message, ms: Date.now() - t0 });
-    throw e;
+    const err = e?.name === "AbortError" ? new Error(`上游响应超时（${Math.round(ms / 1000)}s 未返回）`) : e;
+    pushTrace({ ts: t0, label: label || "流式", system, user, response: "", error: err.message, ms: Date.now() - t0 });
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -508,38 +518,67 @@ function fallbackSuTalk() {
 }
 
 // ── 副本·探秘（轻度武侠，统一主叙事文风：第三人称师兄/苏唐+苏唐批）──
-const EXP_SYS = STYLE + "\n这是探秘副本叙事：轻度武侠，市井烟火与江湖险恶交织，可写讨价还价、奇遇、劫镖、探山洞、穿密林、下地宫；不写美食猎人式奇幻夸张。一律第三人称写师兄与苏唐，不要写「你」。";
-export async function genExpedition(cfg, ctx, onChunk) {
+// 一次调用产出：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special。
+// 不再单独 genChallenge——主叙事和出题一起出，省一次调用与限流间隔。
+export async function genExpedition(cfg, ctx) {
+  const c = { ...cfg, maxTokens: Math.max(cfg.maxTokens || 0, 4096) }; // 500字叙事+选项+题干，别截断
+  const pool = challengeDims(ctx.category);
   if (cfgReady(cfg)) {
     const user = [
       ctx.context ? `【上下文】\n${ctx.context}` : "",
       `今次的情境是：${ctx.scenario}。严格按此情境写，不要换成别的场景（不要总写山洞）。`,
       `师兄（武功约 ${ctx.skillAvg}、凭平日见识与智慧）与苏唐（手艺 ${ctx.suAvg}）同行，寻稀有食材。`,
-      `请你即兴发明 1-2 种【高级带星食材】：名字要有武侠/市井感、不要与商店常见食材重复；每种 stars 取 1-3、desc 一句。`,
-      `写 3-5 段第三人称叙事：师兄以武功或智慧化解阻碍、苏唐辨认并得手，穿插「」对话与 *心理*；收尾回店。`,
-      `再一行「苏唐批：」苏唐的吐槽/评价；再一行「心情：」一个词（八个里选）。`,
-      `最后另起一行输出 JSON：{"special":[{"name":"","stars":1,"desc":""}]}`,
+      `可用维度池（关卡各路本事都能考，不限于口舌眼力）：${pool.join(" / ")}。`,
+      `只输出一个 JSON，一次给全：{"narrative":"约500字（±10%）第三人称主叙事，3-5段，师兄化解阻碍、苏唐辨认得手，穿插「」对话与*心理*，收尾回店","comment":"苏唐批一句","mood":"八个心情词之一(开心/悠闲/兴奋/心动/得意/不满/吃惊/专注)","challenge":{"prompt":"约80-120字文学化题干，只写关口与悬而未决的处境，绝不写解法/维度名/成功率","options":[{"text":"玩家可选动作，8-20字，文学化，不写维度名/成功率","dim":"从可用维度池里选"}...]},"special":[{"name":"高级带星食材名，武侠/市井感","stars":1-3,"desc":"一句"}]}`,
+      `challenge.options 给 4-6 个，尽量覆盖不同路子：硬闯硬碰、巧取身法、细看辨认、上前搭话、押一把赌注等；题干与选项像小说正文，让玩家自己猜要考什么。`,
+      `special 给 1-2 种。全部放进同一个 JSON 对象，不要 JSON 之外的多余文字。`,
     ].filter(Boolean).join("\n");
     const t0 = Date.now();
     try {
-      const raw = await callAI(cfg, EXP_SYS, user, "探秘");
+      const raw = await callAI(c, "你是探秘总编排：一次输出主叙事+关卡题干与选项+收获。只输出 JSON，不写多余文字。", user, "探秘", 180000, true);
       const o = parseJSONRescue(raw);
-      let special = Array.isArray(o.special) ? o.special : [];
-      special = special.filter(s => s && s.name).map(s => ({
-        name: s.name, stars: Math.max(1, Math.min(3, parseInt(s.stars, 10) || 2)), desc: s.desc || "",
-      }));
-      let text = (raw || "").trim();
-      const ji = text.indexOf("{");
-      if (ji >= 0) text = text.slice(0, ji).trim();
-      const ex = extractComment(text);
-      return { narrative: ex.main, comment: ex.comment, mood: moodIndex(ex.mood), special, ms: Date.now() - t0, ai: true };
+      const narrative = (o.narrative || "").trim();
+      if (narrative) {
+        let opts = Array.isArray(o.challenge?.options) ? o.challenge.options : [];
+        opts = opts.filter(x => x && x.text && RESOLVABLE_DIMS.includes(x.dim)).slice(0, 6);
+        const prompt = (o.challenge?.prompt || "").trim();
+        let special = Array.isArray(o.special) ? o.special : [];
+        special = special.filter(s => s && s.name).map(s => ({
+          name: s.name, stars: Math.max(1, Math.min(3, parseInt(s.stars, 10) || 2)), desc: s.desc || "",
+        }));
+        return {
+          narrative,
+          comment: (o.comment || "").trim(),
+          mood: moodIndex(o.mood),
+          challenge: {
+            prompt: prompt || fallbackChallengePrompt(pool),
+            options: opts.length ? opts : fallbackChallengeOpts(pool),
+          },
+          special,
+          ms: Date.now() - t0, ai: true,
+        };
+      }
     } catch { /* 降级 */ }
   }
-  return { narrative: "师兄与苏唐深入险地，凭一身武功与苏唐的眼力，觅得几样罕见食材，满载而归。", comment: "师兄腿脚还行，就是话少。", mood: 4, special: [], ai: false };
+  const opts = fallbackChallengeOpts(pool);
+  return {
+    narrative: "师兄与苏唐深入险地，凭一身武功与苏唐的眼力，觅得几样罕见食材，满载而归。",
+    comment: "师兄腿脚还行，就是话少。", mood: 4,
+    challenge: { prompt: fallbackChallengePrompt(pool), options: opts },
+    special: [], ai: false,
+  };
+}
+function fallbackChallengePrompt(pool) {
+  const d = pool[0];
+  return CH_FALLBACK_PROMPTS[d] || CH_FALLBACK_PROMPTS.见识;
+}
+function fallbackChallengeOpts(pool) {
+  return pool.slice(0, 3).map(d => ({ text: CH_FALLBACK_OPTS[d] || CH_FALLBACK_OPTS.见识, dim: d }));
 }
 // ── 探秘出题：叙事之后的一道「小考题」，玩家选维度骰检 ──────────────
-// 维度池从 data.js 的权威数据推导：据点分类 → 任务类型 → 维度；只留骰子检定维度
-// （见识/口才/赌博；眼力并入见识）。题干永远文学化，不出现维度名。
+// 维度池从 data.js 的权威数据推导：据点分类 → 任务类型 → 维度，覆盖全部可判定维度
+// （骰子三围 见识/口才/赌博 + 属性四维 轻功/投掷/武艺/内功/胆识；眼力并入见识）。
+// 题干永远文学化，不出现维度名。
 const CHECK_DIM_MAP = { 眼力: "见识" };
 // 可判定维度全集：骰子三围 + 属性四维（资源/苏唐 v1 不出题）
 export const RESOLVABLE_DIMS = [...CHECK_DIMS, ...["轻功", "投掷", "武艺", "内功", "胆识"]];
@@ -568,55 +607,28 @@ export function challengeDims(category) {
   }
   return out.length ? out : [...CHECK_DIMS];
 }
-export async function genChallenge(cfg, ctx) {
-  const pool = challengeDims(ctx.category);
-  if (cfgReady(cfg)) {
-    const user = [
-      ctx.context ? `【上下文】\n${ctx.context}` : "",
-      `场景：师兄与苏唐在「${ctx.nodeName}」办「${ctx.scenario}」。此地的关口可以考验各种本事，不限于眼力口舌。`,
-      `可用维度池（这道题只从中选）：${pool.join(" / ")}。`,
-      `只输出 JSON：{"prompt":"约60-90字的文学化题干，只写关口与悬而未决的处境，绝不写解法、不写维度名、不写成功率","options":[{"text":"玩家可选的其中一个动作，8-20字，文学化，不写维度名、不写成功率","dim":"此题合理的解法维度，从可用维度池里选"}...]}`,
-      `options 给 2-3 个，覆盖不同路子（如硬闯/巧取/细看/搭话/押注）。题干要像小说正文：用上「」对话或 *心理*，暗示过关要靠什么，但让玩家自己猜。`,
-    ].filter(Boolean).join("\n");
-    try {
-      const raw = await callAI(cfg, "你是探秘出题官，只输出 JSON，不写多余文字。", user, "探秘出题");
-      const o = parseJSONRescue(raw);
-      let opts = Array.isArray(o.options) ? o.options : [];
-      opts = opts.filter(x => x && x.text && RESOLVABLE_DIMS.includes(x.dim)).slice(0, 3);
-      const prompt = (o.prompt || "").trim();
-      if (prompt && opts.length) return { prompt, options: opts, ai: true };
-    } catch { /* 降级 */ }
-  }
-  const dims = pool.slice(0, 2);
-  const opts = dims.map(d => ({ text: CH_FALLBACK_OPTS[d] || CH_FALLBACK_OPTS.见识, dim: d }));
-  return { prompt: CH_FALLBACK_PROMPTS[dims[0]] || CH_FALLBACK_PROMPTS.见识, options: opts, ai: false };
-}
 
-// ── 探秘结算：玩家看题干时后台预生成「每个选项」的成功/失败分支 ─────
-// 一次调用产出全部选项的 pass/fail，玩家选定后直接展示对应分支，不用等。
+// ── 探秘结算：玩家选定后，生成该选项约500字的完整收尾叙事，回扣背景 ──
+// 多选项时无法预生成全部 pass/fail 各500字，改为选中再写，保证剧情厚度。
 export async function genSettlement(cfg, ctx) {
+  const c = { ...cfg, maxTokens: Math.max(cfg.maxTokens || 0, 4096) }; // 500字+别截断
   if (cfgReady(cfg)) {
-    const optsStr = ctx.options.map(o => `「${o.text}」（${o.dim}）`).join("；");
     const user = [
       ctx.background ? `【来龙去脉】\n${ctx.background}` : "",
       `【关口】\n${ctx.prompt}`,
-      `【选项】\n${optsStr}`,
+      `师兄选了「${ctx.choice}」，以${ctx.dim}化解。`,
+      `结果：${ctx.ok ? "成了" : "没成"}。`,
       ctx.special ? `此行收成：${ctx.special}。` : "",
-      `为每个选项分别写两段收尾叙事（pass 成功 / fail 失败），各 1-2 段，务必回扣【来龙去脉】里的具体细节（雾、石、摊、人言等），把这一步如何奏效/如何落空自然收束。用「」对话与 *心理*。`,
-      `只输出 JSON：{"results":[{"dim":"与【选项】里完全相同的维度名","pass":"该维度成功时的收尾叙事","fail":"该维度失败时的收尾叙事"}...]}，一个选项一条，dim 必须一一对应。`,
+      `写约 500 字（±10%）、2-4 段的第三人称收尾叙事：交代这一手如何奏效/如何落空，务必回扣【来龙去脉】里的具体细节（雾、石、摊、人言等），自然带出收成——${ctx.ok ? "此次手到擒来，收成丰硕" : "此番失手，收成潦草"}。用「」对话与 *心理*。`,
+      `只输出正文本身，不要旁白总结，不要「心情：」「苏唐批：」。`,
     ].filter(Boolean).join("\n");
     try {
-      const raw = await callAI(cfg, STYLE + "\n你是探秘收尾官，只输出 JSON。", user, "探秘结算");
-      const o = parseJSONRescue(raw);
-      const results = Array.isArray(o.results) ? o.results : [];
-      const byDim = {};
-      for (const r of results) {
-        if (r && r.dim && (r.pass || r.fail)) byDim[r.dim] = { pass: (r.pass || "").trim(), fail: (r.fail || "").trim() };
-      }
-      if (Object.keys(byDim).length) return { byDim, ai: true };
+      const raw = await callAI(c, STYLE + "\n你是探秘收尾官，只输出正文。", user, "探秘结算", 180000, true);
+      const t = (raw || "").trim();
+      if (t) return { text: t, ai: true };
     } catch { /* 降级 */ }
   }
-  return { byDim: {}, ai: false };
+  return { text: "", ai: false };
 }
 
 export async function genSuTalk(cfg, ctx, onChunk) {
