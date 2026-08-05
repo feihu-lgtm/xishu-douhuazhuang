@@ -404,3 +404,59 @@ export const EXP_SCEN_BY_CAT = {
   商贸: ["行商·走村串户", "以物易物", "赊账收账", "拍卖·头彩竞价", "赶集·摆摊卖菜",
     "订购·包下果园", "预售·年菜订金", "换季·清仓甩卖", "团购·府衙采买", "尾货·收山货"],
 };
+
+// ── 探秘维度系统（玩家不可见，AI出题+系统判定用；设计见 docs/探秘系统设计.md）──
+// 维度只决定"这题在考什么"，不出现在题干文本里。四类分组用于抽题时保证不重复类别。
+export const DIMENSION_GROUPS = ["身法", "硬功", "智谋", "心性"];
+export const DIMENSIONS = {
+  轻功: { group: "身法", skillKey: "轻功", hint: "崖壁、独木、浮桥、树梢" },
+  投掷: { group: "身法", skillKey: "投掷", hint: "够不着的东西、暗器、勾索" },
+  武艺: { group: "硬功", skillKey: null, hint: "拦路的人/兽、需要硬碰" }, // 判定取刀法/剑法/拳掌/枪法最高者
+  内功: { group: "硬功", skillKey: "内功", hint: "寒气、毒瘴、水底、暗劲" },
+  眼力: { group: "智谋", skillKey: "眼力", hint: "雾气、灰烬、药草、赝品" },
+  见识: { group: "智谋", skillKey: "见识", hint: "认不得的兽迹、碑文、异味", icon: "favicon_jian_shi.png" },
+  口才: { group: "心性", skillKey: "口才", hint: "守门人、市侩、赌局", icon: "favicon_kou_cai.png" },
+  胆识: { group: "心性", skillKey: "胆识", hint: "阴风、尸骸、深不见底" },
+  赌博: { group: "心性", skillKey: "赌博", hint: "骰盅、庄家、输赢一线", icon: "favicon_du_bo.png" }, // 骰子检定维度，熟能生巧（见 state.js checks）
+};
+// 非常规维度：不进常规抽取池，按概率附加在主维度之外
+export const SPECIAL_DIMENSIONS = {
+  资源: { hint: "靠包里的东西过——绳索/药/火折子/银钱，不检定，直接扣" },
+  苏唐: { hint: "靠苏唐的手艺或好感过（协作）" },
+};
+
+// ── 探秘任务类型：七大类，出题时给AI的情境倾向（张力+典型场景）────
+export const EXPEDITION_TASK_TYPES = {
+  穿行: { dims: ["轻功", "胆识", "资源"], tension: "过不过得去", examples: "渡河、攀崖、走索桥、踏冰" },
+  探寻: { dims: ["眼力", "见识", "苏唐"], tension: "找不找得到、认不认得", examples: "山洞、密林、地宫、废村" },
+  交锋: { dims: ["武艺", "口才", "胆识"], tension: "打得过还是谈得拢", examples: "劫镖、拦路、野兽、劫匪" },
+  市井: { dims: ["口才", "赌博", "眼力", "资源"], tension: "值不值、上不上当", examples: "讨价还价、黑市、赌局、酒馆" },
+  造化: { dims: ["见识", "赌博", "胆识"], tension: "认不认得宝、取不取", examples: "奇遇、天材地宝、野味、古物" },
+  夜行: { dims: ["胆识", "内功"], tension: "赶路还是停", examples: "天黑、涨潮、雨季、灯油将尽" },
+  协作: { dims: ["苏唐", "赌博", "口才"], tension: "信不信她、怎么分工", examples: "双人配合、她掌锅你探路" },
+};
+// 地图据点 category（EXP_SCEN_BY_CAT 的key）→ 候选任务类型池，决定该据点抽题时任务类型的取值范围
+export const CATEGORY_TASK_TYPES = {
+  探洞地宫: ["探寻"],
+  天灾: ["夜行"],
+  密林采山: ["探寻", "穿行"],
+  奇遇: ["造化"],
+  劫镖江湖: ["交锋"],
+  水域: ["穿行"],
+  市井: ["市井"],
+  节庆: ["协作"],
+  人情: ["协作"],
+  商贸: ["市井"],
+};
+
+// ── 选项类别库：8种动作原型，AI出选项从这里挑，每道题至少含1个"智察"类──
+export const OPTION_ARCHETYPES = {
+  强攻: { checks: ["武艺"], resolve: "roll", reward: "高", risk: "失败伤血" },
+  巧取: { checks: ["轻功", "投掷"], resolve: "roll", reward: "中", risk: "失败落空不伤" },
+  智察: { checks: ["眼力", "见识"], resolve: "roll", reward: "解锁隐藏选项", risk: "无" },
+  口舌: { checks: ["口才"], resolve: "roll", reward: "省资源", risk: "失败降好感" },
+  资源: { checks: [], resolve: "consume", reward: "直接过", risk: "消耗道具/银钱" },
+  借苏唐: { checks: ["苏唐"], resolve: "roll", reward: "苏唐长经验", risk: "消耗好感" },
+  回避: { checks: [], resolve: "none", reward: "无", risk: "错过收获，可能耗时" },
+  赌运: { checks: ["赌博"], resolve: "roll", reward: "高", risk: "高风险" },
+};

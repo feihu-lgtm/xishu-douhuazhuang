@@ -1,9 +1,9 @@
 // 西蜀豆花庄 · 界面层（DOM）
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
-  ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP,
+  ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS,
 } from "./data.js";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS } from "./state.js";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
 
 // 顶部限流五点是空心/实心 + 12s 计时
@@ -551,6 +551,35 @@ export function openMap(st, { onGo }) {
     if (node) onGo(node);
   });
   modal.querySelector("[data-leave]").onclick = () => closeModal(cleanup);
+}
+
+// ── 探秘关卡（叙事之后的决策：选维度骰检，或抽身）────────────────────
+export function openChallenge(st, ch, { onPick, onSkip }) {
+  const modal = openModal(`
+    <div class="ch-head">
+      <span class="map-title">关 口</span>
+      <span class="return" data-leave style="margin-left:auto">Return · 返回</span>
+    </div>
+    <div class="ch-prompt">${ch.prompt}</div>
+    <div class="ck-label">师兄，此事如何处置？</div>
+    <div class="ch-dims">
+      ${(ch.options || []).map(o => {
+        const d = o.dim;
+        const c = (st.checks || {})[d] || {};
+        const isDice = CHECK_DIMS.includes(d);
+        const rank = isDice ? rankLabel(c.succ || 0, !!c.achieve) : "";
+        const hint = isDice ? (c.achieve ? "此道已臻化境" : "成不成的，全看平日熟不熟此道") : "这一下，全凭平日功夫";
+        const icon = DIMENSIONS[d]?.icon;
+        return `<span class="ck-btn plain" data-dim="${d}" title="${hint}">
+          ${icon ? `<img class="fav" src="./assets/${icon}" alt="">` : ""}${o.text}${rank ? ` <i class="rank">${rank}</i>` : ""}</span>`;
+      }).join("")}
+    </div>
+    <div class="ch-skip"><span class="ck-btn plain" data-skip>算了，不掺和</span></div>
+  `, () => onSkip?.());
+
+  modal.querySelectorAll("[data-dim]").forEach(el => el.onclick = () => { closeModal(); onPick(el.dataset.dim); });
+  modal.querySelector("[data-skip]").onclick = () => { closeModal(); onSkip?.(); };
+  modal.querySelector("[data-leave]").onclick = () => { closeModal(); onSkip?.(); };
 }
 
 // ── 小吃面板（玩家只口述，苏唐自决；已会的可复做）──────────────────

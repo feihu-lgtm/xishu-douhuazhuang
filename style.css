@@ -242,6 +242,15 @@ body {
 .scard.owned .sbuy { color: var(--mute); cursor: default; }
 .scard.owned .sname { color: var(--ink-dim); }
 
+/* 探秘关卡（叙事后的决策：选维度骰检） */
+.ch-head { display: flex; align-items: center; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line-soft); }
+.ch-prompt { font-size: 14px; line-height: 2; color: var(--ink); padding: 18px 22px; border-bottom: 1px solid var(--line-soft); }
+.ch-dims { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 22px 0; }
+.ch-dims .ck-btn { display: inline-flex; align-items: baseline; gap: 8px; }
+.ch-dims .fav { width: 22px; height: 22px; image-rendering: pixelated; display: inline-block; vertical-align: middle; align-self: center; }
+.ch-dims .rank { font-size: 11px; color: var(--ink-dim); letter-spacing: 1px; }
+.ch-skip { padding: 14px 22px 20px; }
+
 /* 探秘地图（全屏 · 图钉流） */
 .map-head { display: flex; align-items: center; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line-soft); }
 .map-title { font-size: 15px; letter-spacing: 4px; color: var(--ink-bright); }

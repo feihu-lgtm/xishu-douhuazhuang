@@ -4,14 +4,15 @@ import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
+  rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genChallenge, genSettlement,
   extractComment, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
 import {
-  narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap,
+  narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallenge,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
   commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate,
 } from "./ui.js";
@@ -331,11 +332,49 @@ async function doExpedition(node) {
   const scenario = (pool.length ? pool : catPool)[Math.floor(Math.random() * (pool.length ? pool.length : catPool.length))];
   st.lastScenByNode[node.id] = scenario;
   sys(`【探秘·${node.name}】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……`);
+  // ① 先叙事：背景、此行的处境
   const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st) });
   await narr(r.narrative);
   if (r.comment) await commentLine(r.comment);
   setMood(r.mood ?? 0);
-  const special = (r.special && r.special.length) ? r.special : fallbackSpecial();
+  let special = (r.special && r.special.length) ? r.special : fallbackSpecial();
+  // ② 出题：AI 一次出 题干 + 选项 + 鉴定要求（覆盖全维度，非止见识/口才/赌）
+  const ch = await genChallenge(loadCfg(), { category: node.category, nodeName: node.name, scenario, context: ctxLine(st) });
+  await narr(`走到紧要处——${ch.prompt}`);
+  // 玩家读题干的同时，后台预生成每个选项的成败结算；选定后直接展示，不用等
+  const background = `${scenario}。${(r.narrative || "").slice(0, 220)}`;
+  const specialNames = special.map(s => `${s.name}${"★".repeat(s.stars)}`).join("、");
+  const settlePromise = genSettlement(loadCfg(), { background, prompt: ch.prompt, options: ch.options, special: specialNames });
+  const outcome = await new Promise((resolve) => {
+    openChallenge(st, ch, {
+      onPick: (dim) => resolve({ act: "pick", dim }),
+      onSkip: () => resolve({ act: "skip" }),
+    });
+  });
+  const { byDim } = await settlePromise;
+  let check = null;
+  if (outcome.act === "pick") {
+    const opt = ch.options.find(o => o.dim === outcome.dim) || { text: outcome.dim, dim: outcome.dim };
+    check = checkDim(st, outcome.dim);
+    const branch = (byDim || {})[outcome.dim];
+    if (check.ok) {
+      if (branch?.pass) await narr(branch.pass);
+      else await sys(`【检定】「${opt.text}」这一手成了（≈${check.p}%）${CHECK_DIMS.includes(outcome.dim) ? `，愈发老练（${rankLabel((st.checks[outcome.dim] || {}).succ || 0, !!((st.checks[outcome.dim] || {}).achieve))}）` : ""}。`);
+      special = special.map(s => ({ ...s, stars: Math.min(3, s.stars + 1) })); // 看得准，收获更佳
+      note("探秘", `${node.name}·${scenario}·「${opt.text}」${outcome.dim}检定成了。`);
+    } else {
+      if (branch?.fail) await narr(branch.fail);
+      else await sys(`【检定】「${opt.text}」这一手没成（≈${check.p}%），白折腾半日。`);
+      note("探秘", `${node.name}·${scenario}·「${opt.text}」${outcome.dim}检定落空。`);
+    }
+  } else {
+    await sys("师兄收手，不掺和这档子事。");
+  }
+  if (check?.achieve) {
+    const a = ACHIEVE_DEFS[outcome.dim];
+    await sys(`★ 成就「${a.name}」达成！${a.desc}`);
+  }
+  // ③ 收获（检定的成败决定星级）
   await sys("【探秘】掀开包袱——");
   st.stars = st.stars || {};
   for (const s of special) {
@@ -360,6 +399,18 @@ function fallbackSpecial() {
   const out = [];
   for (let i = 0; i < n; i++) out.push(pool[Math.floor(Math.random() * pool.length)]);
   return out;
+}
+
+// ── 成就查看（熟能生巧 · 各维度熟练度与成就）──────────────────────────
+function showAchievements() {
+  const lines = CHECK_DIMS.map(d => {
+    const c = (st.checks || {})[d] || {};
+    const a = ACHIEVE_DEFS[d];
+    const rank = rankLabel(c.succ || 0, !!c.achieve);
+    const mark = c.achieve ? `★成就「${a.name}」·${rank}` : `${rank}（${c.succ || 0}/${ACHIEVE_N}次）`;
+    return `【${d}】${mark} · 约 ${checkChance(st, d)}%`;
+  });
+  sys("—— 熟能生巧 · 成就 ——\n" + lines.join("\n"));
 }
 
 function doShop() {
@@ -533,6 +584,7 @@ async function onCommand(text) {
   if (["小吃", "零食"].includes(cmd)) return doSnackPanel();
   if (["商店", "买", "逛街"].includes(cmd)) return doShop();
   if (["探秘", "副本", "exp"].includes(cmd)) return openExpeditionMap();
+  if (["成就", "徽章", "ach"].includes(cmd)) return showAchievements();
   if (["■", "黑方块", "nsfw", "模式"].includes(cmd)) return handlers.nsfw();
   if (["下一日", "下一天", "等待", "睡觉", "明儿"].includes(cmd)) return doNext();
   if (["背包", "包袱"].includes(cmd)) return openBag(st);

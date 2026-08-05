@@ -4,6 +4,7 @@ import {
   newState, guestsOfDay, matchRecipe, judgeStove, scoreDish, tierOf, payOf,
   shopStock, buyItem, nextDay, currentGuest, GUESTS_PER_DAY,
   applyMartialExp, computeBaseScore, refreshShop, shopIngOf, applySuExp,
+  checkChance, rollCheck, rankLabel, checkDim, skillValueOf, ACHIEVE_DEFS, ACHIEVE_N, ATTR_DIMS, CHECK_DIMS,
 } from "../src/state.js";
 import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME } from "../src/data.js";
 import {
@@ -212,4 +213,66 @@ test("fallbackDishName：配方名优先 / 自由组合拼名", () => {
   assert.equal(fallbackDishName({ recipeName: "冷锅鱼", materials: [], technique: "炒" }), "冷锅鱼");
   const n = fallbackDishName({ materials: ["牦牛腱子肉", "贡措海盐"], technique: "炖", flavorId: "xianxiang" });
   assert.ok(n.includes("炖") && n.includes("牦牛腱子肉"));
+});
+
+test("checkChance：熟能生巧曲线（基础30，成功+5，封顶90，成就+50）", () => {
+  const st = newState();
+  assert.equal(checkChance(st, "见识"), 30);
+  st.checks["见识"].succ = 5;
+  assert.equal(checkChance(st, "见识"), 55);
+  st.checks["见识"].succ = 50;
+  assert.equal(checkChance(st, "见识"), 90, "无成就封顶90");
+  st.checks["见识"].achieve = true;
+  assert.equal(checkChance(st, "见识"), 95, "成就+50后硬顶95");
+  st.checks["赌博"].achieve = true;
+  st.checks["赌博"].succ = 0;
+  assert.equal(checkChance(st, "赌博"), 80, "成就+50叠加基础30");
+});
+
+test("rollCheck：成功累计，4次得成就并标记", () => {
+  const st = newState();
+  const seedRand = () => { let s = 1; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; };
+  const rnd = seedRand();
+  const orig = Math.random;
+  Math.random = rnd; // 固定序列
+  try {
+    let got = null;
+    for (let i = 0; i < 30 && !got?.achieve; i++) got = rollCheck(st, "口才");
+    assert.ok(got.achieve, "30次内应达成成就（成功4次）");
+    assert.equal(st.checks["口才"].achieve, true);
+    assert.ok(checkChance(st, "口才") >= 80, "成就后成功率大幅提升");
+  } finally { Math.random = orig; }
+});
+
+test("rankLabel：生手→入门→渐熟→老手→宗师→化境", () => {
+  assert.equal(rankLabel(0, false), "生手");
+  assert.equal(rankLabel(1, false), "入门");
+  assert.equal(rankLabel(2, false), "渐熟");
+  assert.equal(rankLabel(4, false), "老手");
+  assert.equal(rankLabel(8, false), "宗师");
+  assert.equal(rankLabel(0, true), "化境");
+  assert.ok(ACHIEVE_DEFS.见识.name && ACHIEVE_DEFS.口才.name && ACHIEVE_DEFS.赌博.name);
+  assert.equal(ACHIEVE_N, 4);
+});
+
+test("skillValueOf：武艺取刀剑拳枪最高 / 胆识取均值 / 直查 skills", () => {
+  const st = newState();
+  st.skills = { 刀法: 10, 剑法: 40, 拳掌: 20, 枪法: 30, 轻功: 55, 投掷: 60, 内功: 70 };
+  assert.equal(skillValueOf(st, "武艺"), 40, "取最高");
+  assert.equal(skillValueOf(st, "轻功"), 55);
+  assert.equal(skillValueOf(st, "内功"), 70);
+  assert.equal(skillValueOf(st, "胆识"), Math.round((10 + 40 + 20 + 30 + 55 + 60 + 70) / 7), "均值");
+  assert.equal(skillValueOf(st, "不存在的维度"), 30, "缺省30");
+});
+
+test("checkDim：骰子维度计数走成就 / 属性维度走 skills 不计数", () => {
+  const st = newState();
+  st.skills = { 刀法: 10, 剑法: 10, 拳掌: 10, 枪法: 10, 轻功: 10, 投掷: 10, 内功: 10 };
+  const r1 = checkDim(st, "轻功");
+  assert.equal(typeof r1.ok, "boolean");
+  assert.ok(ATTR_DIMS.includes("轻功") && !CHECK_DIMS.includes("轻功"));
+  assert.equal(st.checks["轻功"], undefined, "属性维度不计数");
+  const r2 = checkDim(st, "见识");
+  assert.ok(CHECK_DIMS.includes("见识"));
+  assert.equal(st.checks["见识"].succ, r2.ok ? 1 : 0, "骰子维度成功才计数");
 });

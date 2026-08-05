@@ -1,7 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, ING_BY_NAME, SNACKS, starLabel } from "./data.js";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
+import { CHECK_DIMS } from "./state.js";
 
 // ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
 let nsfwOn = true;
@@ -536,6 +537,88 @@ export async function genExpedition(cfg, ctx, onChunk) {
   }
   return { narrative: "师兄与苏唐深入险地，凭一身武功与苏唐的眼力，觅得几样罕见食材，满载而归。", comment: "师兄腿脚还行，就是话少。", mood: 4, special: [], ai: false };
 }
+// ── 探秘出题：叙事之后的一道「小考题」，玩家选维度骰检 ──────────────
+// 维度池从 data.js 的权威数据推导：据点分类 → 任务类型 → 维度；只留骰子检定维度
+// （见识/口才/赌博；眼力并入见识）。题干永远文学化，不出现维度名。
+const CHECK_DIM_MAP = { 眼力: "见识" };
+// 可判定维度全集：骰子三围 + 属性四维（资源/苏唐 v1 不出题）
+export const RESOLVABLE_DIMS = [...CHECK_DIMS, ...["轻功", "投掷", "武艺", "内功", "胆识"]];
+const CH_FALLBACK_PROMPTS = {
+  见识: "雾又厚了一层，脚边的痕迹半新不旧，分不清是走兽还是人来过；再往前一步，兴许就踩进了岔路。",
+  口才: "守摊的老汉上下打量着你，话到嘴边又咽回去，像有什么想说，又等着你先开口。",
+  赌博: "集市边支了个摊，摊主把骰盅在你面前晃了三晃，笑而不语——赢不赢，全看这一下。",
+  轻功: "崖壁湿滑，落脚处只够半只脚掌，藤蔓在风里晃。",
+  武艺: "道口横着一根拦路槊，来人抱臂而立，不言不语。",
+  内功: "寒气从地底逼上来，呼出的气凝成白雾，越往里越刺骨。",
+  胆识: "黑窟窿里的风呜呜作响，深不见底，看不见尽头的路在脚边分岔。",
+};
+const CH_FALLBACK_OPTS = {
+  见识: "蹲下细看，辨个分明", 口才: "上前搭话，套个虚实", 赌博: "押一把，赌它个运气",
+  轻功: "借力腾身，涉险而过", 武艺: "拔刀，正面硬闯", 内功: "运起内功，硬抗过去", 胆识: "稳住心神，不露怯意",
+};
+export function challengeDims(category) {
+  const taskTypes = CATEGORY_TASK_TYPES[category] || [];
+  const seen = new Set();
+  const out = [];
+  for (const t of taskTypes) {
+    for (const d of (EXPEDITION_TASK_TYPES[t]?.dims || [])) {
+      const dim = CHECK_DIM_MAP[d] || d;
+      if (RESOLVABLE_DIMS.includes(dim) && !seen.has(dim)) { seen.add(dim); out.push(dim); }
+    }
+  }
+  return out.length ? out : [...CHECK_DIMS];
+}
+export async function genChallenge(cfg, ctx) {
+  const pool = challengeDims(ctx.category);
+  if (cfgReady(cfg)) {
+    const user = [
+      ctx.context ? `【上下文】\n${ctx.context}` : "",
+      `场景：师兄与苏唐在「${ctx.nodeName}」办「${ctx.scenario}」。此地的关口可以考验各种本事，不限于眼力口舌。`,
+      `可用维度池（这道题只从中选）：${pool.join(" / ")}。`,
+      `只输出 JSON：{"prompt":"约60-90字的文学化题干，只写关口与悬而未决的处境，绝不写解法、不写维度名、不写成功率","options":[{"text":"玩家可选的其中一个动作，8-20字，文学化，不写维度名、不写成功率","dim":"此题合理的解法维度，从可用维度池里选"}...]}`,
+      `options 给 2-3 个，覆盖不同路子（如硬闯/巧取/细看/搭话/押注）。题干要像小说正文：用上「」对话或 *心理*，暗示过关要靠什么，但让玩家自己猜。`,
+    ].filter(Boolean).join("\n");
+    try {
+      const raw = await callAI(cfg, "你是探秘出题官，只输出 JSON，不写多余文字。", user, "探秘出题");
+      const o = parseJSONRescue(raw);
+      let opts = Array.isArray(o.options) ? o.options : [];
+      opts = opts.filter(x => x && x.text && RESOLVABLE_DIMS.includes(x.dim)).slice(0, 3);
+      const prompt = (o.prompt || "").trim();
+      if (prompt && opts.length) return { prompt, options: opts, ai: true };
+    } catch { /* 降级 */ }
+  }
+  const dims = pool.slice(0, 2);
+  const opts = dims.map(d => ({ text: CH_FALLBACK_OPTS[d] || CH_FALLBACK_OPTS.见识, dim: d }));
+  return { prompt: CH_FALLBACK_PROMPTS[dims[0]] || CH_FALLBACK_PROMPTS.见识, options: opts, ai: false };
+}
+
+// ── 探秘结算：玩家看题干时后台预生成「每个选项」的成功/失败分支 ─────
+// 一次调用产出全部选项的 pass/fail，玩家选定后直接展示对应分支，不用等。
+export async function genSettlement(cfg, ctx) {
+  if (cfgReady(cfg)) {
+    const optsStr = ctx.options.map(o => `「${o.text}」（${o.dim}）`).join("；");
+    const user = [
+      ctx.background ? `【来龙去脉】\n${ctx.background}` : "",
+      `【关口】\n${ctx.prompt}`,
+      `【选项】\n${optsStr}`,
+      ctx.special ? `此行收成：${ctx.special}。` : "",
+      `为每个选项分别写两段收尾叙事（pass 成功 / fail 失败），各 1-2 段，务必回扣【来龙去脉】里的具体细节（雾、石、摊、人言等），把这一步如何奏效/如何落空自然收束。用「」对话与 *心理*。`,
+      `只输出 JSON：{"results":[{"dim":"与【选项】里完全相同的维度名","pass":"该维度成功时的收尾叙事","fail":"该维度失败时的收尾叙事"}...]}，一个选项一条，dim 必须一一对应。`,
+    ].filter(Boolean).join("\n");
+    try {
+      const raw = await callAI(cfg, STYLE + "\n你是探秘收尾官，只输出 JSON。", user, "探秘结算");
+      const o = parseJSONRescue(raw);
+      const results = Array.isArray(o.results) ? o.results : [];
+      const byDim = {};
+      for (const r of results) {
+        if (r && r.dim && (r.pass || r.fail)) byDim[r.dim] = { pass: (r.pass || "").trim(), fail: (r.fail || "").trim() };
+      }
+      if (Object.keys(byDim).length) return { byDim, ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { byDim: {}, ai: false };
+}
+
 export async function genSuTalk(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const user = [

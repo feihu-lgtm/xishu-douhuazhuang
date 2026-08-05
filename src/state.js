@@ -57,6 +57,11 @@ export function newState() {
     buyQty: {},              // 每样固定买几份（锁定，免手动调）
     dayLog: [],              // 今日逐客记录（收工总评用）
     reviewedDay: 0,          // 已总评的天
+    checks: {                // 骰子检定·熟练度（见识/口才/赌博，成功越多越熟）
+      见识: { succ: 0, achieve: false },
+      口才: { succ: 0, achieve: false },
+      赌博: { succ: 0, achieve: false },
+    },
   };
 }
 
@@ -249,4 +254,65 @@ export function loadGame() {
 }
 export function hasSave() {
   try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; }
+}
+
+// ── 骰子检定 · 熟能生巧（见识/口才/赌博）──────────────────────────────
+// 成功率 = 基础30% + 成功次数×5%（封顶90%）；达成成就再永久 +50%（硬顶95%）。
+// 学 Roadwarden：鱼抓得多→「老手」，赌赢得多→「掌握规则」——成功即熟练。
+export const CHECK_DIMS = ["见识", "口才", "赌博"];
+// 属性维度：按 st.skills 数值判定（不计数、不走成就）
+export const ATTR_DIMS = ["轻功", "投掷", "武艺", "内功", "胆识"];
+export const ACHIEVE_DEFS = {
+  见识: { name: "识货", desc: "看得多了，瞒不过你的眼。此后见识检定成功率永久 +50%。" },
+  口才: { name: "巧舌", desc: "话说得多了，愈发灵光。此后口才检定成功率永久 +50%。" },
+  赌博: { name: "坐庄", desc: "赢多了，手气自然旺。此后赌博检定成功率永久 +50%。" },
+};
+export const CHECK_BASE = 30, CHECK_PER = 5, CHECK_CAP = 90, ACHIEVE_N = 4, ACHIEVE_BONUS = 50, CHECK_HARD_CAP = 95;
+
+export function checkChance(st, dim) {
+  const c = (st.checks || {})[dim] || {};
+  let p = CHECK_BASE + (c.succ || 0) * CHECK_PER;
+  if (p > CHECK_CAP) p = CHECK_CAP;
+  if (c.achieve) p += ACHIEVE_BONUS;
+  return Math.min(CHECK_HARD_CAP, p);
+}
+
+// 掷骰：返回 { ok, p, achieve }，achieve=true 表示本次刚达成成就
+export function rollCheck(st, dim) {
+  st.checks = st.checks || {};
+  st.checks[dim] = st.checks[dim] || { succ: 0, achieve: false };
+  const c = st.checks[dim];
+  const p = checkChance(st, dim);
+  const ok = Math.random() * 100 < p;
+  let achieve = false;
+  if (ok) {
+    c.succ += 1;
+    if (!c.achieve && c.succ >= ACHIEVE_N) { c.achieve = true; achieve = true; }
+  }
+  return { ok, p, achieve };
+}
+
+// 熟练等级语言（学 Roadwarden 的「老手/掌握规则」）：成就=化境
+export function rankLabel(succ, achieve) {
+  if (achieve) return "化境";
+  if (succ >= 8) return "宗师";
+  if (succ >= 4) return "老手";
+  if (succ >= 2) return "渐熟";
+  if (succ >= 1) return "入门";
+  return "生手";
+}
+
+// ── 通用维度检定：骰子维度走熟练度（计数/成就），属性维度走 skills ───
+// 武艺取刀/剑/拳/枪最高者；胆识取七艺均值兜底；其余直接查 st.skills
+export function skillValueOf(st, dim) {
+  const sk = st.skills || {};
+  if (dim === "武艺") return Math.max(sk["刀法"] || 0, sk["剑法"] || 0, sk["拳掌"] || 0, sk["枪法"] || 0);
+  if (dim === "胆识") { const v = Object.values(sk); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 30; }
+  return sk[dim] || 30;
+}
+export function checkDim(st, dim) {
+  if (CHECK_DIMS.includes(dim)) return rollCheck(st, dim); // 骰子：成功计数，4次成就要+50%
+  const p = Math.min(95, Math.max(5, skillValueOf(st, dim)));
+  const ok = Math.random() * 100 < p;
+  return { ok, p, achieve: false };
 }
