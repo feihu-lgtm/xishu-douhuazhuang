@@ -11,7 +11,7 @@ import {
 } from "./ai.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop,
-  openBag, openSettings, openHelp, openTrace, closeModal, logStream,
+  openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
   commentLine, setMood, suLine, suSys, openSnack, openSet, renderRate,
 } from "./ui.js";
 
@@ -28,6 +28,7 @@ const handlers = {
   bag: () => openBag(st),
   settings: () => openSettings(),
   trace: () => openTrace(),
+  notes: () => openNotes(st),
   save: () => { saveGame(st); sys("存档完毕。"); },
   help: () => openHelp(),
 };
@@ -153,6 +154,7 @@ async function cookNarrate(j) {
   if (mrec) { mrec.desc = st.dish.menuDesc; mrec.used = j.materials; }
   else st.menu.push({ name: st.dish.name, used: j.materials, desc: st.dish.menuDesc });
   gold(`「${st.dish.name}」出锅。`);
+  note("出菜", `做「${st.dish.name}」给${g ? g.name : "自己"}，基础分${baseScore}。`);
   if (res.ms != null) sys(`说书 ${fmtMs(res.ms)} · 正文 ${res.prose.length} 字`);
   if (!res.ai) sys("（说书人未接线，灶神模板白描。设置里填 AI 密钥可现写。）");
   busy = false;
@@ -224,6 +226,7 @@ async function doServe() {
   st.pendingSet = null;
   gold(`${g.name} 放下 ${pay} 文铜钱。（满意度 ${score}）`);
   sys(`「好感」${g.name} ${d >= 0 ? "+" : ""}${d}（今 ${st.aff[g.id]} · ${affName(st.aff[g.id])}）`);
+  note("出餐", `给${g.name}上「${dish.name}」${setName ? `+「${setName}」` : ""}，满意度${score}，好感+${d}。`);
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)}`);
   busy = false;
   if (st.served >= 3) {
@@ -266,6 +269,7 @@ async function doReview() {
     }
   }
   if ((st.dayLog || []).some(d => d.tier <= 1)) sys("苏唐给今日顺眼的客人又添了分好感。");
+  note("收工", `第${st.day}天送${(st.dayLog || []).length}客，苏唐总评已记。`);
   st.dayLog = [];
   setMood(4);
   renderAll(st, handlers);
@@ -321,6 +325,14 @@ function suTierOf(s) {
   return tierOfScore(avg);
 }
 
+// 小纸条：每轮动作/对话的小总结（学 qucuo 的 memory 口径，客观短句）
+function note(act, text) {
+  st.notes = st.notes || [];
+  const d = new Date(); const p = (n) => String(n).padStart(2, "0");
+  st.notes.push({ day: st.day, ts: `${p(d.getHours())}:${p(d.getMinutes())}`, act, text });
+  if (st.notes.length > 200) st.notes.shift();
+}
+
 async function doSnackRequest(txt) {
   if (busy) return sys("苏唐正忙着呢。");
   busy = true;
@@ -346,6 +358,7 @@ async function doSnackRequest(txt) {
   await suLine(`【苏唐】${r.say}`);
   suSys(`【回复·备小吃】备下「${r.made}」${r.portions} 份 · 用 ${r.used.join("、") || "手头现成的"} · 品质 ${r.quality}`);
   suSys(`【苏唐】练功：${got.join("、")} 各+3 · 好感+1（今 ${st.suAff}）`);
+  note("备小吃", `苏唐备「${r.made}」${r.portions}份，品质${r.quality}，味型${r.flavor || "无"}。`);
   busy = false;
   renderAll(st, handlers);
   saveGame(st);
@@ -368,6 +381,7 @@ async function doRemake(name) {
   if (rec.proc) await suLine(rec.proc);
   suSys(`【回复·复做】「${name}」3 份 · 品质 ${rec.quality}`);
   suSys(`【苏唐】练功：${got.join("、")} 各+3 · 好感+1（今 ${st.suAff}）`);
+  note("复做", `苏唐复做「${name}」3份，品质${rec.quality}。`);
   busy = false;
   renderAll(st, handlers);
   saveGame(st);
@@ -407,6 +421,7 @@ async function onCommand(text) {
   if (["背包", "包袱"].includes(cmd)) return openBag(st);
   if (["设置"].includes(cmd)) return openSettings();
   if (["流程", "日志", "trace"].includes(cmd)) return openTrace();
+  if (["纸条", "notes"].includes(cmd)) return openNotes(st);
   if (["存档"].includes(cmd)) { saveGame(st); return sys("存档完毕。"); }
 
   // 说「做 XX」/ 提到菜名或食材 → 灶台自动备料
@@ -424,6 +439,7 @@ async function onCommand(text) {
   busy = true;
   const h = logStream("narr");
   const r = await genChat(loadCfg(), t, c => h.append(c));
+  note("闲聊", `师兄说「${t.slice(0, 18)}」，说书人接了一段。`);
   if (r.ai && h.text) {
     const { main, comment, mood } = extractComment(h.text);
     h.apply(main, comment ? `苏唐批：${comment}` : "");
@@ -452,7 +468,7 @@ function bind() {
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();
-    const map = { c: "cook", x: "snack", s: "serve", v: "set", r: "close", t: "shop", n: "next", i: "bag", f: "settings", l: "trace", q: "save", h: "help" };
+    const map = { c: "cook", x: "snack", s: "serve", v: "set", r: "close", t: "shop", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
     if (map[k]) handlers[map[k]]();
   });
   $("#btn-new").onclick = () => startNew();

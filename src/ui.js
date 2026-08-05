@@ -224,6 +224,7 @@ export function renderSide(st, h) {
     item("仓库", "I", true, "bag") +
     item("设置", "F", true, "settings") +
     item("流程", "L", true, "trace") +
+    item("纸条", "P", true, "notes") +
     item("存档", "Q", true, "save") +
     item("帮助", "H", true, "help") +
     `<div class="hint">说书人听着呢——<br>终端里直接说话也行，<br>说「做 XX」就开灶。</div>` +
@@ -537,6 +538,20 @@ export function openSet(st, { onSet }) {
     modal.querySelector("[data-back]").onclick = () => closeModal();
   }
   draw();
+}
+
+// ── 小纸条（每轮动作/对话的小总结，按天回看）────────────────────────
+export function openNotes(st) {
+  const list = (st.notes || []).slice().reverse();
+  openModal(`
+    <h2>小 纸 条</h2>
+    <div class="set-note">每个动作与每轮对话的小总结，按天回看。</div>
+    <div class="menu-list">${list.length ? list.map(n =>
+      `<div class="menu-item-card"><b>第${n.day}天 · ${n.ts} · ${n.act}</b><p>${n.text}</p></div>`).join("")
+      : `<span class="ck-mat zero">还没有纸条。</span>`}</div>
+    <span class="return" data-back>Return · 返回</span>
+  `, () => {});
+  document.querySelector("#modal-root [data-back]").onclick = () => closeModal();
 }
 
 // ── 背包 ───────────────────────────────────────────────────────────────
