@@ -188,11 +188,8 @@ export const INGREDIENTS = [
 ];
 export const ING_BY_NAME = Object.fromEntries(INGREDIENTS.map(i => [i.name, i]));
 
-// 特殊高级食材（★=顶级，仅探秘可得/稀有）；不是所有食材都带星
-export const STAR_MAP = {
-  "雪山雪莲瓣": 3, "干巴菌": 3, "鸡枞菌": 2, "贡措海裂腹鱼": 2,
-  "熊山松茸": 2, "宣威火腿": 1, "藏香猪五花": 1, "大草甸黄羊腿": 1,
-};
+// 商店常规食材不带星；★高级食材由探秘时 AI 即兴生成，存 st.stars（运行时），与商店区别开
+export const STAR_MAP = {};
 export const starOf = (n) => STAR_MAP[n] || 0;
 export const starLabel = (n) => starOf(n) ? "★".repeat(starOf(n)) : "";
 

@@ -509,18 +509,27 @@ export async function genExpedition(cfg, ctx, onChunk) {
       ctx.context ? `【上下文】\n${ctx.context}` : "",
       `今次的情境是：${ctx.scenario}。`,
       `师兄（武功约 ${ctx.skillAvg}、凭平日见识与智慧）与苏唐（手艺 ${ctx.suAvg}）同行，寻稀有食材。`,
-      `此行的收获是：${ctx.found.join("、") || "空空如也"}。`,
-      `写一段 3-5 段的轻度武侠叙事：师兄以武功或智慧化解阻碍、苏唐辨认并得手食材；收尾回店。不要夸张奇幻。`,
+      `请你即兴发明 1-2 种【高级带星食材】：名字要有武侠/市井感、不要与商店常见食材重复；每种 stars 取 1-3、desc 一句。`,
+      `写 3-5 段轻度武侠叙事：师兄以武功或智慧化解阻碍、苏唐辨认并得手；收尾回店。不要夸张奇幻。`,
+      `结尾另起一行输出 JSON：{"special":[{"name":"","stars":1,"desc":""}]}`,
     ].filter(Boolean).join("\n");
     const t0 = Date.now();
     try {
       const raw = streamOn(cfg) && onChunk
         ? await callAIStream(cfg, EXP_SYS, user, onChunk, "探秘")
         : await callAI(cfg, EXP_SYS, user, "探秘");
-      return { narrative: (raw || "").trim(), ms: Date.now() - t0, ai: true };
+      const o = parseJSONRescue(raw);
+      let special = Array.isArray(o.special) ? o.special : [];
+      special = special.filter(s => s && s.name).map(s => ({
+        name: s.name, stars: Math.max(1, Math.min(3, parseInt(s.stars, 10) || 2)), desc: s.desc || "",
+      }));
+      let narrative = (raw || "").trim();
+      const ji = narrative.indexOf("{");
+      if (ji >= 0) narrative = narrative.slice(0, ji).trim();
+      return { narrative, special, ms: Date.now() - t0, ai: true };
     } catch { /* 降级 */ }
   }
-  return { narrative: `师兄与苏唐深入后山险地，凭一身武功与苏唐的眼力，采得 ${ctx.found.join("、") || "几样山货"}，满载而归。`, ai: false };
+  return { narrative: "师兄与苏唐深入险地，凭一身武功与苏唐的眼力，觅得几样罕见食材，满载而归。", special: [], ai: false };
 }
 export async function genSuTalk(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {

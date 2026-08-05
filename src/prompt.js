@@ -38,8 +38,8 @@ export function tierGuide(tier, who = "武学") {
 export function dishUser(ctx) {
   return (
     sec("场景", "西蜀豆花庄，师兄开火做菜。") +
-    sec("料", ctx.materials.map(m => `${m}${starLabel(m)}`).join("、")) +
-    sec("星级", "带★的是顶级食材，极为珍贵，正文里要写出它的难得与好。") +
+    sec("料", ctx.materials.map(m => { const s = (ctx.starOf || starOf)(m); return `${m}${s ? "★".repeat(s) : ""}`; }).join("、")) +
+    sec("星级", "带★的是探秘得来的顶级食材，极为珍贵，正文里要写出它的难得与好。") +
     sec("料性", ctx.lore.map(l => `· ${l}`).join("\n")) +
     sec("技法", `${ctx.technique}（${TECHNIQUES[ctx.technique].desc}）`) +
     sec("炊具", `${ctx.cookware.name}（${ctx.cookware.desc}）`) +

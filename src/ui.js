@@ -309,7 +309,8 @@ export function openCook(st, { onFire, prefill } = {}) {
       <div class="ck-label">🎒 可用材料</div>
       <div class="ck-mats">${mats.length ? mats.map(([name, n]) => {
         const left = n - (counts[name] || 0);
-        return `<span class="ck-mat ${left > 0 ? "" : "zero"}" data-mat="${name}">${name}<i style="color:var(--ink-dim);font-size:10px"> ${ingTag(name)}</i> ×${left}</span>`;
+        const stx = (st.stars && st.stars[name]) || 0;
+        return `<span class="ck-mat ${left > 0 ? "" : "zero"}" data-mat="${name}">${stx ? "★".repeat(stx) : ""}${name}<i style="color:var(--ink-dim);font-size:10px"> ${ingTag(name)}</i> ×${left}</span>`;
       }).join("") : `<span class="ck-mat zero">囊中无料，去商店买些食材。</span>`}</div>
 
       <div class="ck-label">技法 · 五选一</div>

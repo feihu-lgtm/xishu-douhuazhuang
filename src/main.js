@@ -162,6 +162,7 @@ async function cookNarrate(j) {
     recipeName: j.recipe?.name || null,
     martial, baseScore,
     guest: g,
+    starOf: (n) => (st.stars && st.stars[n]) || 0,
   }, c => h.append(c));
   let noteTxt = "";
   if (res.ai && h.text) {
@@ -264,9 +265,10 @@ async function doServe() {
   } finally { busy = false; }
   if (st.served >= 3) {
     await narr("最后一位客人走了。灶上还温着汤，今日不自动打烊。");
-    sys("三位送完。可逛「商店」/「探秘」，或点「下一日」翻篇。");
+    sys("三位送完。苏唐照例要总评一句；可逛「商店」/「探秘」，或点「下一日」翻篇。");
     renderAll(st, handlers);
     saveGame(st);
+    await doReview();   // 每日苏唐总结自动触发
   } else {
     saveGame(st);
     await guestArrives();
@@ -311,32 +313,42 @@ async function doExpedition() {
   if (!(st.phase === "closing" || st.served >= 3)) return sys("送完三位客人才好出门探秘。");
   if (busy) return sys("正忙着呢。");
   busy = true;
+  try {
   startTrace("探秘");
   const avgv = (o) => { const v = Object.values(o || {}); return v.reduce((a, b) => a + b, 0) / (v.length || 1); };
   const skillAvg = Math.round(avgv(st.skills));
   const suAvg = Math.round(avgv(st.suSkills));
   const SCEN = ["市井讨价还价", "奇遇", "劫镖", "探山洞", "穿密林", "下地宫"];
   const scenario = SCEN[Math.floor(Math.random() * SCEN.length)];
-  const rarePool = INGREDIENTS.filter(i => starOf(i.name) >= 1);
-  const n = (skillAvg + suAvg) / 2 >= 20 ? 2 : 1;
-  const found = [];
-  for (let i = 0; i < n; i++) found.push(rarePool[Math.floor(Math.random() * rarePool.length)].name);
   sys(`【探秘】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……`);
   const h = logStream("narr");
-  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, found, scenario, context: ctxLine(st) }, c => h.append(c));
+  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st) }, c => h.append(c));
   if (!r.ai || !h.text) { h.remove(); await narr(r.narrative); }
-  // 仪式感：单独出食材，带星
+  const special = (r.special && r.special.length) ? r.special : fallbackSpecial();
   await sys("【探秘】掀开包袱——");
-  for (const f of found) {
-    const ing = ING_BY_NAME[f];
-    st.inv[f] = (st.inv[f] || 0) + 1;
-    await narr(`【收获】「${f}」${starLabel(f)} —— ${ing ? ing.lore : ""}（★为顶级食材）`);
+  st.stars = st.stars || {};
+  for (const s of special) {
+    st.inv[s.name] = (st.inv[s.name] || 0) + 1;
+    st.stars[s.name] = s.stars;
+    await narr(`【收获】「${s.name}」${"★".repeat(s.stars)} —— ${s.desc}`);
   }
-  note("探秘", `副本(${scenario})寻得 ${found.join("、")}。`);
-  endTrace(`探秘·${scenario}·得${found.join("、")}`);
-  busy = false;
+  note("探秘", `副本(${scenario})寻得 ${special.map(s => s.name).join("、")}。`);
+  endTrace(`探秘·${scenario}·得${special.map(s => s.name).join("、")}`);
+  } finally { busy = false; }
   renderAll(st, handlers);
   saveGame(st);
+}
+function fallbackSpecial() {
+  const pool = [
+    { name: "云雾雪莲", stars: 3, desc: "云雾里采的雪莲，清冽回甘，顶级。" },
+    { name: "龙纹鲤", stars: 2, desc: "鲤身带龙纹，肉细鲜甜。" },
+    { name: "赤霞菌", stars: 2, desc: "赤色菌伞，异香，难得。" },
+    { name: "金髓笋", stars: 3, desc: "笋心带金髓，脆甜，珍品。" },
+  ];
+  const n = Math.random() < 0.4 ? 2 : 1;
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(pool[Math.floor(Math.random() * pool.length)]);
+  return out;
 }
 
 function doShop() {
