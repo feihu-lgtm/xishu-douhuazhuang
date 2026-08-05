@@ -178,12 +178,15 @@ async function doServe() {
   const flavorMatch = dish.flavorId === g.flavor;
   const favMatch = !!(g.fav && dish.materials.includes(g.fav));
   let score = scoreDish(dish, g);
-  // 配set 彩蛋：搭一份苏唐备的小吃
-  let setName = null;
+  // 配set 彩蛋：搭一份苏唐备的小吃；小吃味型由苏唐那次调用自己选定
+  let setName = null, snackMatch = false;
   if (st.pendingSet && (st.snacks || {})[st.pendingSet] > 0) {
     setName = st.pendingSet;
     st.snacks[setName] -= 1;
     score = Math.min(100, score + 8);
+    const srec = (st.snackRecipes || []).find(x => x.name === setName);
+    snackMatch = !!srec && srec.flavor === g.flavor;
+    if (snackMatch) score = Math.min(100, score + 6);
   }
   const tier = tierOf(score);
   (st.dayLog = st.dayLog || []).push({ id: g.id, name: g.name, order: g.order, dish: dish.name, tier, flavorMatch, favMatch, score });
@@ -211,7 +214,7 @@ async function doServe() {
     setMood(r.mood ?? [2, 0, 5, 6][tier]);
   }
   // 好感结算：满意度+口味匹配+配set 勾连
-  const d = affDeltaFor(tier, flavorMatch, favMatch) + (setName ? 1 : 0);
+  const d = affDeltaFor(tier, flavorMatch || snackMatch, favMatch) + (setName ? 1 : 0);
   st.aff[g.id] = Math.max(0, Math.min(100, affNow + d));
   st.coins += pay;
   st.earned += pay;
@@ -334,8 +337,8 @@ async function doSnackRequest(txt) {
   st.snacks[r.made] = (st.snacks[r.made] || 0) + r.portions;
   st.snackRecipes = st.snackRecipes || [];
   const srec = st.snackRecipes.find(x => x.name === r.made);
-  if (srec) { srec.desc = r.desc || srec.desc; srec.used = r.used; srec.quality = r.quality; srec.proc = r.proc || srec.proc; }
-  else st.snackRecipes.push({ name: r.made, cat: r.cat, tag: r.cat, used: r.used, quality: r.quality, desc: r.desc, proc: r.proc });
+  if (srec) { srec.desc = r.desc || srec.desc; srec.used = r.used; srec.quality = r.quality; srec.proc = r.proc || srec.proc; srec.flavor = r.flavor || srec.flavor; }
+  else st.snackRecipes.push({ name: r.made, cat: r.cat, tag: r.cat, used: r.used, quality: r.quality, desc: r.desc, proc: r.proc, flavor: r.flavor });
   const got = applySuExp(st);
   st.suAff = (st.suAff || 0) + 1;
   setMood(moodIndex(r.mood) ?? 7);

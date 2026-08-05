@@ -1,6 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, TECHNIQUES, ING_BY_NAME, SNACKS } from "./data.js";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, ING_BY_NAME, SNACKS } from "./data.js";
+import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser } from "./prompt.js";
+export { tierOfScore, tierGuide };
 
 const CFG_KEY = "xiaochu-ai-v1";
 
@@ -231,24 +233,7 @@ export function parseDishText(t, ctx) {
 }
 
 // ── 体例（所有说书人调用共用）─────────────────────────────────────────
-// 这本《西蜀豆花庄》是师兄（小厨，玩家）与师妹苏唐合写的日记；
-// 旁白一律第三人称，称玩家为「师兄」。
-const STYLE = [
-  "你是《西蜀豆花庄》这本日记的笔。日记由师兄（小厨，玩家）与师妹苏唐合写。",
-  "苏唐：汉人师妹，一身红衣汉服，灶边递料、擦碗、添柴，偶尔在日记里补一句她的笔迹。",
-  "旁白一律第三人称，称玩家为「师兄」：写「师兄如何如何」，不要写「你」。",
-  "正文要分成 3-6 个自然段，段与段之间空一行，左对齐，像日记一样一页页写。",
-  "三种笔法都要用上，且会被不同颜色显示：旁白直接写；人物说出口的话用「」包裹；人物心里的活动用 *...* 包裹。",
-  "旁白假装客观：多写所见所闻的动作与物件，情绪交给对话和动作去带，不写空泛的心理分析。",
-  "文风：白描、有烟火气，像两个人轮流动笔的日记。段落以完整长段为主，不要单句成段。",
-  "行为优先：不直接写情绪，让角色做一件只有在这种情绪下才会做的具体的事；对话后面不挂语气、眼神、声调描写（对话裸奔），情绪让读者从台词和动作里自己体会。",
-  "禁用词与句式：不写「一丝」「几不可察」「不易察觉」「不容置疑」；不用「不是……而是……」句式。",
-  "写完正文，末尾必须附一句师妹苏唐的评价，前缀「苏唐批：」——或夸或吐槽，要鲜活，带点她自己的小动作。",
-  "最后再单独输出一行「心情：」，用一个词表达苏唐此刻的心情，只能从八个词里选：开心、悠闲、兴奋、心动、得意、不满、吃惊、专注。心情要和批语相配。",
-].join("\n");
-
-// 篇幅指令（学 qucuo：给目标字数 ±tol%，不要少写也不要硬拖）
-const lenNote = (n, tol = 15) => `正文总字数控制在约 ${n} 字左右（允许±${tol}%浮动），不要明显少写，也不要为凑数硬拖长。`;
+// 身份+文风基座（STYLE）、篇幅/档位/分块编排 均在 prompt.js。
 
 // ── 八个心情 → 八个表情 ───────────────────────────────────────────────
 export const MOOD_WORDS = ["开心", "悠闲", "兴奋", "心动", "得意", "不满", "吃惊", "专注"];
@@ -320,39 +305,9 @@ export async function genMartial(cfg, ctx) {
 // ── 出菜叙事（第二轮）─────────────────────────────────────────────────
 const DISH_SYS = STYLE + "\n严格按指定格式输出，禁止多余内容。";
 
-// 武学档位→描写细致度（属性越高越细致），1-5 档各档重点+示例，一起发给模型
-const TIERS = [
-  { t: 1, focus: "只写动作与结果，不写过程，句子短。", ex: "师兄把料下锅，炒熟，端上桌。" },
-  { t: 2, focus: "加一两个动作细节（刀/火/手）。", ex: "师兄手腕一抖，锅里菜翻了个身。" },
-  { t: 3, focus: "写刀工+火候+身法的连贯动作，带声音与热气。", ex: "菜刀笃笃两声食材已匀；火苗被压得温顺，咕嘟冒泡。" },
-  { t: 4, focus: "内力/轻功/刀法融入每一步，多感官（声色香味触），招式有名。", ex: "手掌悬锅，内力沉沉压下；脚尖一点身形拔高取油罐，正是梯云纵；刀化残影剁碎海椒。" },
-  { t: 5, focus: "举重若轻、道法自然，动作如艺术，环境与气息呼应，收放自如。", ex: "刀快得只剩红影，火随刀旺；沸汤冲碗一瞬烫熟，灶房潮气与香气一同蒸腾。" },
-];
-export function tierOfScore(s) { return Math.max(1, Math.min(5, Math.ceil((s || 0) / 20) || 1)); }
-function tierGuide(tier) {
-  return "武学档位与描写细致度（档位越高越细致，本次按第" + tier + "档写）：\n" +
-    TIERS.map(x => `${x.t}档·${x.focus} 例:${x.ex}${x.t === tier ? "  ←当前" : ""}`).join("\n");
-}
-
 export async function genDish(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
-    const fl = ctx.flavorId ? FLAVOR_BY_ID[ctx.flavorId] : null;
-    const lines = [
-      `小厨在西蜀豆花庄开火做菜。`,
-      `料：${ctx.materials.join("、")}`,
-      ...ctx.lore.map(l => `· ${l}`),
-      `技法：${ctx.technique}（${TECHNIQUES[ctx.technique].desc}）`,
-      `炊具：${ctx.cookware.name}（${ctx.cookware.desc}）`,
-      fl ? `味型：${fl.name}——${fl.label}` : `味型：家常，未刻意调味`,
-      ctx.guest ? `任务：这道菜是做给 ${ctx.guest.name} 的。TA 点菜时说「${ctx.guest.order}」。你只知道TA说出口的这些，不知道TA没说出口的喜好，不要写得像早就知道TA爱吃什么。` : ``,
-      `只能使用这些料：${ctx.materials.join("、")}，不得凭空添加任何其他食材。`,
-      ctx.recipeName ? `这搭配正中配方「${ctx.recipeName}」，菜名必须用它。` : `这搭配没有固定配方，请你即兴起一个贴切的菜名。`,
-      ctx.martial ? `武学：这一勺练到 ${ctx.martial.external.join("、") || "基本功"}${ctx.martial.internal ? "，并运了内功" : ""}；食材配合 ${ctx.martial.synergy} 分；成菜基础分 ${ctx.baseScore}。正文里把这套身手自然带出来。` : ``,
-      tierGuide(tierOfScore(ctx.baseScore)),
-      lenNote(cfg.dishWords || 360, cfg.tolPct ?? 15),
-      `输出格式：第一行「菜名：「xxx」」，换行后写正文——分 3-6 段，穿插对话「」与心理 *...*，写师兄掌勺、火候、成菜色香味；然后一行「菜单：」用约100字写这道菜的品名+用料+风味（供记入菜单）；再一行「苏唐批：」师妹的评价，最后一行「心情：」一个词（八个里选）。`,
-    ];
-    const userText = lines.filter(Boolean).join("\n") + "\n（旁白里让师兄掌勺、苏唐在灶边，偶尔补她一句笔迹。）";
+    const userText = dishUser({ ...ctx, words: cfg.dishWords || 360, tol: cfg.tolPct ?? 15 });
     const t0 = Date.now();
     try {
       const raw = streamOn(cfg) && onChunk
@@ -426,15 +381,7 @@ export function splitSayMood(t) {
 
 export async function genReaction(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
-    const user = [
-      `客人：${ctx.guest.name}（${ctx.guest.ident}），点菜时说：「${ctx.guest.order}」`,
-      `端上主菜「${ctx.dishName}」：${ctx.mainDesc || "（无描述）"}`,
-      ctx.snackName ? `佐餐小吃「${ctx.snackName}」：${ctx.snackDesc || "苏唐手作。"}` : `（这顿没有佐餐小吃）`,
-      `系统裁决：${TIER_DESC[ctx.tier]}（${ctx.score}分）。客人对师兄的好感为 ${ctx.aff ?? 0}（${ctx.affName || "面生"}）。`,
-      `写 2-4 段出餐品尝场景：客人尝主菜、也尝${ctx.snackName ? `小吃「${ctx.snackName}」` : "桌上吃食"}的反应，两道都要评到（小吃也要评），要有客人说出口的「」对话，动作带人设，按裁决档位不越档夸、不越档骂。`,
-      ctx.tier === 0 ? `客人吃美了——真心实意夸师兄手艺，夸得具体；好感越高夸得越亲。` : ``,
-      `最后一行单独输出「心情：」一个词（苏唐在一旁旁观的心情，八个里选）。`,
-    ].filter(Boolean).join("\n");
+    const user = reactionUser({ ...ctx, tierDesc: TIER_DESC[ctx.tier] });
     const t0 = Date.now();
     try {
       const sys = STYLE + "\n现在写出餐品尝场景。";
@@ -475,20 +422,14 @@ export function parseSnack(t, ctx) {
   let q = parseInt(o.quality, 10);
   if (!Number.isFinite(q)) q = 60;
   q = Math.max(0, Math.min(100, q));
-  return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃", desc: o.desc || "", proc: o.proc || "" };
+  const fl = FLAVORS.find(f => f.name === (o.flavor || "")) || null;
+  return { made, used, portions, quality: q, say: o.say || "……", mood: o.mood || "", cat: o.cat || "小吃", desc: o.desc || "", proc: o.proc || "", flavor: fl ? fl.id : null };
 }
 
 export async function genSnack(cfg, ctx) {
   if (cfgReady(cfg)) {
     const invStr = Object.entries(ctx.inv).map(([n, c]) => `${n}×${c}`).join("、") || "（没有）";
-    const user = [
-      `师兄对苏唐说：${ctx.request || "（没说什么，随你发挥）"}`,
-      ctx.guest ? `注意：这小吃是做给当前客人 ${ctx.guest.name}（${ctx.guest.ident}）吃的，不是给师兄。TA 说「${ctx.guest.order}」，偏好${FLAVOR_BY_ID[ctx.guest.flavor]?.name || ""}味、最好有${ctx.guest.fav}。你要照着客人的口味来做。` : ``,
-      `现有食材：${invStr}`,
-      `你是苏唐，自己决定做什么小吃、用什么料（最多4样）、做几份、品质如何，师兄管不着。`,
-      tierGuide(ctx.suTier || 1).replace("武学档位", "苏唐手艺档位"),
-      `只输出 JSON：{"made":"成品名","cat":"汤/饭/点心/串/小吃","used":[用掉的食材名,最多4样,须来自现有且够数],"portions":1-6,"quality":0-100,"desc":"约100字描述(品名+用料+风味,供记入菜单)","proc":"苏唐做这道小吃的过程,按手艺档位写细致度","say":"苏唐说的话","mood":"八个心情词之一"}`,
-    ].filter(Boolean).join("\n");
+    const user = snackUser({ ...ctx, invStr });
     try {
       const raw = await callAI(cfg,
         "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好，嘴硬心软，做小吃是她的活计。只输出 JSON。",
@@ -521,6 +462,7 @@ function fallbackSnack(ctx) {
     proc: `苏唐把${used.join("、") || "手头现成"}归置到案上，刀下手利落，火候拿捏得稳，不一会儿「${hit.name}」就出了锅。`,
     say: says[Math.floor(Math.random() * says.length)],
     mood: "专注", ai: false,
+    flavor: req.includes("甜") ? "tian" : req.includes("酸") ? "suanla" : req.includes("辣") ? "mala" : (hit.cat === "点心" ? "tian" : "xianxiang"),
   };
 }
 
