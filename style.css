@@ -305,17 +305,24 @@ body {
 #start .btn { border: 1px solid var(--line); padding: 8px 30px; letter-spacing: 4px; cursor: pointer; }
 #start .btn:hover { background: rgba(201,161,155,.12); color: var(--ink-bright); }
 
-/* 苏唐表情 · 右下角，八格表情随文本切换 */
-.sutang {
+/* 苏唐表情 · 右下角带框卡片，八格表情随文本切换 */
+.sucard {
   position: fixed; right: 22px; bottom: 14px; z-index: 6;
-  width: 140px; height: 187px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 8px 10px 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .4);
+}
+.sutang {
+  width: 132px; height: 176px;
   background-image: url("./assets/sutang.png");
   background-size: 400% 200%;
   background-repeat: no-repeat;
   background-position: 0% 0%;
   pointer-events: none;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .5));
 }
+.suname { color: var(--ink-bright); font-size: 13px; letter-spacing: 4px; }
 .sutang.pop { animation: stpop .35s cubic-bezier(.34, 1.56, .64, 1); }
 @keyframes stpop { 0% { transform: scale(.94) translateY(3px); } 100% { transform: none; } }
 
