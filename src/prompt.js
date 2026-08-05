@@ -1,6 +1,6 @@
 // ── Prompt 编排（学 ji-haitang：分块、标号、不冗余；数据与拼接分离）──────
 // 每个调用 = 一个 system（身份+文风+格式）+ 一个 user（【标号】分块的事实与约束）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES } from "./data.js";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel } from "./data.js";
 
 // 标号块：空内容则整块省略，避免冗余空段
 export const sec = (t, b) => (b ? `【${t}】\n${b}\n` : "");
@@ -38,7 +38,8 @@ export function tierGuide(tier, who = "武学") {
 export function dishUser(ctx) {
   return (
     sec("场景", "西蜀豆花庄，师兄开火做菜。") +
-    sec("料", ctx.materials.join("、")) +
+    sec("料", ctx.materials.map(m => `${m}${starLabel(m)}`).join("、")) +
+    sec("星级", "带★的是顶级食材，极为珍贵，正文里要写出它的难得与好。") +
     sec("料性", ctx.lore.map(l => `· ${l}`).join("\n")) +
     sec("技法", `${ctx.technique}（${TECHNIQUES[ctx.technique].desc}）`) +
     sec("炊具", `${ctx.cookware.name}（${ctx.cookware.desc}）`) +
@@ -58,6 +59,8 @@ export function snackUser(ctx) {
   return (
     sec("上下文", ctx.context || "") +
     sec("师兄吩咐", ctx.request || "（没说什么，随你发挥）") +
+    sec("现有食材", ctx.invStr || "（没有）") +
+    sec("星级", "带★的是顶级食材，极为珍贵；若用上，要写出它的难得。") +
     sec("做给谁", ctx.guest ? `这小吃是做给当前客人 ${ctx.guest.name}（${ctx.guest.ident}）吃的，不是给师兄。TA 说「${ctx.guest.order}」。你要照着客人的口味来做。` : "") +
     sec("现有食材", ctx.invStr) +
     sec("苏唐自决", "你是苏唐，自己决定做什么小吃、用什么料（最多4样）、做几份、品质如何、是什么味型，师兄管不着。你是店家，对顾客要客气热情、招呼周到；对师兄则调情撒娇、逗他嗔他带甜，绝不责备。") +

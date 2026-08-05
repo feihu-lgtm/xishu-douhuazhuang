@@ -1,6 +1,6 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, ING_BY_NAME, SNACKS } from "./data.js";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, ING_BY_NAME, SNACKS, starLabel } from "./data.js";
 import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser } from "./prompt.js";
 export { tierOfScore, tierGuide };
 
@@ -454,7 +454,7 @@ export function parseSnack(t, ctx) {
 const SU_SNACK_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好。你是店家，对顾客要客气热情、招呼周到；对师兄则调情撒娇、逗他嗔他带甜，绝不责备。小剧情分 3-5 个自然段、段间空一行；对话用「」（不要用“”），心理用 *...*。先写小剧情，再输出 JSON。";
 export async function genSnack(cfg, ctx) {
   if (cfgReady(cfg)) {
-    const invStr = Object.entries(ctx.inv).map(([n, c]) => `${n}×${c}`).join("、") || "（没有）";
+    const invStr = Object.entries(ctx.inv).map(([n, c]) => `${n}${starLabel(n)}×${c}`).join("、") || "（没有）";
     const user = snackUser({ ...ctx, invStr, words: ctx.words || cfg.snackWords || 300 });
     try {
       const raw = await callAI(cfg, SU_SNACK_SYS, user, "苏唐备小吃");

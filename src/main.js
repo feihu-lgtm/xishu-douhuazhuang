@@ -1,5 +1,5 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS } from "./data.js";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
@@ -126,6 +126,7 @@ function onFire(slots, techId, cwId, flavorId, intended) {
 
 async function cookNarrate(j) {
   busy = true;
+  try {
   setMood(7);
   renderAll(st, handlers);
   await narr("师兄开火。灶膛噼啪一声，火苗蹿高，苏唐往灶里添了把柴。");
@@ -184,7 +185,7 @@ async function cookNarrate(j) {
   endTrace(`「${st.dish.name}」基础分${baseScore}`);
   if (res.ms != null) sys(`说书 ${fmtMs(res.ms)} · 正文 ${res.prose.length} 字`);
   if (!res.ai) sys("（说书人未接线，灶神模板白描。设置里填 AI 密钥可现写。）");
-  busy = false;
+  } finally { busy = false; }
   renderAll(st, handlers);
   saveGame(st);
 }
@@ -203,6 +204,7 @@ async function doServe() {
   const g = currentGuest(st);
   if (!g) return;
   busy = true;
+  try {
   startTrace("佐餐");
   const dish = st.dish;
   const flavorMatch = dish.flavorId === g.flavor;
@@ -259,7 +261,7 @@ async function doServe() {
   note("出餐", reactNote || `给${g.name}上「${dish.name}」${setName ? `+「${setName}」` : ""}，满意度${score}，好感+${d}。`);
   endTrace(`给${g.name}·满意度${score}·好感+${d}`);
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)}`);
-  busy = false;
+  } finally { busy = false; }
   if (st.served >= 3) {
     await narr("最后一位客人走了。灶上还温着汤，今日不自动打烊。");
     sys("三位送完。可逛「商店」/「探秘」，或点「下一日」翻篇。");
@@ -315,7 +317,7 @@ async function doExpedition() {
   const suAvg = Math.round(avgv(st.suSkills));
   const SCEN = ["市井讨价还价", "奇遇", "劫镖", "探山洞", "穿密林", "下地宫"];
   const scenario = SCEN[Math.floor(Math.random() * SCEN.length)];
-  const rarePool = INGREDIENTS.filter(i => i.price >= 4);
+  const rarePool = INGREDIENTS.filter(i => starOf(i.name) >= 1);
   const n = (skillAvg + suAvg) / 2 >= 20 ? 2 : 1;
   const found = [];
   for (let i = 0; i < n; i++) found.push(rarePool[Math.floor(Math.random() * rarePool.length)].name);
@@ -327,9 +329,8 @@ async function doExpedition() {
   await sys("【探秘】掀开包袱——");
   for (const f of found) {
     const ing = ING_BY_NAME[f];
-    const stars = "★".repeat(ing && ing.price >= 5 ? 3 : ing && ing.price >= 4 ? 2 : 1);
     st.inv[f] = (st.inv[f] || 0) + 1;
-    await narr(`【收获】「${f}」${stars} —— ${ing ? ing.lore : ""}`);
+    await narr(`【收获】「${f}」${starLabel(f)} —— ${ing ? ing.lore : ""}（★为顶级食材）`);
   }
   note("探秘", `副本(${scenario})寻得 ${found.join("、")}。`);
   endTrace(`探秘·${scenario}·得${found.join("、")}`);
@@ -398,6 +399,7 @@ function note(act, text) {
 async function doSnackRequest(txt) {
   if (busySnack) return sys("苏唐正忙着备小吃呢。");
   busySnack = true;
+  try {
   closeModal();
   startTrace("备小吃");
   suSys(`【行动·备小吃】师兄说：${txt || "随便"}`);
@@ -421,7 +423,7 @@ async function doSnackRequest(txt) {
   suSys(`【苏唐】练功：${got.join("、")} 各+3 · 好感+1（今 ${st.suAff}）`);
   note("备小吃", r.note || `苏唐备「${r.made}」${r.portions}份，品质${r.quality}，味型${r.flavor || "无"}。`);
   endTrace(`苏唐备「${r.made}」${r.portions}份·品质${r.quality}`);
-  busySnack = false;
+  } finally { busySnack = false; }
   renderAll(st, handlers);
   saveGame(st);
 }
@@ -433,6 +435,7 @@ async function doRemake(name) {
   for (const m of rec.used) if ((st.inv[m] || 0) <= 0) return sys(`缺「${m}」，苏唐巧妇难为无米之炊。`);
   if (busySnack) return sys("苏唐正忙着备小吃呢。");
   busySnack = true;
+  try {
   closeModal();
   startTrace("复做");
   suSys(`【行动·复做】师兄点名：${name}`);
@@ -447,7 +450,7 @@ async function doRemake(name) {
   suSys(`【苏唐】练功：${got.join("、")} 各+3 · 好感+1（今 ${st.suAff}）`);
   note("复做", `苏唐复做「${name}」3份，品质${rec.quality}。`);
   endTrace(`苏唐复做「${name}」3份`);
-  busySnack = false;
+  } finally { busySnack = false; }
   renderAll(st, handlers);
   saveGame(st);
 }
