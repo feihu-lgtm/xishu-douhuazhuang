@@ -24,7 +24,7 @@ const handlers = {
   cook: () => doCook(),
   snack: () => doSnackPanel(),
   serve: () => doZuocan(),
-  close: () => doClose(),
+
   shop: () => doShop(),
   next: () => doNext(),
   bag: () => openBag(st),
@@ -503,7 +503,6 @@ async function onCommand(text) {
   if (["灶台", "做菜", "开灶"].includes(cmd)) return doCook();
   if (["上菜", "端菜", "佐餐"].includes(cmd)) return doZuocan();
   if (["小吃", "零食"].includes(cmd)) return doSnackPanel();
-  if (["收功", "打烊"].includes(cmd)) return doClose();
   if (["商店", "买", "逛街"].includes(cmd)) return doShop();
   if (["探秘", "副本", "exp"].includes(cmd)) return doExpedition();
   if (["下一日", "下一天", "等待", "睡觉", "明儿"].includes(cmd)) return doNext();
@@ -560,7 +559,7 @@ function bind() {
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();
-    const map = { c: "cook", x: "snack", b: "su", s: "serve", v: "set", r: "close", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
+    const map = { c: "cook", x: "snack", b: "su", s: "serve", v: "set", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
     if (map[k]) handlers[map[k]]();
   });
   $("#btn-new").onclick = () => startNew();

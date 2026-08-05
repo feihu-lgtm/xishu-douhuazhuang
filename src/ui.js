@@ -740,12 +740,12 @@ export function openHelp() {
     <div class="sdesc" style="min-height:0;text-align:left;line-height:2">
       卯时开门，迎三位客人。客人点菜，你开灶：四格料槽 + 技法 + 炊具 + 味型，开火。<br>
       命中配方是名菜；配不上就「妙手偶得」，灶神（AI）即兴起名写味。<br>
-      上菜之后客人按口味付文钱——味型、技法、兴趣食材对上，钱就多。<br>
-      三位送完，收功，逛商店：厨具 / 技法 / 食材 / 味型。然后睡觉，明日再开。
+      佐餐之后客人按口味付文钱——味型、技法、兴趣食材对上，钱就多。<br>
+      三位送完自动收功，逛商店：厨具 / 技法 / 食材 / 味型；还可「探秘」寻带星高级食材。然后「下一日」。
     </div>
     <div class="ck-label">终端命令</div>
     <div class="sdesc" style="min-height:0;text-align:left;line-height:2">
-      帮助 · 灶台/做菜 · 上菜 · 收功 · 商店 · 背包 · 设置 · 存档<br>
+      帮助 · 灶台/做菜 · 佐餐 · 小吃 · 苏唐 · 商店 · 探秘 · 下一日 · 仓库 · 设置 · 存档<br>
       直接说话也行：说书人会接话；说「做 冷锅鱼」或提到食材，灶台自动备料。
     </div>
     <span class="return" data-back>Return · 返回</span>
