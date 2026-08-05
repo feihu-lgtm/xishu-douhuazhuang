@@ -13,7 +13,7 @@ import {
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, renderRate,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate,
 } from "./ui.js";
 
 let st = null;
@@ -30,6 +30,7 @@ const handlers = {
   settings: () => openSettings(),
   trace: () => openTrace(),
   notes: () => openNotes(st),
+  su: () => openSuPanel(st, { onTalk: (txt) => doSuTalk(txt) }),
   save: () => { saveGame(st); sys("存档完毕。"); },
   help: () => openHelp(),
 };
@@ -413,10 +414,11 @@ async function doSuTalk(text) {
     text, words: loadCfg().suWords || 300, suAff: st.suAff || 0, suTier: suTierOf(st),
   }, c => h.append(c));
   if (!r.ai || !h.text) { h.remove(); await suLine(r.text); }
-  st.suAff = (st.suAff || 0) + 1;
-  note("苏唐对话", `师兄说「${text.slice(0, 14)}」，苏唐回了一段，好感+1。`);
-  suSys(`【苏唐】好感+1（今 ${st.suAff}）`);
-  endTrace(`苏唐对话·好感+1`);
+  const gain = r.aff ?? 1;
+  st.suAff = Math.max(0, Math.min(100, (st.suAff || 0) + gain));
+  note("苏唐对话", `师兄说「${text.slice(0, 14)}」，苏唐回了一段，好感+${gain}。`);
+  suSys(`【苏唐】好感+${gain}（今 ${st.suAff}）`);
+  endTrace(`苏唐对话·好感+${gain}`);
   setMood(3);
   busy = false;
   renderAll(st, handlers);
@@ -458,7 +460,7 @@ async function onCommand(text) {
   if (["设置"].includes(cmd)) return openSettings();
   if (["流程", "日志", "trace"].includes(cmd)) return openTrace();
   if (["纸条", "notes"].includes(cmd)) return openNotes(st);
-  if (/苏唐|小妹|师妹/.test(t)) return doSuTalk(t);
+  if (["苏唐", "吩咐", "找苏唐"].includes(cmd)) return openSuPanel();
   if (["存档"].includes(cmd)) { saveGame(st); return sys("存档完毕。"); }
 
   // 说「做 XX」/ 提到菜名或食材 → 灶台自动备料
@@ -507,7 +509,7 @@ function bind() {
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();
-    const map = { c: "cook", x: "snack", s: "serve", v: "set", r: "close", t: "shop", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
+    const map = { c: "cook", x: "snack", b: "su", s: "serve", v: "set", r: "close", t: "shop", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
     if (map[k]) handlers[map[k]]();
   });
   $("#btn-new").onclick = () => startNew();

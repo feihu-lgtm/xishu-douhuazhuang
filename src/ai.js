@@ -504,16 +504,19 @@ export async function genSuTalk(cfg, ctx, onChunk) {
       `苏唐对师兄的好感为 ${ctx.suAff ?? 0}。`,
       tierGuide(ctx.suTier || 1, "苏唐手艺"),
       `以苏唐的口吻与动作回一段话，约 ${ctx.words || 300} 字，嘴硬心软；好感越高语气越软。`,
+      `回话末尾单独一行「好感：+N」，N 取 0-3，由你当时心情决定（被逗乐、暖心就高，被气就 0）。`,
     ].join("\n");
     const t0 = Date.now();
     try {
       const raw = streamOn(cfg) && onChunk
         ? await callAIStream(cfg, SU_SYS, user, onChunk, "苏唐对话")
         : await callAI(cfg, SU_SYS, user, "苏唐对话");
-      return { text: raw, ms: Date.now() - t0, ai: true };
+      const m = (raw || "").match(/好感[：:]\s*\+?\s*(\d)/);
+      const aff = m ? Math.max(0, Math.min(3, parseInt(m[1], 10))) : 1;
+      return { text: raw, aff, ms: Date.now() - t0, ai: true };
     } catch { /* 降级 */ }
   }
-  return { text: fallbackSuTalk(), ai: false };
+  return { text: fallbackSuTalk(), aff: 1, ai: false };
 }
 
 export async function genReview(cfg, ctx) {

@@ -234,6 +234,7 @@ export function renderSide(st, h) {
   $("#side").innerHTML =
     item("灶台", "C", can.cook, "cook") +
     item("小吃", "X", can.snack, "snack") +
+    item("苏唐", "B", true, "su") +
     item("佐餐", "S", can.serve, "serve") +
     item("收功", "R", can.close, "close") +
     item("商店", "T", can.shop, "shop") +
@@ -556,6 +557,21 @@ export function openSet(st, { onSet }) {
     modal.querySelector("[data-back]").onclick = () => closeModal();
   }
   draw();
+}
+
+// ── 吩咐苏唐（专用入口，不做正则猜测）──────────────────────────────
+export function openSuPanel(st, { onTalk }) {
+  let txt = "";
+  const modal = openModal(`
+    <h2>吩 咐 · 苏唐</h2>
+    <div class="set-note">跟苏唐说句话，她回在右栏。好感加多少由她当时的心情决定。</div>
+    <input id="su-in" class="ck-intent" placeholder="如：小妹，今天累不累？" value="">
+    <div class="ck-btns"><span class="ck-btn" data-go>说 给 苏 唐</span></div>
+    <span class="return" data-back>Return · 返回</span>
+  `, () => {});
+  modal.querySelector("#su-in").oninput = (e) => { txt = e.target.value; };
+  modal.querySelector("[data-go]").onclick = () => { if (txt.trim()) { closeModal(); onTalk(txt.trim()); } };
+  modal.querySelector("[data-back]").onclick = () => closeModal();
 }
 
 // ── 小纸条（每轮动作/对话的小总结，按天回看）────────────────────────
