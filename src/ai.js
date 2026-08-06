@@ -683,6 +683,7 @@ export async function genSuTalk(cfg, ctx, onChunk) {
       `以苏唐的口吻与动作回话，约 ${ctx.words || 300} 字，分 3-5 个自然段；对师兄调情撒娇、逗他嗔他带甜，不要责备他；好感越高越撩越软。`,
       `回话末尾单独一行「好感：+N」，N 取 0-3，由你当时心情决定（被逗乐、暖心就高）。`,
       `再单独一行「表情：」——若这回应答里真有暧昧/亲密/逗弄氛围，从 脸红出汗/微微翻白眼/憋气/吐舌/wink/嘟嘴/鼓气/娇羞比耶 里选一个最贴的；否则就写「平常」。`,
+      getNsfw() ? `再单独一行「亲密：」——若涉及亲热/做爱情节，判断有没有做到位，写「无」「未尽兴」或「到位」。` : "",
     ].join("\n");
     const t0 = Date.now();
     try {
@@ -691,7 +692,9 @@ export async function genSuTalk(cfg, ctx, onChunk) {
         : await callAI(cfg, SU_SYS, user, "苏唐对话");
       const m = (raw || "").match(/好感[：:]\s*\+?\s*(\d)/);
       const aff = m ? Math.max(0, Math.min(3, parseInt(m[1], 10))) : 1;
-      return { text: raw, aff, ms: Date.now() - t0, ai: true };
+      const intM = (raw || "").match(/亲密[：:]\s*([^\n]+)/);
+      const intimacy = intM ? intM[1].trim() : "";
+      return { text: raw, aff, intimacy, ms: Date.now() - t0, ai: true };
     } catch { /* 降级 */ }
   }
   return { text: fallbackSuTalk(), aff: 1, ai: false };
@@ -737,7 +740,7 @@ let chatIdx = 0;
 
 export async function genChat(cfg, text, onChunk, context) {
   if (cfgReady(cfg)) {
-    const sys = STYLE + `\n师兄在日记里写了句话，你以日记的笔法接下去，分 2-4 段，用上对话「」与心理 *...*。正文总字数约 ${cfg.chatWords || 160} 字（±${cfg.tolPct ?? 15}%）。末尾照例附「苏唐批：」一句和「心情：」一个词（八个里选）；再一行「表情：」——若这回应答里有暧昧/亲密/逗弄氛围，从 脸红出汗/微微翻白眼/憋气/吐舌/wink/嘟嘴/鼓气/娇羞比耶 里选一个最贴的，否则写「平常」。`;
+    const sys = STYLE + `\n师兄在日记里写了句话，你以日记的笔法接下去，分 2-4 段，用上对话「」与心理 *...*。正文总字数约 ${cfg.chatWords || 160} 字（±${cfg.tolPct ?? 15}%）。末尾照例附「苏唐批：」一句和「心情：」一个词（八个里选）；再一行「表情：」——若这回应答里有暧昧/亲密/逗弄氛围，从 脸红出汗/微微翻白眼/憋气/吐舌/wink/嘟嘴/鼓气/娇羞比耶 里选一个最贴的，否则写「平常」；再一行「好感：+N」，N 取 0-3，按这回应答的甜度/用心/文本质量来定，被逗乐、暖心、撩到位就给高；${getNsfw() ? `再一行「亲密：」——若涉及亲热/做爱情节，判断有没有做到位，写「无」「未尽兴」或「到位」。` : ""}`;
     const user = (context ? `【上下文】\n${context}\n` : "") + `【师兄写道】${text}`;
     const t0 = Date.now();
     try {
@@ -747,7 +750,13 @@ export async function genChat(cfg, text, onChunk, context) {
       const ms = Date.now() - t0;
       if (raw && raw.trim()) {
         const { main, comment, mood } = extractComment(raw.trim());
-        if (main) return { prose: main, comment, mood: moodIndex(mood), ms, ai: true };
+        if (main) {
+          const affM = (raw || "").match(/好感[：:]\s*\+?\s*(\d)/);
+          const aff = affM ? Math.max(0, Math.min(3, parseInt(affM[1], 10))) : 0;
+          const intM = (raw || "").match(/亲密[：:]\s*([^\n]+)/);
+          const intimacy = intM ? intM[1].trim() : "";
+          return { prose: main, comment, mood: moodIndex(mood), ms, ai: true, aff, intimacy };
+        }
       }
     } catch { /* 降级 */ }
   }

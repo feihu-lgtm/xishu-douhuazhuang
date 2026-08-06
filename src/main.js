@@ -624,19 +624,29 @@ async function doSuTalk(text) {
   const faceIdx = POSE_INDEX[extractFace(r.text || "")];
   const gain = r.aff ?? 1;
   st.suAff = Math.max(0, Math.min(100, (st.suAff || 0) + gain));
-  // 苏唐对话也加受邀女客好感
+  // 苏唐对话也加受邀女客好感（同苏唐的 gain）
   let invGain = "";
   if (st.invitedGuest) {
     st.aff = st.aff || {};
-    st.aff[st.invitedGuest] = Math.min(100, (st.aff[st.invitedGuest] || 0) + 1);
+    st.aff[st.invitedGuest] = Math.min(100, (st.aff[st.invitedGuest] || 0) + gain);
     const inv = findKnownGuest(st, st.invitedGuest);
-    if (inv) invGain = ` · ${inv.name}好感+1`;
+    if (inv) invGain = ` · ${inv.name}好感+${gain}`;
   }
   note("苏唐对话", `师兄说「${text.slice(0, 14)}」，苏唐回了一段，好感+${gain}。`);
   suSys(`【苏唐】好感+${gain}（今 ${st.suAff}）${invGain}`);
   endTrace(`苏唐对话·好感+${gain}`);
   setMood(3);
   if (getNsfw() && Number.isInteger(faceIdx)) rollNsfwFace(faceIdx);
+  // 做爱做到位：受邀女客可能爆食材
+  if (st.invitedGuest && r.intimacy === "到位" && Math.random() < 0.5) {
+    const inv = findKnownGuest(st, st.invitedGuest);
+    const sp = fallbackSpecial()[0];
+    st.inv[sp.name] = (st.inv[sp.name] || 0) + 1;
+    st.stars = st.stars || {}; st.starLore = st.starLore || {};
+    st.stars[sp.name] = sp.stars;
+    if (sp.desc) st.starLore[sp.name] = sp.desc;
+    await narr(`${inv?.name || "她"}餍足地靠在榻上，随手从包袱里摸出一样东西塞给你——「${sp.name}」${"★".repeat(sp.stars)}。`);
+  }
   busy = false;
   renderAll(st, handlers);
   saveGame(st);
@@ -744,16 +754,27 @@ async function onCommand(text) {
   const faceIdx = POSE_INDEX[extractFace(r.ai && h.text ? h.text : r.prose)];
   if (getNsfw() && Number.isInteger(faceIdx)) rollNsfwFace(faceIdx);
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)} · ${r.prose.length} 字`);
-  // 闲聊加好感：苏唐 +1，受邀女客 +1
-  st.suAff = Math.min(100, (st.suAff || 0) + 1);
+  // 闲聊加好感：按 AI 给的质量值（0-3），苏唐和受邀女客一起加
+  const affGain = r.aff ?? 0;
+  st.suAff = Math.min(100, (st.suAff || 0) + affGain);
   let invGain = "";
   if (st.invitedGuest) {
     st.aff = st.aff || {};
-    st.aff[st.invitedGuest] = Math.min(100, (st.aff[st.invitedGuest] || 0) + 1);
+    st.aff[st.invitedGuest] = Math.min(100, (st.aff[st.invitedGuest] || 0) + affGain);
     const inv = findKnownGuest(st, st.invitedGuest);
-    if (inv) invGain = ` · ${inv.name}好感+1`;
+    if (inv) invGain = ` · ${inv.name}好感+${affGain}`;
   }
-  suSys(`【苏唐】好感+1（今 ${st.suAff}）${invGain}`);
+  suSys(`【苏唐】好感+${affGain}（今 ${st.suAff}）${invGain}`);
+  // 做爱做到位：受邀女客可能爆食材
+  if (st.invitedGuest && r.intimacy === "到位" && Math.random() < 0.5) {
+    const inv = findKnownGuest(st, st.invitedGuest);
+    const sp = fallbackSpecial()[0];
+    st.inv[sp.name] = (st.inv[sp.name] || 0) + 1;
+    st.stars = st.stars || {}; st.starLore = st.starLore || {};
+    st.stars[sp.name] = sp.stars;
+    if (sp.desc) st.starLore[sp.name] = sp.desc;
+    await narr(`${inv?.name || "她"}餍足地靠在榻上，随手从包袱里摸出一样东西塞给你——「${sp.name}」${"★".repeat(sp.stars)}。`);
+  }
   saveGame(st);
   busy = false;
 }
