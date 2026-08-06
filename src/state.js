@@ -2,7 +2,7 @@
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
-  RIVAL_LEVELS, RIVAL_SCHOOLS,
+  RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS,
 } from "./data.js";
 
 export const GUESTS_PER_DAY = 3;
@@ -252,6 +252,15 @@ export function rivalStageNext(st) {
   else if (stg.school < lastSchool) { stg.school += 1; stg.level = 0; }
   else st.rivalDone = true;
   return stg;
+}
+
+// ── 邀请候选：所有认识的女性（预设女客 + 女厨/女新客等动态客人），好感>15 ──
+export function findKnownGuest(st, id) {
+  return GUESTS.find(g => g.id === id) || (st.customGuests || []).find(g => g.id === id) || null;
+}
+export function inviteCandidates(st) {
+  const known = [...GUESTS, ...(st.customGuests || [])];
+  return known.filter(g => (FEMALE_GUEST_IDS.has(g.id) || g.gender === "女") && (st.aff[g.id] || 0) > 15);
 }
 export function nextDay(st) {
   st.day += 1;

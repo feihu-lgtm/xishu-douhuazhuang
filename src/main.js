@@ -5,7 +5,7 @@ import {
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, findKnownGuest,
 } from "./state.js";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest,
@@ -624,8 +624,16 @@ async function doSuTalk(text) {
   const faceIdx = POSE_INDEX[extractFace(r.text || "")];
   const gain = r.aff ?? 1;
   st.suAff = Math.max(0, Math.min(100, (st.suAff || 0) + gain));
+  // 苏唐对话也加受邀女客好感
+  let invGain = "";
+  if (st.invitedGuest) {
+    st.aff = st.aff || {};
+    st.aff[st.invitedGuest] = Math.min(100, (st.aff[st.invitedGuest] || 0) + 1);
+    const inv = findKnownGuest(st, st.invitedGuest);
+    if (inv) invGain = ` · ${inv.name}好感+1`;
+  }
   note("苏唐对话", `师兄说「${text.slice(0, 14)}」，苏唐回了一段，好感+${gain}。`);
-  suSys(`【苏唐】好感+${gain}（今 ${st.suAff}）`);
+  suSys(`【苏唐】好感+${gain}（今 ${st.suAff}）${invGain}`);
   endTrace(`苏唐对话·好感+${gain}`);
   setMood(3);
   if (getNsfw() && Number.isInteger(faceIdx)) rollNsfwFace(faceIdx);
@@ -736,6 +744,17 @@ async function onCommand(text) {
   const faceIdx = POSE_INDEX[extractFace(r.ai && h.text ? h.text : r.prose)];
   if (getNsfw() && Number.isInteger(faceIdx)) rollNsfwFace(faceIdx);
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)} · ${r.prose.length} 字`);
+  // 闲聊加好感：苏唐 +1，受邀女客 +1
+  st.suAff = Math.min(100, (st.suAff || 0) + 1);
+  let invGain = "";
+  if (st.invitedGuest) {
+    st.aff = st.aff || {};
+    st.aff[st.invitedGuest] = Math.min(100, (st.aff[st.invitedGuest] || 0) + 1);
+    const inv = findKnownGuest(st, st.invitedGuest);
+    if (inv) invGain = ` · ${inv.name}好感+1`;
+  }
+  suSys(`【苏唐】好感+1（今 ${st.suAff}）${invGain}`);
+  saveGame(st);
   busy = false;
 }
 

@@ -641,7 +641,7 @@ export async function genNewGuest(cfg) {
     const ingNames = INGREDIENTS.map(i => i.name).join("、");
     const user = [
       `【背景】鱼定村「西蜀豆花庄」门口来了个陌生客人。`,
-      `只输出 JSON：{"name":"名字（2-3字，带村味）","ident":"身份一句","spend":20-90整数,"flavor":"从 ${flavorList} 里选一个","tech":"从 ${techList} 里选一个","fav":"从食材表里选一样，须一字不差：${ingNames}","order":"点菜时说的话，30字内，带口味偏好"}`,
+      `只输出 JSON：{"name":"名字（2-3字，带村味）","gender":"女或男","ident":"身份一句","spend":20-90整数,"flavor":"从 ${flavorList} 里选一个","tech":"从 ${techList} 里选一个","fav":"从食材表里选一样，须一字不差：${ingNames}","order":"点菜时说的话，30字内，带口味偏好"}`,
     ].join("\n");
     try {
       const raw = await callAI(cfg, "你是新客生成官，只输出 JSON，不写多余文字。", user, "新客", 60000, true);
@@ -651,6 +651,7 @@ export async function genNewGuest(cfg) {
         return {
           id: "cg_" + Date.now(),
           name,
+          gender: o.gender === "女" ? "女" : "男",
           ident: (o.ident || "路过的客人").trim(),
           spend: Math.max(10, Math.min(120, parseInt(o.spend, 10) || 30)),
           flavor: o.flavor,

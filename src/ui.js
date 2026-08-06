@@ -2,9 +2,8 @@
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS,
-  GUESTS, FEMALE_GUEST_IDS,
 } from "./data.js";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS } from "./state.js";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
 
 // 顶部限流五点是空心/实心 + 12s 计时
@@ -642,8 +641,8 @@ export function renderInvite(st, { onInvite, onCancel } = {}) {
     el.className = "invite-panel";
     document.body.appendChild(el);
   }
-  const invited = st.invitedGuest ? GUESTS.find(g => g.id === st.invitedGuest) : null;
-  const cands = GUESTS.filter(g => FEMALE_GUEST_IDS.has(g.id) && (st.aff[g.id] || 0) > 15);
+  const invited = st.invitedGuest ? findKnownGuest(st, st.invitedGuest) : null;
+  const cands = inviteCandidates(st);
   el.classList.toggle("collapsed", inviteCollapsed);
   el.innerHTML = `
     <div class="invite-bar" data-toggle>🪑 请客坐坐${invited ? ` · ${invited.name}` : ""}<span class="invite-min">${inviteCollapsed ? "展开" : "收起"}</span></div>

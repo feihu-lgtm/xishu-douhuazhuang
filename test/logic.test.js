@@ -5,7 +5,7 @@ import {
   shopStock, buyItem, nextDay, currentGuest, GUESTS_PER_DAY,
   applyMartialExp, computeBaseScore, refreshShop, shopIngOf, applySuExp,
   checkChance, rollCheck, rankLabel, checkDim, skillValueOf, ACHIEVE_DEFS, ACHIEVE_N, ATTR_DIMS, CHECK_DIMS,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, inviteCandidates, findKnownGuest,
 } from "../src/state.js";
 import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS, rivalGuestAt, FEMALE_GUEST_IDS } from "../src/data.js";
 import {
@@ -376,6 +376,22 @@ test("女性客人标记：FEMALE_GUEST_IDS 都是有效 guest id，且含苏酥
   assert.ok(FEMALE_GUEST_IDS.size >= 8, "至少 8 位女客可被邀请");
   for (const id of FEMALE_GUEST_IDS) assert.ok(ids.has(id), `女客 ${id} 必须存在于 GUESTS`);
   assert.ok(FEMALE_GUEST_IDS.has("susu"), "苏酥可被邀请");
+});
+
+test("邀请候选：所有认识的女性好感>15（含女厨/动态女客），好感不足排除", () => {
+  const st = newState();
+  st.aff["caidan"] = 30;
+  const nv = rivalGuestAt(2, 4); // 云锦·女厨
+  st.customGuests.push(nv);
+  st.aff[nv.id] = 18;
+  const low = rivalGuestAt(3, 1); // 烟雨·女厨
+  st.customGuests.push(low);
+  st.aff[low.id] = 10;
+  const cands = inviteCandidates(st);
+  assert.ok(cands.some(g => g.id === "caidan"), "预设女客可邀");
+  assert.ok(cands.some(g => g.id === nv.id), "女厨可邀");
+  assert.ok(!cands.some(g => g.id === low.id), "好感不足不出现");
+  assert.equal(findKnownGuest(st, nv.id).name, nv.name, "女厨也能被找到");
 });
 
 test("newState：带星食材描述落盘字段 starLore 就位", () => {
