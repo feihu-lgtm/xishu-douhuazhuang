@@ -673,6 +673,32 @@ export function extractFace(t) {
   return m ? m[1].trim() : "";
 }
 
+// ── 苏唐全包·主菜：苏唐看现有库存判断做什么，扣料出菜 ───────────────
+export async function genSuCook(cfg, ctx) {
+  if (cfgReady(cfg)) {
+    const invStr = Object.entries(ctx.inv).filter(([, n]) => n > 0).map(([n, c]) => `${n}×${c}`).join("、") || "（没有）";
+    const user = [
+      ctx.context ? `【上下文】\n${ctx.context}` : "",
+      `苏唐掌勺做主菜。现有食材：${invStr}。`,
+      `已会技法：${ctx.techs.join("、")}。已会味型：${ctx.flavors.map(f => FLAVOR_BY_ID[f]?.name || f).join("、")}。`,
+      `只输出 JSON：{"name":"菜名","materials":["从现有食材里选2-4样，须够数"],"technique":"从已会技法里选一个","flavor":"已会味型id或null","prose":"约300字苏唐手笔做菜小剧情，穿插「」对话与*心理*"}`,
+    ].join("\n");
+    try {
+      const raw = await callAI(cfg, "你是苏唐，掌勺做主菜，只输出 JSON，不写多余文字。", user, "苏唐主菜", 120000, true);
+      const o = parseJSONRescue(raw);
+      const mats = (Array.isArray(o.materials) ? o.materials : []).filter(m => (ctx.inv[m] || 0) > 0).slice(0, 4);
+      if (o.name && mats.length && ctx.techs.includes(o.technique)) {
+        return {
+          name: (o.name || "").trim(), materials: mats, technique: o.technique,
+          flavor: ctx.flavors.includes(o.flavor) ? o.flavor : null,
+          prose: (o.prose || "").trim(), ai: true,
+        };
+      }
+    } catch { /* 降级 */ }
+  }
+  return null;
+}
+
 export async function genSuTalk(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const user = [

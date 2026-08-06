@@ -292,7 +292,7 @@ export function closeModal(onClose) {
 }
 
 // ── 做菜界面（六格槽位，移植 qucuo CookingScreen 交互）────────────────
-export function openCook(st, { onFire, prefill } = {}) {
+export function openCook(st, { onFire, prefill, onSuAll } = {}) {
   const slots = [null, null, null, null];
   for (const m of (prefill?.materials || [])) {
     const i = slots.indexOf(null);
@@ -364,11 +364,15 @@ export function openCook(st, { onFire, prefill } = {}) {
         : (filled.length ? "灶神摇头——这几样凑不成一道菜。" : "卷轴空着，等你下料。")}</div>
       <div class="ck-warn">${warn}</div>
       <div class="ck-btns">
+        ${(st.suAff || 0) > 40 ? `<span class="ck-btn plain" data-suall>苏唐全包</span>` : ""}
         <span class="ck-btn" data-fire>开 火</span>
         <span class="ck-btn plain" data-clear>清空</span>
         <span class="ck-btn plain" data-back>返回</span>
       </div>
     `, () => {});
+
+    const suall = modal.querySelector("[data-suall]");
+    if (suall) suall.onclick = () => { closeModal(); onSuAll?.(); };
 
     modal.querySelectorAll("[data-slot]").forEach(el => el.onclick = () => {
       const i = +el.dataset.slot;

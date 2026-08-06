@@ -56,6 +56,13 @@ export const TECHNIQUES = {
     desc: "先炸后熘，挂汁挂浆，糖醋里脊的熘。" },
   贴: { id: "贴", icon: "🫓", needsSteamer: false, unlock: 34, from: "煎", need: 6,
     desc: "锅贴似的，底贴锅面煎脆，上边焖熟。" },
+  // ── 专练外功的技法（train=做这道菜额外练哪门武）────────────────
+  片: { id: "片", icon: "🗡", needsSteamer: false, unlock: 20, from: "煎", need: 5, train: "剑法",
+    desc: "薄刀轻片，剑走轻灵——片鱼片、片嫩肉，刀光如剑。" },
+  串: { id: "串", icon: "🍢", needsSteamer: false, unlock: 20, from: "烤", need: 5, train: "枪法",
+    desc: "竹签穿串，势如枪刺——一签一个准，串烧烤肉。" },
+  颠: { id: "颠", icon: "🥘", needsSteamer: false, unlock: 18, from: "炒", need: 5, train: "投掷",
+    desc: "颠勺抛锅，料在空里翻个——练的正是投掷的准头。" },
 };
 export const TECHNIQUE_IDS = Object.keys(TECHNIQUES);
 

@@ -349,6 +349,13 @@ test("踢馆女厨：40位黑白格20女20男，女厨各有美名", () => {
   assert.ok(rivalGuestAt(2, 4).name, "粤菜总厨应是女厨美名");
 });
 
+test("专练技法：片/串/颠 分别专练 剑法/枪法/投掷", () => {
+  const train = Object.fromEntries(Object.values(TECHNIQUES).filter(x => x.train).map(x => [x.id, x.train]));
+  assert.equal(train["片"], "剑法");
+  assert.equal(train["串"], "枪法");
+  assert.equal(train["颠"], "投掷");
+});
+
 test("女厨体貌：所有女厨 body 都含「美若天仙」，男厨不配", () => {
   for (let si = 0; si < 8; si++) for (let li = 0; li < 5; li++) {
     const r = rivalGuestAt(si, li);

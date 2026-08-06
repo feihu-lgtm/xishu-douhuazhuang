@@ -1,5 +1,5 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, rivalGuestAt, GUESTS } from "./data.js";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, rivalGuestAt, GUESTS, TECHNIQUES, FLAVOR_BY_ID } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
@@ -8,7 +8,7 @@ import {
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, findKnownGuest,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest, genSuCook,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
@@ -120,7 +120,60 @@ function showInvite() {
 // ── 做菜 ───────────────────────────────────────────────────────────────
 function doCook(prefill) {
   if (st.phase !== "guest") { sys("这会儿不开灶。"); return; }
-  openCook(st, { onFire, prefill });
+  openCook(st, { onFire, prefill, onSuAll: () => doSuAll() });
+}
+
+// ── 苏唐全包：好感>40 灶台按钮。或苏唐掌勺（练她），或她指挥师兄（练你）──
+async function doSuAll() {
+  if ((st.suAff || 0) < 40) return sys("苏唐说，好感不够，不掌勺。");
+  if (busy) return sys("正忙着呢。");
+  busy = true;
+  try {
+  startTrace("苏唐全包");
+  const cfg = loadCfg();
+  const suRoute = Math.random() < 0.5; // true=苏唐做，false=苏唐指挥师兄做
+  const dish = await genSuCook(cfg, { inv: st.inv, techs: st.techs, flavors: st.flavors, context: ctxLine(st) });
+  if (!dish) { sys("苏唐今天没兴致，还是你自己来。"); endTrace("苏唐全包·未成"); return; }
+  for (const m of dish.materials) { st.inv[m] = (st.inv[m] || 0) - 1; if (st.inv[m] <= 0) delete st.inv[m]; }
+  const j = judgeStove(st, dish.materials, dish.technique, st.cookware[0], dish.flavor);
+  st.dish = { name: dish.name, materials: dish.materials, technique: dish.technique, cookwareId: st.cookware[0], flavorId: dish.flavor, quality: j.quality, recipe: !!j.recipe, suCook: true };
+  if (suRoute) {
+    await narr("苏唐系上围裙，袖子一挽：「师兄坐着看就好。」");
+    await narr(dish.prose);
+    applySuExp(st, 3);
+    const tT = TECHNIQUES[dish.technique]?.train;
+    if (tT) { st.suSkills = st.suSkills || {}; st.suSkills[tT] = Math.min(100, (st.suSkills[tT] || 0) + 3); }
+    suSys(`【苏唐】掌勺练功：各手艺+3${tT ? ` · ${tT}·专练+3` : ""}`);
+  } else {
+    await narr("苏唐站在灶边，袖子扎紧，递来菜刀：「师兄，听我口令。」");
+    await narr(dish.prose);
+    const martial = await genMartial(cfg, { materials: dish.materials, technique: dish.technique, cookware: j.cookware, intended: "", recipe: j.recipe });
+    const got = applyMartialExp(st, martial.external, martial.internal);
+    const tT = TECHNIQUES[dish.technique]?.train;
+    if (tT) { applyMartialExp(st, [tT], null); got.push(`${tT}·专练`); }
+    suSys(`【苏唐指挥】练功：${got.join("、")} 各+3`);
+  }
+  gold(`「${dish.name}」出锅${suRoute ? "，苏唐手笔" : "，师兄执勺、苏唐口令"}。`);
+  note("苏唐全包", `${suRoute ? "苏唐掌勺" : "苏唐指挥师兄"}做「${dish.name}」（${dish.technique}）。`);
+  // 小吃：苏唐看库存判断做新还是复做
+  const sr = await genSnack(cfg, { request: "（苏唐自己看着办）", inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), martialTier: 1, words: cfg.snackWords || 200, context: ctxLine(st), stars: st.stars, snackStock: st.snacks });
+  if (sr && sr.made) {
+    for (const m of sr.used || []) { st.inv[m] = (st.inv[m] || 0) - 1; if (st.inv[m] <= 0) delete st.inv[m]; }
+    st.snacks = st.snacks || {};
+    st.snacks[sr.made] = (st.snacks[sr.made] || 0) + (sr.portions || 3);
+    (st.todaySnacks = st.todaySnacks || []).push({ name: sr.made, quality: sr.quality, flavor: sr.flavor });
+    st.snackRecipes = st.snackRecipes || [];
+    const srec = st.snackRecipes.find(x => x.name === sr.made);
+    if (srec) { srec.desc = sr.desc || srec.desc; srec.used = sr.used; srec.quality = sr.quality; }
+    else st.snackRecipes.push({ name: sr.made, cat: sr.cat, tag: sr.cat, used: sr.used || [], quality: sr.quality, desc: sr.desc, flavor: sr.flavor });
+    applySuExp(st);
+    if (sr.narrative) await suLine(sr.narrative);
+    suSys(`【苏唐】小吃备好「${sr.made}」${sr.portions || 3} 份 · 品质 ${sr.quality}`);
+  }
+  endTrace("苏唐全包");
+  } finally { busy = false; }
+  renderAll(st, handlers);
+  saveGame(st);
 }
 
 function onFire(slots, techId, cwId, flavorId, intended) {
@@ -164,6 +217,8 @@ async function cookNarrate(j) {
     cookware: j.cookware, intended: j.intended, recipe: j.recipe,
   });
   const got = applyMartialExp(st, martial.external, martial.internal);
+  const trainSkill = TECHNIQUES[st.dish.technique]?.train; // 专练技法：额外练指定外功
+  if (trainSkill) { applyMartialExp(st, [trainSkill], null); got.push(`${trainSkill}·专练`); }
   // 练功可学：记录本次技法/味型用法，检查是否顿悟新技法/味型
   registerUse(st, st.dish.technique, j.flavorId);
   const prog = unlockProgress(st);

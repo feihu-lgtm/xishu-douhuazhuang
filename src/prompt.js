@@ -83,6 +83,8 @@ export function snackUser(ctx) {
     bodySec(ctx.guest) +
     sec("现有食材", ctx.invStr) +
     sec("苏唐自决", "你是苏唐，自己决定做什么小吃、用什么料（最多4样）、做几份、品质如何、是什么味型，师兄管不着。你是店家，对顾客要客气热情、招呼周到；对师兄则调情撒娇、逗他嗔他带甜，绝不责备。") +
+    sec("已有小吃库存", ctx.snackStock || "（还没有备好的小吃）") +
+    sec("做新还是复做", "看库存：库里还够、又合客人口味的，就复做已有的别浪费料；不够或想要更好的，才做新的。") +
     sec("可选味型", `选一个作为这小吃的味型：${FLAVORS.map(f => f.name).join("/")}。`) +
     sec("档位", tierGuide(ctx.suTier || 1, "苏唐手艺")) +
     sec("武功", tierGuide(ctx.martialTier || 1, "师兄武功")) +
