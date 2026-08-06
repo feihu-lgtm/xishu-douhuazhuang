@@ -242,6 +242,25 @@ body {
 .scard.owned .sbuy { color: var(--mute); cursor: default; }
 .scard.owned .sname { color: var(--ink-dim); }
 
+/* 邀请面板：右栏底部浮层，可最小化 */
+.invite-panel {
+  position: fixed; right: 12px; bottom: 12px; width: 250px; z-index: 60;
+  border: 1px solid var(--line); background: var(--panel); border-radius: 2px;
+  font-size: 12px; color: var(--ink); box-shadow: 0 4px 18px rgba(0,0,0,.35);
+}
+.invite-panel.collapsed .invite-body { display: none; }
+.invite-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; letter-spacing: 1px; color: var(--ink-bright); border-bottom: 1px solid var(--line-soft); }
+.invite-panel.collapsed .invite-bar { border-bottom: none; }
+.invite-min { color: var(--ink-dim); font-size: 11px; }
+.invite-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow: auto; }
+.invite-note { font-size: 11px; color: var(--ink-dim); line-height: 1.7; }
+.invite-row { display: flex; align-items: center; gap: 8px; }
+.invite-name { display: flex; flex-direction: column; flex: 1; line-height: 1.4; }
+.invite-name i { font-style: normal; font-size: 10px; color: var(--ink-dim); }
+.invite-aff { color: var(--ink-dim); font-size: 11px; flex-shrink: 0; }
+.invite-row .ck-btn { padding: 4px 10px; font-size: 12px; flex-shrink: 0; }
+.invite-none { color: var(--ink-dim); font-size: 11px; line-height: 1.7; }
+
 /* 探秘关卡 · 右栏选项面板（#sulog 临时夺舍，左栏 #log 继续主叙事） */
 .exp-panel { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; min-height: 100%; }
 .exp-panel-head { font-size: 13px; letter-spacing: 4px; color: var(--ink-bright); border-bottom: 1px solid var(--line-soft); padding-bottom: 8px; }

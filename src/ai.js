@@ -527,6 +527,7 @@ export async function genExpedition(cfg, ctx) {
   if (cfgReady(cfg)) {
     const user = [
       ctx.context ? `【上下文】\n${ctx.context}` : "",
+      ctx.intent ? `【师兄交代】${ctx.intent}。严格照此办：此行就奔这个去，别跑偏。` : "",
       `今次的情境是：${ctx.scenario}。严格按此情境写，不要换成别的场景（不要总写山洞）。`,
       `师兄（武功约 ${ctx.skillAvg}、凭平日见识与智慧）与苏唐（手艺 ${ctx.suAvg}）同行，寻稀有食材。`,
       `可用维度池（关卡各路本事都能考，不限于口舌眼力）：${pool.join(" / ")}。`,

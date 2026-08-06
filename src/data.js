@@ -411,6 +411,79 @@ export const GUESTS = [
     order: "妹妹的师兄？手艺如何——做道雅致的来，别让我等太久。" },
 ];
 
+// ── 踢馆梯度：八大菜系 × 5 档（喽啰→总厨），难度递增，挑过一级来下一级 ──
+// 第 15 天后每天第二客 50% 概率来"当前该来"的那一位；挑过他，进度往前推。
+// ── 女性客人（收功后可受邀留坐闲聊，好感>15）──────────────────────────
+export const FEMALE_GUEST_IDS = new Set([
+  "caidan", "zhuoma", "huasao", "huyanxue", "meiduo",
+  "baiguniang", "daijiak", "suniang", "lasan", "tiannan", "susu",
+]);
+export const RIVAL_LEVELS = [
+  { tag: "喽啰·采买", req: 65, bonus: [40, 60] },
+  { tag: "少主", req: 75, bonus: [60, 90] },
+  { tag: "大师兄", req: 85, bonus: [80, 110] },
+  { tag: "副厨", req: 90, bonus: [100, 140] },
+  { tag: "总厨", req: 95, bonus: [140, 220] },
+];
+export const RIVAL_SCHOOLS = [
+  { name: "川菜", chef: "椒麻", flavor: "mala", tech: "炒", fav: "二荆条辣椒", female: [
+    { name: "红绫", body: "美若天仙——雪肤花貌，眉目如画，笑起来勾魂摄魄" },
+    { name: "阿椒", body: "美若天仙——眼波流转，颊上一对梨涡，辣得让人挪不开眼" },
+    { name: "芙蓉", body: "美若天仙——出水芙蓉，艳而不妖，发间别一支山茶" }] },
+  { name: "鲁菜", chef: "酱香", flavor: "jiangxiang", tech: "烧", fav: "天都镇酱油", female: [
+    { name: "素娥", body: "美若天仙——端庄秀美，温润如玉，话不多但字字入心" },
+    { name: "青荷", body: "美若天仙——清丽脱俗，如夏荷初绽，衣袂带香" }] },
+  { name: "粤菜", chef: "清鲜", flavor: "xianxiang", tech: "蒸", fav: "青衣江团鱼", female: [
+    { name: "晚照", body: "美若天仙——落日余晖般明艳，一颦一笑皆有光" },
+    { name: "荔娘", body: "美若天仙——肤白胜雪，笑靥如荔，甜得人心尖发颤" },
+    { name: "云锦", body: "美若天仙——锦绣一般华美，目若点漆，顾盼生辉" }] },
+  { name: "苏菜", chef: "甜润", flavor: "tiansuan", tech: "熘", fav: "雪山野蜂蜜", female: [
+    { name: "烟雨", body: "美若天仙——烟雨朦胧般柔美，眼尾微微上挑" },
+    { name: "雪霁", body: "美若天仙——雪后初晴，冷艳清绝，指尖都透着凉" }] },
+  { name: "浙菜", chef: "清雅", flavor: "qingdan", tech: "炖", fav: "熊山松茸", female: [
+    { name: "疏影", body: "美若天仙——疏影横斜，清冷动人，发丝如墨" },
+    { name: "清秋", body: "美若天仙——秋月之容，明净如水，身段袅袅" },
+    { name: "凝霜", body: "美若天仙——凝霜为肤，冰肌玉骨，冷而致命" }] },
+  { name: "闽菜", chef: "糟香", flavor: "zaoxiang", tech: "煨", fav: "鱼定村醪糟", female: [
+    { name: "霓裳", body: "美若天仙——霓裳羽衣，飘逸出尘，步态轻盈" },
+    { name: "兰舟", body: "美若天仙——兰舟轻渡，眉眼温柔，声音糯软" }] },
+  { name: "湘菜", chef: "辣烈", flavor: "hula", tech: "煸", fav: "泡海椒", female: [
+    { name: "湘灵", body: "美若天仙——湘水之灵，明艳动人，泼辣里带媚" },
+    { name: "碧水", body: "美若天仙——碧水为眸，灵动生辉，腰肢盈盈一握" },
+    { name: "红裳", body: "美若天仙——红衣烈烈，英气与柔美并具" }] },
+  { name: "徽菜", chef: "家常", flavor: "jiachang", tech: "烧", fav: "潼川豆豉", female: [
+    { name: "棠梨", body: "美若天仙——棠梨煎雪，清甜温婉，笑时眉眼弯弯" },
+    { name: "月梳", body: "美若天仙——月下梳妆，皎皎如霜，侧脸在灯下尤其动人" }] },
+];
+// 按 菜系序号 × 档位序号 生成一位踢馆同行（req=满足阈值，score 达标即服）
+// 黑白格定性别：(si+li) 偶=女厨 → 40 位正好 20 女 20 男；女厨各有美名与体貌
+export function rivalGuestAt(schoolIdx, levelIdx) {
+  const s = RIVAL_SCHOOLS[schoolIdx] || RIVAL_SCHOOLS[0];
+  const l = RIVAL_LEVELS[levelIdx] || RIVAL_LEVELS[0];
+  const fl = FLAVOR_BY_ID[s.flavor];
+  const isF = (schoolIdx + levelIdx) % 2 === 0;
+  let name, ident, body;
+  if (isF) {
+    const fi = schoolIdx % 2 === 0 ? levelIdx / 2 : (levelIdx - 1) / 2;
+    const fm = (s.female || [])[fi] || { name: `${s.name}·女厨` };
+    name = fm.name;
+    ident = `${s.name}女厨·${s.chef}一脉`;
+    body = fm.body || "美若天仙——眉眼如画，见之忘俗";
+  } else {
+    name = `${s.name}·${l.tag}`;
+    ident = `${s.name}${l.tag}·踢馆`;
+  }
+  return {
+    id: `rival_${schoolIdx}_${levelIdx}`,
+    name, ident, body,
+    gender: isF ? "女" : "男",
+    spend: 120 + levelIdx * 30,
+    rival: true, req: l.req, bonus: l.bonus, schoolIdx, levelIdx,
+    flavor: s.flavor, tech: s.tech, fav: s.fav,
+    order: `「${l.tag}，${s.name}${s.chef}一系，特来讨教。${fl ? fl.name : "本系"}为本系看家味，须${TECHNIQUES[s.tech].desc}。做不好，招牌我带走。」`,
+  };
+}
+
 export const START_INV = {
   "贡措海盐": 3, "雅江菜籽油": 3, "鱼定村野葱油": 2, "熊山花椒": 2,
   "黑风寨苞谷醋": 1, "雪山野蜂蜜": 1, "牦牛腱子肉": 2, "狼曲冷水鱼": 2,

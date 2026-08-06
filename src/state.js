@@ -2,6 +2,7 @@
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
+  RIVAL_LEVELS, RIVAL_SCHOOLS,
 } from "./data.js";
 
 export const GUESTS_PER_DAY = 3;
@@ -19,7 +20,7 @@ export function mulberry32(a) {
 
 export function guestsOfDay(day, customGuests) {
   const rnd = mulberry32(day * 7919 + 13);
-  const pool = [...GUESTS, ...(customGuests || [])];
+  const pool = [...GUESTS.filter(g => !g.rival), ...(customGuests || [])]; // 踢馆同行不进普通抽取池
   const picked = [];
   for (let i = 0; i < GUESTS_PER_DAY; i++) {
     if (i === 0 && !picked.some(g => g.id === "susu") && rnd() < 0.35) {
@@ -71,6 +72,10 @@ export function newState() {
     flavorUses: {},          // 味型练功次数 {味型id: n}
     customGuests: [],        // AI 生成的新顾客池 [{...GUESTS 同构, custom:true}]
     starLore: {},            // 探秘带星食材的简短描述 {name: desc}（做菜/小吃时当 lore 注入，别让 AI 自己脑补成别的）
+    rivalGuest: null,        // 当前踢馆同行（动态生成，第15天后第二客）
+    rivalStage: { school: 0, level: 0 }, // 踢馆进度：八大菜系 × 5 档
+    rivalDone: false,        // 八大菜系总厨全挑完
+    invitedGuest: null,      // 收功后受邀留坐闲聊的女客 id（苏唐 + 女客 三人场）
   };
 }
 
@@ -235,7 +240,18 @@ export function buyItem(st, cat, id) {
 export function currentGuest(st) {
   if (st.phase !== "guest") return null;
   const id = st.guests[st.served];
+  if (st.rivalGuest && st.rivalGuest.id === id) return st.rivalGuest; // 动态踢馆同行
   return GUESTS.find(g => g.id === id) || null;
+}
+// 踢馆进度：挑过一级，往前推一档（菜系内升档，满档换菜系，全通则 rivalDone）
+export function rivalStageNext(st) {
+  const stg = st.rivalStage = st.rivalStage || { school: 0, level: 0 };
+  const lastLevel = RIVAL_LEVELS.length - 1;
+  const lastSchool = RIVAL_SCHOOLS.length - 1;
+  if (stg.level < lastLevel) stg.level += 1;
+  else if (stg.school < lastSchool) { stg.school += 1; stg.level = 0; }
+  else st.rivalDone = true;
+  return stg;
 }
 export function nextDay(st) {
   st.day += 1;

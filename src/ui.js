@@ -2,6 +2,7 @@
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS,
+  GUESTS, FEMALE_GUEST_IDS,
 } from "./data.js";
 import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
@@ -574,6 +575,25 @@ export function openMap(st, { onGo }) {
   modal.querySelector("[data-leave]").onclick = () => closeModal(cleanup);
 }
 
+// ── 探秘出发前：问一句特殊要求（对这次探秘活动的指令，可留空）────────
+export function openExpeditionAsk(node, { onGo }) {
+  let intent = "";
+  const modal = openModal(`
+    <div class="map-head">
+      <span class="map-title">探 秘 · ${node.name}</span>
+      <span class="return" data-leave style="margin-left:auto">Return · 返回</span>
+    </div>
+    <div class="set-note" style="margin:14px 22px">此行可有特殊要求？（对探秘的指令，如要找什么料、避开什么，可留空随它去）</div>
+    <div class="ck-label" style="padding:0 22px">特殊要求</div>
+    <div style="padding:0 22px"><input id="exp-intent" class="ck-intent" placeholder="如：去找条大鱼 / 避开水路 / 要能做甜点的料"></div>
+    <div class="ck-btns" style="justify-content:flex-start;padding:0 22px"><span class="ck-btn plain" data-go>出 发</span></div>
+  `, () => {});
+  modal.querySelector("#exp-intent").oninput = (e) => { intent = e.target.value; };
+  modal.querySelector("#exp-intent").addEventListener("keydown", (e) => { if (e.key === "Enter") modal.querySelector("[data-go]").click(); });
+  modal.querySelector("[data-go]").onclick = () => { const v = intent.trim(); closeModal(); onGo(v); };
+  modal.querySelector("[data-leave]").onclick = () => closeModal();
+}
+
 // ── 探秘关卡：右栏(#sulog)临时"夺舍"成选项面板，左栏(#log)继续主叙事 ──
 let sulogSaved = null;
 export function takeoverSulog(html) {
@@ -610,6 +630,40 @@ export function openChallengePanel(st, ch, { onPick, onSkip }) {
   `);
   document.querySelectorAll("#sulog [data-dim]").forEach(el => el.onclick = () => { restoreSulog(); onPick(el.dataset.dim); });
   document.querySelector("#sulog [data-skip]").onclick = () => { restoreSulog(); onSkip?.(); };
+}
+
+// ── 邀请面板：收功后右栏底部浮层，可最小化，邀请好感>15的女客留坐 ──
+let inviteCollapsed = false;
+export function renderInvite(st, { onInvite, onCancel } = {}) {
+  let el = document.querySelector("#invite-panel");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "invite-panel";
+    el.className = "invite-panel";
+    document.body.appendChild(el);
+  }
+  const invited = st.invitedGuest ? GUESTS.find(g => g.id === st.invitedGuest) : null;
+  const cands = GUESTS.filter(g => FEMALE_GUEST_IDS.has(g.id) && (st.aff[g.id] || 0) > 15);
+  el.classList.toggle("collapsed", inviteCollapsed);
+  el.innerHTML = `
+    <div class="invite-bar" data-toggle>🪑 请客坐坐${invited ? ` · ${invited.name}` : ""}<span class="invite-min">${inviteCollapsed ? "展开" : "收起"}</span></div>
+    ${inviteCollapsed ? "" : `
+    <div class="invite-body">
+      <div class="invite-note">好感 &gt; 15 的女客可留坐闲聊——苏唐和她一起陪你说话。</div>
+      ${cands.length ? cands.map(g => {
+        const a = st.aff[g.id] || 0;
+        const isInv = invited && invited.id === g.id;
+        return `<div class="invite-row">
+          <span class="invite-name">${g.name}<i>${g.ident}</i></span>
+          <span class="invite-aff">好感 ${a}</span>
+          ${isInv ? `<span class="ck-btn plain" data-cancel="${g.id}">请她回去</span>` : `<span class="ck-btn plain" data-invite="${g.id}">邀请</span>`}
+        </div>`;
+      }).join("") : `<div class="invite-none">还没有好感够的女客。多照顾几位姑娘的好感。</div>`}
+    </div>`}
+  `;
+  el.querySelector("[data-toggle]").onclick = () => { inviteCollapsed = !inviteCollapsed; renderInvite(st, { onInvite, onCancel }); };
+  el.querySelectorAll("[data-invite]").forEach(b => b.onclick = () => onInvite?.(b.dataset.invite));
+  el.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => onCancel?.());
 }
 
 // ── 小吃面板（玩家只口述，苏唐自决；已会的可复做）──────────────────

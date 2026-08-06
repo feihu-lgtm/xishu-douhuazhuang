@@ -5,9 +5,9 @@ import {
   shopStock, buyItem, nextDay, currentGuest, GUESTS_PER_DAY,
   applyMartialExp, computeBaseScore, refreshShop, shopIngOf, applySuExp,
   checkChance, rollCheck, rankLabel, checkDim, skillValueOf, ACHIEVE_DEFS, ACHIEVE_N, ATTR_DIMS, CHECK_DIMS,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext,
 } from "../src/state.js";
-import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS } from "../src/data.js";
+import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS, rivalGuestAt, FEMALE_GUEST_IDS } from "../src/data.js";
 import {
   normalizeEndpoint, parseJSONRescue, fallbackDishName,
   parseDishText, parseSayText, baseForModels, extractComment, fallbackDish,
@@ -322,6 +322,60 @@ test("guestsOfDay：苏酥首客加权（长样本在合理区间）", () => {
   for (let d = 1; d <= N; d++) if (guestsOfDay(d)[0]?.id === "susu") su++;
   const pct = su / N;
   assert.ok(pct > 0.28 && pct < 0.42, `苏酥首客率应在 ~35% 附近，实测 ${(pct * 100).toFixed(1)}%`);
+});
+
+test("踢馆梯度：八大菜系×5档动态生成，req 递增，数据自洽", () => {
+  for (let d = 1; d <= 500; d++)
+    for (const g of guestsOfDay(d)) assert.ok(!g.rival, "普通抽取不能抽到踢馆同行");
+  const schoolIdx = [0, 7], levelIdx = [0, 4];
+  for (const si of schoolIdx) for (const li of levelIdx) {
+    const r = rivalGuestAt(si, li);
+    assert.ok(r.req >= 65 && r.req <= 95, "阈值在梯度区间");
+    assert.ok(FLAVOR_BY_ID[r.flavor], `味型 ${r.flavor} 必须存在`);
+    assert.ok(TECHNIQUES[r.tech], `技法 ${r.tech} 必须存在`);
+  }
+  assert.ok(rivalGuestAt(0, 0).req < rivalGuestAt(0, 4).req, "总厨比喽啰难");
+});
+
+test("踢馆女厨：40位黑白格20女20男，女厨各有美名", () => {
+  let f = 0, m = 0;
+  for (let si = 0; si < 8; si++) for (let li = 0; li < 5; li++) {
+    const r = rivalGuestAt(si, li);
+    r.gender === "女" ? f++ : m++;
+    if (r.gender === "女") assert.ok(!r.name.includes("·"), `女厨应有像样名字，实测 ${r.name}`);
+  }
+  assert.equal(f, 20, "正好 20 位女厨");
+  assert.equal(m, 20, "正好 20 位男厨");
+  assert.ok(rivalGuestAt(2, 4).name, "粤菜总厨应是女厨美名");
+});
+
+test("女厨体貌：所有女厨 body 都含「美若天仙」，男厨不配", () => {
+  for (let si = 0; si < 8; si++) for (let li = 0; li < 5; li++) {
+    const r = rivalGuestAt(si, li);
+    if (r.gender === "女") assert.ok(r.body && r.body.includes("美若天仙"), `${r.name} 的体貌须含美若天仙`);
+    if (r.gender === "男") assert.equal(r.body, undefined, "男厨不配体貌描述");
+  }
+});
+
+test("踢馆进度：挑过一级推一档，满档换菜系，全通 rivalDone", () => {
+  const st = newState();
+  const stg = st.rivalStage;
+  rivalStageNext(st);
+  assert.equal(st.rivalStage.level, 1, "喽啰→少主");
+  st.rivalStage = { school: 0, level: 4 };
+  rivalStageNext(st);
+  assert.equal(st.rivalStage.school, 1, "总厨挑过→换菜系");
+  assert.equal(st.rivalStage.level, 0);
+  st.rivalStage = { school: 7, level: 4 };
+  rivalStageNext(st);
+  assert.equal(st.rivalDone, true, "八大菜系全通");
+});
+
+test("女性客人标记：FEMALE_GUEST_IDS 都是有效 guest id，且含苏酥", () => {
+  const ids = new Set(GUESTS.map(g => g.id));
+  assert.ok(FEMALE_GUEST_IDS.size >= 8, "至少 8 位女客可被邀请");
+  for (const id of FEMALE_GUEST_IDS) assert.ok(ids.has(id), `女客 ${id} 必须存在于 GUESTS`);
+  assert.ok(FEMALE_GUEST_IDS.has("susu"), "苏酥可被邀请");
 });
 
 test("newState：带星食材描述落盘字段 starLore 就位", () => {
