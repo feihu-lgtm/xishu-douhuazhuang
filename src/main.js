@@ -405,6 +405,11 @@ function fallbackSpecial() {
     { name: "龙纹鲤", stars: 2, desc: "鲤身带龙纹，肉细鲜甜。" },
     { name: "赤霞菌", stars: 2, desc: "赤色菌伞，异香，难得。" },
     { name: "金髓笋", stars: 3, desc: "笋心带金髓，脆甜，珍品。" },
+    { name: "金沙石首鱼", stars: 3, desc: "腹中金沙，鱼油丰润，煎烤皆美。" },
+    { name: "紫金牦髓", stars: 3, desc: "牛骨里一段紫髓，入口即化，大补。" },
+    { name: "霜髓野梨", stars: 2, desc: "霜打过的野梨，脆甜带冰碴。" },
+    { name: "百草熏腿", stars: 3, desc: "百草熏出的野猪腿，腊香入骨。" },
+    { name: "千年醪糟", stars: 2, desc: "老坛酿了不知多少年的醪糟，酒香醇厚。" },
   ];
   const n = Math.random() < 0.4 ? 2 : 1;
   const out = [];
