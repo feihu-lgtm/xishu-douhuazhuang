@@ -8,7 +8,7 @@ import {
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, findKnownGuest,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest, genSuCook,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
@@ -348,7 +348,9 @@ async function doServe() {
     if (score >= req) {
       const n = (g.levelIdx ?? 0) >= 3 ? 2 : 1; // 副厨/总厨爆双份
       const sps = [];
-      for (let i = 0; i < n; i++) sps.push(fallbackSpecial()[0]);
+      const drop = await genDropIngredient(loadCfg(), { context: `${g.name}（${g.ident}）踢馆被压下，从身上取出的看家好料。` });
+      sps.push(drop || fallbackSpecial()[0]);
+      for (let i = 1; i < n; i++) sps.push(fallbackSpecial()[0]);
       st.stars = st.stars || {}; st.starLore = st.starLore || {};
       for (const sp of sps) {
         st.inv[sp.name] = (st.inv[sp.name] || 0) + 1;
@@ -692,10 +694,10 @@ async function doSuTalk(text) {
   endTrace(`苏唐对话·好感+${gain}`);
   setMood(3);
   if (getNsfw() && Number.isInteger(faceIdx)) rollNsfwFace(faceIdx);
-  // 做爱做到位：受邀女客可能爆食材
+  // 做爱做到位：受邀女客可能爆食材（AI 按她生成）
   if (st.invitedGuest && r.intimacy === "到位" && Math.random() < 0.5) {
     const inv = findKnownGuest(st, st.invitedGuest);
-    const sp = fallbackSpecial()[0];
+    const sp = (await genDropIngredient(loadCfg(), { context: `${inv?.name || "她"}（${inv?.ident || "受邀女客"}）餍足满意，从包袱里拿出的好东西。` })) || fallbackSpecial()[0];
     st.inv[sp.name] = (st.inv[sp.name] || 0) + 1;
     st.stars = st.stars || {}; st.starLore = st.starLore || {};
     st.stars[sp.name] = sp.stars;
@@ -820,10 +822,10 @@ async function onCommand(text) {
     if (inv) invGain = ` · ${inv.name}好感+${affGain}`;
   }
   suSys(`【苏唐】好感+${affGain}（今 ${st.suAff}）${invGain}`);
-  // 做爱做到位：受邀女客可能爆食材
+  // 做爱做到位：受邀女客可能爆食材（AI 按她生成，避免固定池重复）
   if (st.invitedGuest && r.intimacy === "到位" && Math.random() < 0.5) {
     const inv = findKnownGuest(st, st.invitedGuest);
-    const sp = fallbackSpecial()[0];
+    const sp = (await genDropIngredient(loadCfg(), { context: `${inv?.name || "她"}（${inv?.ident || "受邀女客"}）餍足满意，从包袱里拿出的好东西。` })) || fallbackSpecial()[0];
     st.inv[sp.name] = (st.inv[sp.name] || 0) + 1;
     st.stars = st.stars || {}; st.starLore = st.starLore || {};
     st.stars[sp.name] = sp.stars;

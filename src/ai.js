@@ -699,6 +699,22 @@ export async function genSuCook(cfg, ctx) {
   return null;
 }
 
+// ── 爆料生成：AI 按来由（踢馆者/女客）生成贴合场景的带星食材，避免固定池重复 ──
+export async function genDropIngredient(cfg, ctx) {
+  if (cfgReady(cfg)) {
+    const user = [
+      ctx.context ? `【来由】\n${ctx.context}` : "",
+      `只输出 JSON：{"name":"带星食材名，贴合来由（武侠/市井感，别与商店常见食材重复）","stars":1-3,"desc":"一句"}`,
+    ].join("\n");
+    try {
+      const raw = await callAI(cfg, "你是战利品生成官，只输出 JSON，不写多余文字。", user, "爆料", 60000, true);
+      const o = parseJSONRescue(raw);
+      if (o.name) return { name: (o.name || "").trim(), stars: Math.max(1, Math.min(3, parseInt(o.stars, 10) || 2)), desc: (o.desc || "").trim() };
+    } catch { /* 降级 */ }
+  }
+  return null;
+}
+
 export async function genSuTalk(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const user = [
