@@ -525,7 +525,6 @@ async function doSnackRequest(txt) {
 }
 
 async function doRemake(name) {
-  if (busy) return sys("苏唐正忙着呢。");
   const rec = (st.snackRecipes || []).find(x => x.name === name);
   if (!rec) return;
   for (const m of rec.used) if ((st.inv[m] || 0) <= 0) return sys(`缺「${m}」，苏唐巧妇难为无米之炊。`);
