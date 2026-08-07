@@ -77,6 +77,7 @@ export function newState() {
     rivalDone: false,        // 八大菜系总厨全挑完
     invitedGuest: null,      // 收功后受邀留坐闲聊的女客 id（苏唐 + 女客 三人场）
     pendingGifts: null,      // 收功时后台备好的明日熟客送礼 {givers:[{name,gift}], text}
+    guestMemories: {},       // 隔离记忆：{guestId:[{day,mainBy,dish,mainScore,snackName,snackScore}]} 每个客人只记得自己经历的事
   };
 }
 

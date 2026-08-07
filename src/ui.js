@@ -580,16 +580,24 @@ export function openMap(st, { onGo }) {
 }
 
 // ── 探秘出发前：问一句特殊要求（对这次探秘活动的指令，可留空）────────
-export function openExpeditionAsk(node, { onGo }) {
+export function openExpeditionAsk(node, { onGo, guests = [] }) {
   let intent = "";
   const modal = openModal(`
     <div class="map-head">
       <span class="map-title">探 秘 · ${node.name}</span>
       <span class="return" data-leave style="margin-left:auto">Return · 返回</span>
     </div>
-    <div class="set-note" style="margin:14px 22px">此行可有特殊要求？（对探秘的指令，如要找什么料、避开什么，可留空随它去）</div>
+    <div class="exp-guests" style="margin:12px 22px 0">
+      <div class="ck-label">此地常客 · 好感 &gt; 高愿意搭手，&gt; 更高肯让压箱底好料</div>
+      ${guests.length ? guests.map(g => `
+        <div class="exp-guest">
+          <span class="exp-gname">${g.name}<i>${g.ident} · 好感 ${g.aff}（${affName(g.aff)}）</i></span>
+          ${g.mem ? `<span class="exp-gmem">记得：${g.mem}</span>` : `<span class="exp-gmem none">还没有来往。</span>`}
+        </div>`).join("") : `<span class="ck-mat zero">此地暂无熟人。</span>`}
+    </div>
+    <div class="set-note" style="margin:14px 22px">此行可有特殊要求？（你钦定的方向，AI 必须照办——可勾连上面的常客或他们的记忆）</div>
     <div class="ck-label" style="padding:0 22px">特殊要求</div>
-    <div style="padding:0 22px"><input id="exp-intent" class="ck-intent" placeholder="如：去找条大鱼 / 避开水路 / 要能做甜点的料"></div>
+    <div style="padding:0 22px"><input id="exp-intent" class="ck-intent" placeholder="如：去找条大鱼 / 去温掌柜那赊账 / 要能做甜点的料"></div>
     <div class="ck-btns" style="justify-content:flex-start;padding:0 22px"><span class="ck-btn plain" data-go>出 发</span></div>
   `, () => {});
   modal.querySelector("#exp-intent").oninput = (e) => { intent = e.target.value; };

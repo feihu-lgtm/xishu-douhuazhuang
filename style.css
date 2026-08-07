@@ -242,6 +242,14 @@ body {
 .scard.owned .sbuy { color: var(--mute); cursor: default; }
 .scard.owned .sname { color: var(--ink-dim); }
 
+/* 探秘 · 此地常客（好感 + 隔离记忆） */
+.exp-guests { display: flex; flex-direction: column; gap: 8px; }
+.exp-guest { border-left: 2px solid var(--line); padding: 4px 0 4px 10px; display: flex; flex-direction: column; gap: 2px; }
+.exp-gname { font-size: 13px; color: var(--ink-bright); display: flex; flex-direction: column; line-height: 1.5; }
+.exp-gname i { font-style: normal; font-size: 11px; color: var(--ink-dim); }
+.exp-gmem { font-size: 11px; color: var(--ink-dim); line-height: 1.6; }
+.exp-gmem.none { color: var(--mute); }
+
 /* 晨间送礼 · 仪式感领取 */
 .gift-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 26px 44px; text-align: center; }
 .gift-box { font-size: 54px; animation: giftbounce 1.2s ease-in-out infinite; }

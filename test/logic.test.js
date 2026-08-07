@@ -412,6 +412,7 @@ test("newState：带星食材描述落盘字段 starLore 就位", () => {
   const st = newState();
   assert.deepEqual(st.starLore, {}, "新档 starLore 为空对象，探秘收获时写入");
   assert.equal(st.pendingGifts, null, "收功后台备好的明日送礼初始为空");
+  assert.deepEqual(st.guestMemories, {}, "per-guest 隔离记忆初始为空");
 });
 
 test("NSFW表情按情节匹配：extractFace/POSE_INDEX", () => {

@@ -320,6 +320,11 @@ async function doServe() {
     id: g.id, name: g.name, order: g.order, dish: dish.name, tier, flavorMatch, favMatch, score,
     mainBy, mainScore: score, snackScore, snackBy: setName ? "苏唐" : null, snackName: setName,
   });
+  // 隔离记忆：这个客人只记得自己这桌发生的事（谁做了什么、好不好吃），最近 5 条
+  st.guestMemories = st.guestMemories || {};
+  const memList = st.guestMemories[g.id] = st.guestMemories[g.id] || [];
+  memList.push({ day: st.day, mainBy, dish: dish.name, mainScore: score, snackName: setName, snackScore });
+  if (memList.length > 5) memList.shift();
   st.aff = st.aff || {};
   const affNow = st.aff[g.id] || 0;
   const pay = payOf(g, score, affNow) + (setName ? 2 : 0);
@@ -447,10 +452,29 @@ async function doReview() {
 }
 
 // ── 副本·探秘（先点地图选据点，再去，武功+智慧+苏唐 寻稀有食材）────
+// 点位常客列表：该据点的熟人 + 好感 + 各自隔离记忆（谁做了什么、多好吃）
+function fmtGuestMemory(m) {
+  if (!m) return "";
+  return `第${m.day}天，${m.mainBy === "苏唐" ? "苏唐" : "师兄"}做了「${m.dish}」${m.mainScore}分` +
+    (m.snackName ? `，苏唐小吃「${m.snackName}」${m.snackScore}分` : "") + "。";
+}
+function guestListOf(node) {
+  if (!node.guests || !node.guests.length) return [];
+  return node.guests.map(id => {
+    const guest = GUESTS.find(x => x.id === id);
+    if (!guest) return null;
+    const aff = st.aff[id] || 0;
+    const m = ((st.guestMemories || {})[id] || [])[0]; // 最近一条记忆
+    return { name: guest.name, ident: guest.ident, aff, mem: m ? fmtGuestMemory(m) : "" };
+  }).filter(Boolean);
+}
 function openExpeditionMap() {
   if (!(st.phase === "closing" || st.served >= 3)) return sys("送完三位客人才好出门探秘。");
   if (busy) return sys("正忙着呢。");
-  openMap(st, { onGo: (node) => openExpeditionAsk(node, { onGo: (intent) => { closeModal(); doExpedition(node, intent); } }) });
+  openMap(st, { onGo: (node) => {
+    const guests = guestListOf(node);
+    openExpeditionAsk(node, { guests, onGo: (intent) => { closeModal(); doExpedition(node, intent); } });
+  } });
 }
 
 async function doExpedition(node, intent) {
@@ -468,8 +492,8 @@ async function doExpedition(node, intent) {
   const scenario = (pool.length ? pool : catPool)[Math.floor(Math.random() * (pool.length ? pool.length : catPool.length))];
   st.lastScenByNode[node.id] = scenario;
   sys(`【探秘·${node.name}】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……${intent ? `（师兄交代：${intent}）` : ""}`);
-  // ① 一次调用：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special
-  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st), category: node.category, nodeName: node.name, intent });
+  // ① 一次调用：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special；玩家钦定主线夺舍；勾连据点常客与隔离记忆
+  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st), category: node.category, nodeName: node.name, intent, guestList: guestListOf(node) });
   await narr(r.narrative);
   if (r.comment) await commentLine(r.comment);
   setMood(r.mood ?? 0);
