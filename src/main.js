@@ -36,7 +36,8 @@ const handlers = {
   su: () => openSuPanel(st, { onTalk: (txt) => doSuTalk(txt) }),
   exp: () => openExpeditionMap(),
   nsfw: () => { setNsfw(!getNsfw()); sys(getNsfw() ? "■ 模式开启：相关写作规则强制注入。" : "■ 模式关闭。"); renderAll(st, handlers); },
-  save: () => { saveGame(st); sys("存档完毕。"); },
+  save: () => exportSave(),
+  load: () => importSave(),
   help: () => openHelp(),
 };
 
@@ -778,7 +779,8 @@ async function onCommand(text) {
   if (["流程", "日志", "trace"].includes(cmd)) return openTrace();
   if (["纸条", "notes"].includes(cmd)) return openNotes(st);
   if (["苏唐", "吩咐", "找苏唐"].includes(cmd)) return openSuPanel();
-  if (["存档"].includes(cmd)) { saveGame(st); return sys("存档完毕。"); }
+  if (["存档"].includes(cmd)) return exportSave();
+  if (["导入", "读档", "载入"].includes(cmd)) return importSave();
 
   // 说「做 XX」/ 提到菜名或食材 → 灶台自动备料
   const recipe = RECIPES.find(r => t.includes(r.name));
@@ -834,6 +836,46 @@ async function onCommand(text) {
   }
   saveGame(st);
   busy = false;
+}
+
+// ── 存档下载 / 导入（参考 ji-haitang：自动存档 + 手动下载 + 导入）────
+function exportSave() {
+  saveGame(st); // 先落本地，再下载一份
+  const data = JSON.stringify(st, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `西蜀豆花庄-第${st.day}天-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  sys(`存档已下载：${a.download}（本地也已自动存）。`);
+}
+function importSave() {
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = ".json,application/json";
+  inp.onchange = () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const data = JSON.parse(rd.result);
+        if (!data || typeof data.day !== "number" || !data.inv || !data.skills || !data.suSkills)
+          throw new Error("不是有效的豆花庄存档");
+        st = data;
+        saveGame(st);
+        renderAll(st, handlers);
+        setMood(0);
+        sys(`已导入第 ${st.day} 天的存档（${st.coins} 文）。`);
+      } catch (e) { sys(`导入失败：${e.message}`); }
+    };
+    rd.readAsText(f);
+  };
+  inp.click();
 }
 
 // ── 绑定 ───────────────────────────────────────────────────────────────

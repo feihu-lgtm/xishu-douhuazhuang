@@ -261,6 +261,7 @@ export function renderSide(st, h) {
     item("流程", "L", true, "trace") +
     item("纸条", "P", true, "notes") +
     item("存档", "Q", true, "save") +
+    item("读档", "R", true, "load") +
     item("帮助", "H", true, "help") +
     `<div class="sucard" aria-hidden="true">
        <div id="sutang" class="sutang" style="background-position:${moodPos(currentMood)}"></div>
