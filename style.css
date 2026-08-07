@@ -250,14 +250,24 @@ body {
 .exp-gmem { font-size: 11px; color: var(--ink-dim); line-height: 1.6; }
 .exp-gmem.none { color: var(--mute); }
 
+/* 余味立绘表情框（左上角客人卡 · 8 格精灵图，随心情切） */
+.ryuwei-face {
+  width: 88px; height: 158px; margin: 0 auto 4px;
+  background-image: url("./assets/ryuwei_sheet.png");
+  background-size: 400% 200%;
+  background-repeat: no-repeat;
+}
+
 /* 食评人余味 · 左上角鱼尾银簪评级徽章（渐变炫彩，贴合 UI 玫瑰色系） */
 .ryuwei-badge {
+  display: inline-flex; align-items: center; gap: 5px;
   font-size: 11px; letter-spacing: 2px; margin-left: 10px; white-space: nowrap;
   background: linear-gradient(90deg, #f6d6bd, #c9a19b, #e6c07a, #f0b3a0, #c9a19b);
   background-size: 200% auto;
   -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: ryuwei-flow 3.5s linear infinite;
 }
+.ryuwei-badge img { width: 26px; height: 24px; object-fit: contain; image-rendering: auto; vertical-align: middle; }
 .ryuwei-badge.t0 { color: var(--ink-dim); background: none; -webkit-background-clip: unset; animation: none; }
 @keyframes ryuwei-flow { to { background-position: 200% center; } }
 

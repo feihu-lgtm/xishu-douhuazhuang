@@ -174,6 +174,9 @@ export function setMood(i) {
   el.classList.remove("pop");
   void el.offsetWidth;
   el.classList.add("pop");
+  // 余味立绘表情框同步
+  const rf = document.querySelector(".ryuwei-face");
+  if (rf) rf.style.backgroundPosition = moodPos(currentMood);
 }
 
 // ── NSFW 表情：■模式+闲聊区，按 AI 情节标签匹配姿势（poseIdx=8姿势帧序）──
@@ -199,7 +202,7 @@ export function renderStatus(st) {
   const rb = document.querySelector("#ryuwei-badge");
   if (rb) {
     const t = (st.ryuweiRating || {}).tier ?? 0;
-    rb.textContent = `🐟 ${ryuweiTierName(st)}`;
+    rb.innerHTML = `<img src="./assets/ryuwei_fishtail.png" alt="鱼尾银簪"> <span>${ryuweiTierName(st)}</span>`;
     rb.className = "ryuwei-badge t" + t;
   }
 }
@@ -220,8 +223,11 @@ export function renderLeft(st) {
     <div class="row"><span>累计迎客</span><span class="v">${st.totalServed} 位</span></div>`;
   html += `<h3>客 人</h3>`;
   if (guest) {
+    const portrait = guest.ryuwei
+      ? `<div id="ryuwei-face" class="ryuwei-face" style="background-position:${moodPos(currentMood)}"></div>`
+      : `<div class="portrait">${guest.name[0]}</div>`;
     html += `<div id="guestcard" class="pcard">
-      <div class="portrait">${guest.name[0]}</div>
+      ${portrait}
       <div class="gname">${guest.name}</div>
       <div class="gid">${guest.ident} · 消费力 ${guest.spend} 文</div>
       <div class="gid">好感 ${(st.aff || {})[guest.id] || 0} · ${affName((st.aff || {})[guest.id] || 0)}</div>
