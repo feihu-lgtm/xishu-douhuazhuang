@@ -275,6 +275,12 @@ async function cookNarrate(j) {
   saveGame(st);
 }
 
+// ── 出餐评分：满意度 → 5 星制 ─────────────────────────────────────────
+function starsOf(score) {
+  const n = score >= 85 ? 5 : score >= 65 ? 4 : score >= 45 ? 3 : score >= 25 ? 2 : 1;
+  return "★".repeat(n) + "☆".repeat(5 - n);
+}
+
 // ── 上菜 ───────────────────────────────────────────────────────────────
 function waitBusy() {
   return new Promise(res => {
@@ -342,6 +348,8 @@ async function doServe() {
   st.dish = null;
   st.pendingSet = null;
   gold(`${g.name} 放下 ${pay} 文铜钱。（满意度 ${score}）`);
+  // 出餐评分：每次上菜都给评分和星级（5 星制，满意度映射）
+  sys(`【出餐评分】${score} 分 ${starsOf(score)} · ${["赞不绝口", "满意", "觉得一般", "不太满意"][tier]}`);
   // 踢馆同行：按档位阈值（req）判定——达标把他赶走，必爆 ★食材 + 大额钱，并推进梯度
   if (g.rival) {
     const req = g.req ?? 85;
@@ -389,6 +397,7 @@ async function doServe() {
     renderAll(st, handlers);
     saveGame(st);
     await doReview();   // 每日苏唐总结自动触发
+    collectGifts();     // 后台预热：备好明日熟客送礼（不阻塞打烊）
   } else {
     saveGame(st);
     await guestArrives();
@@ -729,7 +738,9 @@ function applyRival(st) {
   st.guests[1] = st.rivalGuest.id;
 }
 // ── 熟客送礼：好感>20 的客人，新的一天几率送★食材（每天最多 3 人）──
-async function doGifts() {
+// ── 熟客送礼：收功打烊时后台预热生成，第二天翻篇直接展示 ─────────────
+// 好感>20 的客人每人 40% 几率送礼，每天最多 3 人；礼物落盘，剧情存 pendingGifts。
+async function collectGifts() {
   const cands = Object.entries(st.aff || {})
     .filter(([, v]) => v > 20)
     .map(([id]) => findKnownGuest(st, id))
@@ -747,9 +758,18 @@ async function doGifts() {
     gifts.push({ name: g.name, ident: g.ident, gift: sp });
   }
   const r = await genGifts(loadCfg(), { givers: gifts });
-  if (r.text) await narr(r.text);
-  else for (const g of gifts) await narr(`${g.name}托人送来一份心意——「${g.gift.name}」${"★".repeat(g.gift.stars)}。`);
-  note("送礼", `熟客送礼：${gifts.map(g => `${g.name}→${g.gift.name}`).join("、")}。`);
+  st.pendingGifts = { givers: gifts, text: r.text || "" };
+  note("送礼", `熟客送礼(后台已备)：${gifts.map(g => `${g.name}→${g.gift.name}`).join("、")}。`);
+  saveGame(st);
+}
+// 第二天翻篇时展示：先剧情，再单独带★总结收到哪些
+async function showPendingGifts() {
+  const pg = st.pendingGifts;
+  if (!pg || !pg.givers || !pg.givers.length) { st.pendingGifts = null; return; }
+  st.pendingGifts = null;
+  if (pg.text) await narr(pg.text);
+  await narr("【收到】" + pg.givers.map(g =>
+    `「${g.gift.name}」${"★".repeat(g.gift.stars)}（${g.gift.desc}）——${g.name}托人送来`).join("；"));
 }
 
 async function doNext() {
@@ -761,7 +781,7 @@ async function doNext() {
   renderAll(st, handlers);
   saveGame(st);
   await narr(`第 ${st.day} 天，卯时。雾从溪面起来，小馆开门。`);
-  await doGifts();             // 熟客送礼：好感>20 几率送★食材
+  await showPendingGifts();    // 展示收功时后台备好的熟客送礼（剧情+★清单）
   if (Math.random() < 0.3) await maybeNewGuest(); // 三成机会，溪边又来了新面孔
   await guestArrives();
 }

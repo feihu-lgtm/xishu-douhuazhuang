@@ -76,6 +76,7 @@ export function newState() {
     rivalStage: { school: 0, level: 0 }, // 踢馆进度：八大菜系 × 5 档
     rivalDone: false,        // 八大菜系总厨全挑完
     invitedGuest: null,      // 收功后受邀留坐闲聊的女客 id（苏唐 + 女客 三人场）
+    pendingGifts: null,      // 收功时后台备好的明日熟客送礼 {givers:[{name,gift}], text}
   };
 }
 
