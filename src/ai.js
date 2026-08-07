@@ -715,6 +715,22 @@ export async function genDropIngredient(cfg, ctx) {
   return null;
 }
 
+// ── 送礼剧情：新的一天，好感高的熟客托人送高级食材，像总评一样生成一段 ──
+export async function genGifts(cfg, ctx) {
+  if (cfgReady(cfg)) {
+    const user = [
+      ctx.givers ? `【送礼】${ctx.givers.map(g => `${g.name}（${g.ident}）送来「${g.gift.name}」（${g.gift.desc}）`).join("；")}` : "",
+      `以日记笔法写一小段（2-3 段，约 200 字）：清晨开店前，这些熟客陆续托人/亲自送来心意，苏唐在旁边点评打趣。用「」对话与 *心理*，别写总结。`,
+    ].filter(Boolean).join("\n");
+    try {
+      const raw = await callAI(cfg, STYLE + "\n你是日记的笔，写送礼拜帖这段，只输出正文。", user, "送礼", 60000, true);
+      const t = (raw || "").trim();
+      if (t) return { text: t, ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { text: "", ai: false };
+}
+
 export async function genSuTalk(cfg, ctx, onChunk) {
   if (cfgReady(cfg)) {
     const user = [

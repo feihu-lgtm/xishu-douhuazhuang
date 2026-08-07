@@ -8,7 +8,7 @@ import {
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, findKnownGuest,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
@@ -728,6 +728,30 @@ function applyRival(st) {
   st.guests = st.guests || [];
   st.guests[1] = st.rivalGuest.id;
 }
+// ── 熟客送礼：好感>20 的客人，新的一天几率送★食材（每天最多 3 人）──
+async function doGifts() {
+  const cands = Object.entries(st.aff || {})
+    .filter(([, v]) => v > 20)
+    .map(([id]) => findKnownGuest(st, id))
+    .filter(Boolean);
+  if (!cands.length) return;
+  const givers = cands.filter(() => Math.random() < 0.4).slice(0, 3); // 40% 几率，最多 3 人
+  if (!givers.length) return;
+  const gifts = [];
+  for (const g of givers) {
+    const sp = (await genDropIngredient(loadCfg(), { context: `${g.name}（${g.ident}）挂念小馆，托人送来的一样高级食材。` })) || fallbackSpecial()[0];
+    st.inv[sp.name] = (st.inv[sp.name] || 0) + 1;
+    st.stars = st.stars || {}; st.starLore = st.starLore || {};
+    st.stars[sp.name] = sp.stars;
+    if (sp.desc) st.starLore[sp.name] = sp.desc;
+    gifts.push({ name: g.name, ident: g.ident, gift: sp });
+  }
+  const r = await genGifts(loadCfg(), { givers: gifts });
+  if (r.text) await narr(r.text);
+  else for (const g of gifts) await narr(`${g.name}托人送来一份心意——「${g.gift.name}」${"★".repeat(g.gift.stars)}。`);
+  note("送礼", `熟客送礼：${gifts.map(g => `${g.name}→${g.gift.name}`).join("、")}。`);
+}
+
 async function doNext() {
   if (!(st.phase === "closing" || st.served >= 3)) { sys("还有客人没送完呢。"); return; }
   await doReview();            // 收工总评在翻篇时做
@@ -737,6 +761,7 @@ async function doNext() {
   renderAll(st, handlers);
   saveGame(st);
   await narr(`第 ${st.day} 天，卯时。雾从溪面起来，小馆开门。`);
+  await doGifts();             // 熟客送礼：好感>20 几率送★食材
   if (Math.random() < 0.3) await maybeNewGuest(); // 三成机会，溪边又来了新面孔
   await guestArrives();
 }

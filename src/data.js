@@ -506,16 +506,16 @@ export const HOURS = ["卯时·开门", "午时·客来", "未时·客来", "酉
 // ── 探秘地图：十个据点，一据点对一类情境，点开地图选地方去 ──────────
 // top/left 是相对底图（assets/map_bg.png）宽高的百分比坐标，不是视口。
 export const EXPEDITION_MAP = [
-  { id: "xuedong",   name: "雪线古洞", category: "探洞地宫", top: 32, left: 15 },
-  { id: "yakou",     name: "风雪垭口", category: "天灾",     top: 15, left: 67 },
-  { id: "linchang",  name: "转经林场", category: "密林采山", top: 58, left: 20 },
-  { id: "yeyi",      name: "牧道野驿", category: "奇遇",     top: 74, left: 8 },
-  { id: "gudao",     name: "黑风古道", category: "劫镖江湖", top: 62, left: 47 },
-  { id: "koudu",     name: "官道渡口", category: "水域",     top: 79, left: 72 },
-  { id: "zaoshi",    name: "早市坊",   category: "市井",     top: 83, left: 38 },
-  { id: "miaohui",   name: "庙会集场", category: "节庆",     top: 10, left: 46 },
-  { id: "chengjiao", name: "城郊人家", category: "人情",     top: 90, left: 87 },
-  { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46 },
+  { id: "xuedong",   name: "雪线古洞", category: "探洞地宫", top: 32, left: 15, guests: ["huyanxue", "qingxu"] },
+  { id: "yakou",     name: "风雪垭口", category: "天灾",     top: 15, left: 67, guests: ["basang", "caimai"] },
+  { id: "linchang",  name: "转经林场", category: "密林采山", top: 58, left: 20, guests: ["laoliehu", "asuo"] },
+  { id: "yeyi",      name: "牧道野驿", category: "奇遇",     top: 74, left: 8,  guests: ["zhaxi", "maguotou"] },
+  { id: "gudao",     name: "黑风古道", category: "劫镖江湖", top: 62, left: 47, guests: ["qingyilou", "lasan"] },
+  { id: "koudu",     name: "官道渡口", category: "水域",     top: 79, left: 72, guests: ["danzeng", "paochuan"] },
+  { id: "zaoshi",    name: "早市坊",   category: "市井",     top: 83, left: 38, guests: ["huasao", "daniang"] },
+  { id: "miaohui",   name: "庙会集场", category: "节庆",     top: 10, left: 46, guests: ["meiduo", "baiguniang", "daijiak"] },
+  { id: "chengjiao", name: "城郊人家", category: "人情",     top: 90, left: 87, guests: ["caidan", "zhuoma", "laosun", "susu"] },
+  { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46, guests: ["wenzhanggui", "tangcu", "shusheng", "suniang", "tiannan", "xianbo"] },
 ];
 
 // 探秘情境 100 种，按十类分好（轻度武侠，一据点一类，各据点各记各的上次，不重复）
