@@ -390,6 +390,7 @@ test("女性客人标记：FEMALE_GUEST_IDS 都是有效 guest id，且含苏酥
   assert.ok(FEMALE_GUEST_IDS.size >= 8, "至少 8 位女客可被邀请");
   for (const id of FEMALE_GUEST_IDS) assert.ok(ids.has(id), `女客 ${id} 必须存在于 GUESTS`);
   assert.ok(FEMALE_GUEST_IDS.has("susu"), "苏酥可被邀请");
+  for (const id of ["lanjie", "luosha", "liruoyou"]) assert.ok(FEMALE_GUEST_IDS.has(id), `${id} 可被邀请`);
 });
 
 test("邀请候选：所有认识的女性好感>15（含女厨/动态女客），好感不足排除", () => {

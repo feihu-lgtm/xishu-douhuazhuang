@@ -416,6 +416,19 @@ export const GUESTS = [
   { id: "susu", name: "苏酥", ident: "苏唐的姐姐·御姐", spend: 120, sister: true,
     flavor: "xianxiang", tech: "蒸", fav: "雪山雪莲瓣",
     order: "妹妹的师兄？手艺如何——做道雅致的来，别让我等太久。" },
+  // ── 天都来客（移植自 qucuo 人物）────────────────────────────────
+  { id: "lanjie", name: "兰姐", ident: "百花门主·苗族蛊娘", spend: 110, gender: "女",
+    flavor: "suanla", tech: "炖", fav: "酸木瓜",
+    body: "苗银盛装，风韵犹存，眼尾带算计的细纹，笑起来不达眼底",
+    order: "「苗家酸汤鱼的功夫——汤要酸得亮堂，鱼要嫩得夹不起来。我闻得出你有没有用心。」" },
+  { id: "luosha", name: "罗刹", ident: "欢喜教圣女·香料行家", spend: 100, gender: "女",
+    flavor: "hula", tech: "炒", fav: "汉源清溪花椒",
+    body: "妖冶逼人，琥珀色的眼瞳，笑起来危险又勾人",
+    order: "「香料管够的来一份，麻要麻到骨头里，辣要辣得人清醒。做好了，姐姐教你看人的本事。」" },
+  { id: "liruoyou", name: "李若由", ident: "玉泉小栈·商人之女", spend: 70, gender: "女",
+    flavor: "xianxiang", tech: "炒", fav: "雅江嫩豆腐",
+    body: "利落的靛青窄袖，算盘珠子翻得飞快，眼神精明",
+    order: "「实惠就行，别整花活。豆腐要嫩，火要旺，账我算得清。」" },
 ];
 
 // ── 踢馆梯度：八大菜系 × 5 档（喽啰→总厨），难度递增，挑过一级来下一级 ──
@@ -424,6 +437,7 @@ export const GUESTS = [
 export const FEMALE_GUEST_IDS = new Set([
   "caidan", "zhuoma", "huasao", "huyanxue", "meiduo",
   "baiguniang", "daijiak", "suniang", "lasan", "tiannan", "susu",
+  "lanjie", "luosha", "liruoyou",
 ]);
 export const RIVAL_LEVELS = [
   { tag: "喽啰·采买", req: 65, bonus: [40, 60] },
@@ -510,12 +524,12 @@ export const EXPEDITION_MAP = [
   { id: "yakou",     name: "风雪垭口", category: "天灾",     top: 15, left: 67, guests: ["basang", "caimai"] },
   { id: "linchang",  name: "转经林场", category: "密林采山", top: 58, left: 20, guests: ["laoliehu", "asuo"] },
   { id: "yeyi",      name: "牧道野驿", category: "奇遇",     top: 74, left: 8,  guests: ["zhaxi", "maguotou"] },
-  { id: "gudao",     name: "黑风古道", category: "劫镖江湖", top: 62, left: 47, guests: ["qingyilou", "lasan"] },
+  { id: "gudao",     name: "黑风古道", category: "劫镖江湖", top: 62, left: 47, guests: ["qingyilou", "lasan", "luosha"] },
   { id: "koudu",     name: "官道渡口", category: "水域",     top: 79, left: 72, guests: ["danzeng", "paochuan"] },
   { id: "zaoshi",    name: "早市坊",   category: "市井",     top: 83, left: 38, guests: ["huasao", "daniang"] },
   { id: "miaohui",   name: "庙会集场", category: "节庆",     top: 10, left: 46, guests: ["meiduo", "baiguniang", "daijiak"] },
   { id: "chengjiao", name: "城郊人家", category: "人情",     top: 90, left: 87, guests: ["caidan", "zhuoma", "laosun", "susu"] },
-  { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46, guests: ["wenzhanggui", "tangcu", "shusheng", "suniang", "tiannan", "xianbo"] },
+  { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46, guests: ["wenzhanggui", "tangcu", "shusheng", "suniang", "tiannan", "xianbo", "liruoyou", "lanjie"] },
 ];
 
 // 探秘情境 100 种，按十类分好（轻度武侠，一据点一类，各据点各记各的上次，不重复）
