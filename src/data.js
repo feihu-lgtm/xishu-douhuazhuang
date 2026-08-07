@@ -429,6 +429,11 @@ export const GUESTS = [
     flavor: "xianxiang", tech: "炒", fav: "雅江嫩豆腐",
     body: "利落的靛青窄袖，算盘珠子翻得飞快，眼神精明",
     order: "「实惠就行，别整花活。豆腐要嫩，火要旺，账我算得清。」" },
+  // ── 美食评分员 · 余味（顶级食评人·峨眉除名师姐·小鱼儿）──────────
+  { id: "ryuwei", name: "余味", ident: "品馔录人·峨眉外门师姐（除名）", spend: 88, gender: "女", ryuwei: true,
+    flavor: "suanla", tech: "炖", fav: "酸木瓜",
+    body: "柳叶脸，素银鱼尾簪做工极好，月白立领小袄靛青马面裙，腰间一枚银鱼符，两根竹木筷随身",
+    order: "「客官，上一道收尾干净的酸来。莫急着揭锅，多闷一炷香，让奴家品品你的尾巴。」" },
 ];
 
 // ── 踢馆梯度：八大菜系 × 5 档（喽啰→总厨），难度递增，挑过一级来下一级 ──
@@ -437,7 +442,7 @@ export const GUESTS = [
 export const FEMALE_GUEST_IDS = new Set([
   "caidan", "zhuoma", "huasao", "huyanxue", "meiduo",
   "baiguniang", "daijiak", "suniang", "lasan", "tiannan", "susu",
-  "lanjie", "luosha", "liruoyou",
+  "lanjie", "luosha", "liruoyou", "ryuwei",
 ]);
 export const RIVAL_LEVELS = [
   { tag: "喽啰·采买", req: 65, bonus: [40, 60] },
@@ -529,7 +534,7 @@ export const EXPEDITION_MAP = [
   { id: "zaoshi",    name: "早市坊",   category: "市井",     top: 83, left: 38, guests: ["huasao", "daniang"] },
   { id: "miaohui",   name: "庙会集场", category: "节庆",     top: 10, left: 46, guests: ["meiduo", "baiguniang", "daijiak"] },
   { id: "chengjiao", name: "城郊人家", category: "人情",     top: 90, left: 87, guests: ["caidan", "zhuoma", "laosun", "susu"] },
-  { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46, guests: ["wenzhanggui", "tangcu", "shusheng", "suniang", "tiannan", "xianbo", "liruoyou", "lanjie"] },
+  { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46, guests: ["wenzhanggui", "tangcu", "shusheng", "suniang", "tiannan", "xianbo", "liruoyou", "lanjie", "ryuwei"] },
 ];
 
 // 探秘情境 100 种，按十类分好（轻度武侠，一据点一类，各据点各记各的上次，不重复）

@@ -3,7 +3,7 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS,
 } from "./data.js";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest } from "./state.js";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
 
 // 顶部限流五点是空心/实心 + 12s 计时
@@ -195,6 +195,21 @@ export function renderStatus(st) {
   const hour = st.phase === "closing" ? HOURS[4] : HOURS[Math.min(st.served, 3)];
   $("#status").innerHTML =
     `第<b>${st.day}</b>天 · ${hour} · 客人 <b>${st.served}/3</b> · <b>${st.coins}</b> 文`;
+  // 左上角标题后 · 食评人余味的鱼尾银簪评级徽章
+  const rb = document.querySelector("#ryuwei-badge");
+  if (rb) {
+    const t = (st.ryuweiRating || {}).tier ?? 0;
+    rb.textContent = `🐟 ${ryuweiTierName(st)}`;
+    rb.className = "ryuwei-badge t" + t;
+  }
+}
+
+// 食评人余味 · 出场特效（星星文字 + 渐变炫彩，贴合 UI 玫瑰色系）
+export function ryuweiIntro(g) {
+  const bd = mkEntry($("#log"), "ryuwei");
+  bd.innerHTML = `✦ ✧ ✦ 奴家·小鱼儿 ✦ ✧ ✦<br><span class="ryuwei-line">${escapeHtml(`“${g.order}”`)}</span>`;
+  bd.parentElement.classList.remove("typing");
+  $("#log").scrollTop = $("#log").scrollHeight;
 }
 
 export function renderLeft(st) {

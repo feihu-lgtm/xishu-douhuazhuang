@@ -5,7 +5,7 @@ import {
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, findKnownGuest, snackScoreOf,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName,
 } from "./state.js";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts,
@@ -15,7 +15,7 @@ import {
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro,
 } from "./ui.js";
 
 let st = null;
@@ -75,6 +75,7 @@ async function guestArrives() {
   if (!g) return;
   setMood(1);
   renderAll(st, handlers);
+  if (g.ryuwei) ryuweiIntro(g);   // 食评人余味 · 星星特效出场
   await narr(`门帘一掀，${g.name}（${g.ident}）走了进来，找个灶边位子坐下。`);
   await say(`「${g.order}」`);
   sys(`第 ${st.served + 1} 位客人。右栏「灶台」开火，做好了「上菜」。`);
@@ -364,6 +365,17 @@ async function doServe() {
   // 出餐评分：主菜(谁做)和小吃(苏唐)分别评分+星级
   sys(`【评分】主菜「${dish.name}」(${mainBy}做) ${score} 分 ${starsOf(score)}` +
     (snackScore != null ? ` · 小吃「${setName}」(苏唐做) ${snackScore} 分 ${starsOf(snackScore)}` : ""));
+  // 食评人余味：吃完按评分给鱼尾银簪评级（锚点），够档晋升
+  if (g.ryuwei) {
+    const newTier = ryuweiGain(st, score);
+    if (newTier) {
+      const nm = ryuweiTierName(st);
+      await narr(`「${g.name}」掸掸裙摆，搁下一句：「${nm}——${newTier === 1 ? "收尾干净，可堪一记。" : newTier === 2 ? "全天下只有锦官城两家、拉萨一家、打箭炉一家，如今多了鱼定村这一家。" : "三尾鱼？小鱼儿头一回在册子上落这三笔。"}」`);
+      renderAll(st, handlers);
+    } else {
+      await narr(`「${g.name}」筷子一放，微微摇头：「尾巴没压住，再练练。」`);
+    }
+  }
   // 踢馆同行：按档位阈值（req）判定——达标把他赶走，必爆 ★食材 + 大额钱，并推进梯度
   if (g.rival) {
     const req = g.req ?? 85;

@@ -5,7 +5,7 @@ import {
   shopStock, buyItem, nextDay, currentGuest, GUESTS_PER_DAY,
   applyMartialExp, computeBaseScore, refreshShop, shopIngOf, applySuExp,
   checkChance, rollCheck, rankLabel, checkDim, skillValueOf, ACHIEVE_DEFS, ACHIEVE_N, ATTR_DIMS, CHECK_DIMS,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, inviteCandidates, findKnownGuest, snackScoreOf,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, inviteCandidates, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName,
 } from "../src/state.js";
 import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS, rivalGuestAt, FEMALE_GUEST_IDS } from "../src/data.js";
 import {
@@ -354,6 +354,16 @@ test("专练技法：片/串/颠 分别专练 剑法/枪法/投掷", () => {
   assert.equal(train["片"], "剑法");
   assert.equal(train["串"], "枪法");
   assert.equal(train["颠"], "投掷");
+});
+
+test("余味鱼尾评级：吃完按评分累积，够档晋升", () => {
+  const st = newState();
+  assert.equal(ryuweiTierName(st), "无名小馆");
+  assert.equal(ryuweiGain(st, 50), 0, "低分不晋升");
+  let t = 0;
+  for (let i = 0; i < 20; i++) { const n = ryuweiGain(st, 95); if (n) t = n; }
+  assert.equal(st.ryuweiRating.tier, 1, "累积够一尾鱼");
+  assert.equal(ryuweiTierName(st), "一尾鱼·翘楚");
 });
 
 test("小吃独立评分：品质为底，味型对上+10", () => {

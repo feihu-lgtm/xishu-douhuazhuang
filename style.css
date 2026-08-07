@@ -250,6 +250,35 @@ body {
 .exp-gmem { font-size: 11px; color: var(--ink-dim); line-height: 1.6; }
 .exp-gmem.none { color: var(--mute); }
 
+/* 食评人余味 · 左上角鱼尾银簪评级徽章（渐变炫彩，贴合 UI 玫瑰色系） */
+.ryuwei-badge {
+  font-size: 11px; letter-spacing: 2px; margin-left: 10px; white-space: nowrap;
+  background: linear-gradient(90deg, #f6d6bd, #c9a19b, #e6c07a, #f0b3a0, #c9a19b);
+  background-size: 200% auto;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: ryuwei-flow 3.5s linear infinite;
+}
+.ryuwei-badge.t0 { color: var(--ink-dim); background: none; -webkit-background-clip: unset; animation: none; }
+@keyframes ryuwei-flow { to { background-position: 200% center; } }
+
+/* 余味出场特效 · 星星文字 + 渐变炫彩 */
+.entry.ryuwei { position: relative; }
+.entry.ryuwei .bd {
+  background: linear-gradient(90deg, #f6d6bd, #c9a19b, #e6c07a, #f0b3a0, #c9a19b);
+  background-size: 220% auto;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: ryuwei-flow 4s linear infinite;
+  font-weight: 600; letter-spacing: 2px;
+}
+.entry.ryuwei .bd .ryuwei-line { font-weight: 400; letter-spacing: 0; color: var(--ink-bright); }
+.entry.ryuwei::before, .entry.ryuwei::after {
+  content: "✦"; position: absolute; color: #f0b3a0; font-size: 14px;
+  animation: ryuwei-twinkle 1.6s ease-in-out infinite;
+}
+.entry.ryuwei::before { left: 4px; top: 4px; }
+.entry.ryuwei::after { right: 6px; top: 10px; animation-delay: .5s; }
+@keyframes ryuwei-twinkle { 0%,100% { opacity: .2; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+
 /* 晨间送礼 · 仪式感领取 */
 .gift-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 26px 44px; text-align: center; }
 .gift-box { font-size: 54px; animation: giftbounce 1.2s ease-in-out infinite; }

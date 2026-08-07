@@ -78,6 +78,7 @@ export function newState() {
     invitedGuest: null,      // 收功后受邀留坐闲聊的女客 id（苏唐 + 女客 三人场）
     pendingGifts: null,      // 收功时后台备好的明日熟客送礼 {givers:[{name,gift}], text}
     guestMemories: {},       // 隔离记忆：{guestId:[{day,mainBy,dish,mainScore,snackName,snackScore}]} 每个客人只记得自己经历的事
+    ryuweiRating: { pts: 0, tier: 0 }, // 食评人余味的鱼尾评级锚点：0无尾 1一尾鱼翘楚 2两尾鱼(绝世) 3三尾鱼(传说)
   };
 }
 
@@ -344,6 +345,28 @@ export function rankLabel(succ, achieve) {
   if (succ >= 2) return "渐熟";
   if (succ >= 1) return "入门";
   return "生手";
+}
+
+// ── 食评人余味 · 鱼尾评级 ────────────────────────────────────────────
+// 一尾鱼=翘楚；两尾鱼=绝世（全天下只有锦官城两家/拉萨一家/打箭炉一家）；三尾鱼=传说（从没听说过）
+export const RYUWEI_TIERS = [
+  { tier: 0, name: "无名小馆", need: 0 },
+  { tier: 1, name: "一尾鱼·翘楚", need: 150 },
+  { tier: 2, name: "两尾鱼·绝世", need: 400 },
+  { tier: 3, name: "三尾鱼·传说", need: 1200 },
+];
+export function ryuweiTierName(st) {
+  const t = (st.ryuweiRating || {}).tier ?? 0;
+  return (RYUWEI_TIERS[t] || RYUWEI_TIERS[0]).name;
+}
+// 余味吃完按评分给评级点；够档则晋升一档，返回新档
+export function ryuweiGain(st, score) {
+  st.ryuweiRating = st.ryuweiRating || { pts: 0, tier: 0 };
+  if (score >= 60) st.ryuweiRating.pts += Math.round((score - 50) / 5); // 60→2 … 100→10
+  const cur = st.ryuweiRating.tier;
+  const next = RYUWEI_TIERS.findLast(t => st.ryuweiRating.pts >= t.need)?.tier ?? cur;
+  st.ryuweiRating.tier = Math.max(cur, next);
+  return st.ryuweiRating.tier > cur ? st.ryuweiRating.tier : 0; // 晋升返回新档，否则 0
 }
 
 // ── 通用维度检定：骰子维度走熟练度（计数/成就），属性维度走 skills ───
