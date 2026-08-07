@@ -704,6 +704,17 @@ export function renderInvite(st, { onInvite, onCancel } = {}) {
   el.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => onCancel?.());
 }
 
+// ── 余味 CG 播放：点左上角圆圈(#spiral)，全屏夺舍播 16:9 CG ──────────
+export function openCg() {
+  const modal = openModal(`
+    <div class="cg-wrap">
+      <img class="cg-img" src="./assets/ryuwei_cg.png" alt="余味">
+      <span class="ck-btn plain" data-close>收 起</span>
+    </div>
+  `, null, "fullscreen");
+  modal.querySelector("[data-close]").onclick = () => closeModal();
+}
+
 // ── 晨间送礼领取：仪式感弹层，玩家点「领取」才展示熟客送礼剧情 ──────
 export function waitGiftClaim() {
   return new Promise(res => {
