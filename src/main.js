@@ -22,6 +22,38 @@ let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
 let busySnack = false;   // 苏唐小吃 通道（可与做菜并行）
 
+// ── 最近日志回显：读档/导入存档时把最近 5 轮（含AI叙事与系统消息，比如余味出场特效）铺回左右栏 ──
+// 以 note() 调用为一轮的分界，把该轮里 #log/#sulog 新增的条目按原样(outerHTML)存进 st.recentLog。
+let lastLogCount = 0, lastSuCount = 0;
+let logRounds = [], suRounds = [];
+function captureRoundLog() {
+  const logEl = document.querySelector("#log"), suEl = document.querySelector("#sulog");
+  if (logEl) {
+    const kids = Array.from(logEl.children);
+    const added = kids.slice(lastLogCount).map(el => el.outerHTML);
+    lastLogCount = kids.length;
+    if (added.length) { logRounds.push(added); if (logRounds.length > 5) logRounds.shift(); }
+  }
+  if (suEl) {
+    const kids = Array.from(suEl.children);
+    const added = kids.slice(lastSuCount).map(el => el.outerHTML);
+    lastSuCount = kids.length;
+    if (added.length) { suRounds.push(added); if (suRounds.length > 5) suRounds.shift(); }
+  }
+  if (st) st.recentLog = { main: logRounds.flat(), su: suRounds.flat() };
+}
+// 读档/导入后调用：把存档里的最近日志铺回左右栏，并重置轮次计数（回显内容不算"新一轮"）
+function restoreRecentLog() {
+  const logEl = document.querySelector("#log"), suEl = document.querySelector("#sulog");
+  const rl = st?.recentLog;
+  if (logEl && rl?.main?.length) { logEl.innerHTML = rl.main.join(""); logEl.scrollTop = logEl.scrollHeight; }
+  if (suEl && rl?.su?.length) { suEl.innerHTML = rl.su.join(""); suEl.scrollTop = suEl.scrollHeight; }
+  lastLogCount = logEl ? logEl.children.length : 0;
+  lastSuCount = suEl ? suEl.children.length : 0;
+  logRounds = rl?.main?.length ? [rl.main] : [];
+  suRounds = rl?.su?.length ? [rl.su] : [];
+}
+
 const handlers = {
   cook: () => doCook(),
   snack: () => doSnackPanel(),
@@ -59,6 +91,7 @@ async function continueGame() {
   if (!st) return startNew();
   $("#start").style.display = "none";
   renderAll(st, handlers);
+  restoreRecentLog();  // 把存档里最近5轮的左右栏内容铺回来，接着上次的往下看
   sys(`读档完毕 · 第 ${st.day} 天，${st.coins} 文。`);
   if (st.phase === "guest") {
     const g = currentGuest(st);
@@ -74,10 +107,10 @@ async function guestArrives() {
   const g = currentGuest(st);
   if (!g) return;
   setMood(1);
-  renderAll(st, handlers);
-  if (g.ryuwei) ryuweiIntro(g);   // 食评人余味 · 星星特效出场
+  renderAll(st, handlers); // 这才是真正露脸的时候，不带 hideGuest，左栏正常显示客人卡
   await narr(`门帘一掀，${g.name}（${g.ident}）走了进来，找个灶边位子坐下。`);
-  await say(`「${g.order}」`);
+  if (g.ryuwei) ryuweiIntro(g);   // 食评人余味 · 星星特效出场，紧跟在"走进来"之后，不抢在前面
+  else await say(`「${g.order}」`);
   sys(`第 ${st.served + 1} 位客人。右栏「灶台」开火，做好了「上菜」。`);
   note("迎客", `第${st.served + 1}位客人 ${g.name} 进门，说「${g.order}」。`);
   if (g.sister) {
@@ -660,6 +693,7 @@ function note(act, text) {
   const d = new Date(); const p = (n) => String(n).padStart(2, "0");
   st.notes.push({ day: st.day, ts: `${p(d.getHours())}:${p(d.getMinutes())}`, act, text });
   if (st.notes.length > 200) st.notes.shift();
+  captureRoundLog(); // 这一轮的左右栏新增内容存进 st.recentLog，供读档回显
 }
 
 async function doSnackRequest(txt) {
@@ -796,8 +830,9 @@ async function showPendingGifts() {
   if (!pg || !pg.givers || !pg.givers.length) { st.pendingGifts = null; return; }
   st.pendingGifts = null;
   if (pg.text) await narr(pg.text);
-  await narr("【收到】" + pg.givers.map(g =>
-    `「${g.gift.name}」${"★".repeat(g.gift.stars)}（${g.gift.desc}）——${g.name}托人送来`).join("；"));
+  const lines = pg.givers.map(g =>
+    `　· 「${g.gift.name}」${"★".repeat(g.gift.stars)}（${g.gift.desc}）——${g.name}托人送来`);
+  await narr(["【收到】", ...lines].join("\n\n"));
 }
 
 async function doNext() {
@@ -807,7 +842,7 @@ async function doNext() {
   applyRival(st);              // 第二客可能换成踢馆同行
   dismissInvite();             // 新一天开门：收掉昨天晚上的邀请面板
   setMood(0);
-  renderAll(st, handlers);
+  renderAll(st, handlers, { hideGuest: true }); // 客人已经定好，但还没「门帘一掀」，左栏先别露底
   saveGame(st);
   await narr(`第 ${st.day} 天，卯时。雾从溪面起来，小馆开门。`);
   // 晨间送礼：收功后台备好的熟客送礼，仪式感领取后再展示（剧情+★清单）
@@ -816,6 +851,7 @@ async function doNext() {
   await showPendingGifts();
   if (Math.random() < 0.3) await maybeNewGuest(); // 三成机会，溪边又来了新面孔
   await guestArrives();
+  saveGame(st); // 门帘一掀之后这段（含 recentLog 这一轮）再落一次盘，不等玩家下一步动作才存
 }
 
 // ── 招新客：AI 生成一位新顾客入册（日后可能被抽到）──────────────────
@@ -946,6 +982,7 @@ function importSave() {
         st = data;
         saveGame(st);
         renderAll(st, handlers);
+        restoreRecentLog();  // 导入存档同样把最近5轮左右栏内容铺回来
         setMood(0);
         sys(`已导入第 ${st.day} 天的存档（${st.coins} 文）。`);
       } catch (e) { sys(`导入失败：${e.message}`); }

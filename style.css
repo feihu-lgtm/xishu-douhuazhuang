@@ -265,7 +265,8 @@ body {
 
 /* 余味立绘表情框（左上角客人卡 · 8 格精灵图，随心情切） */
 .ryuwei-face {
-  width: 88px; height: 158px; margin: 0 auto 4px;
+  /* 原图 1536x1024，4x2 精灵格，单格原生比例 3:4——宽高必须按这个比例来，否则脸会被拉变形 */
+  width: 119px; height: 158px; margin: 0 auto 4px;
   background-image: url("./assets/ryuwei_sheet.png");
   background-size: 400% 200%;
   background-repeat: no-repeat;

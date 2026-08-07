@@ -215,8 +215,10 @@ export function ryuweiIntro(g) {
   $("#log").scrollTop = $("#log").scrollHeight;
 }
 
-export function renderLeft(st) {
-  const guest = st.phase === "guest" ? currentGuestSafe(st) : null;
+export function renderLeft(st, hideGuest) {
+  // hideGuest：翻篇后客人已经定好但还没走到「门帘一掀」那句叙事——先不露客人卡，
+  // 免得（尤其是余味这种带出场特效的重量级客人）左栏抢跑，把 guestArrives() 的登场都剧透没了。
+  const guest = (!hideGuest && st.phase === "guest") ? currentGuestSafe(st) : null;
   let html = `<h3>灶 房</h3>
     <div class="row"><span>日子</span><span class="v">第 ${st.day} 天</span></div>
     <div class="row"><span>文钱</span><span class="v">${st.coins}</span></div>
@@ -234,7 +236,7 @@ export function renderLeft(st) {
       <div class="gorder">「${guest.order}」</div>
     </div>`;
   } else {
-    html += `<div id="guestcard" class="pcard"><div class="gid">${st.phase === "closing" ? "今日客已送完" : "灶房空着"}</div></div>`;
+    html += `<div id="guestcard" class="pcard"><div class="gid">${hideGuest ? "灶房空着" : st.phase === "closing" ? "今日客已送完" : "灶房空着"}</div></div>`;
   }
   html += `<h3>手中菜</h3>`;
   html += st.dish
@@ -293,9 +295,9 @@ export function renderSide(st, h) {
   });
 }
 
-export function renderAll(st, h) {
+export function renderAll(st, h, { hideGuest } = {}) {
   renderStatus(st);
-  renderLeft(st);
+  renderLeft(st, hideGuest);
   renderSide(st, h);
 }
 
@@ -705,10 +707,16 @@ export function renderInvite(st, { onInvite, onCancel } = {}) {
 }
 
 // ── 余味 CG 播放：点左上角圆圈(#spiral)，全屏夺舍播 16:9 CG ──────────
+// 左上角圆圈能翻到的 CG 合集：随手气随机一张，池子以后加图直接往这加一条就行
+const CG_LIST = [
+  { src: "./assets/ryuwei_cg.png", alt: "余味" },
+  { src: "./assets/sutang_cg.png", alt: "苏唐" },
+];
 export function openCg() {
+  const pick = CG_LIST[Math.floor(Math.random() * CG_LIST.length)];
   const modal = openModal(`
     <div class="cg-wrap">
-      <img class="cg-img" src="./assets/ryuwei_cg.png" alt="余味">
+      <img class="cg-img" src="${pick.src}" alt="${pick.alt}">
       <span class="ck-btn plain" data-close>收 起</span>
     </div>
   `, null, "fullscreen");
