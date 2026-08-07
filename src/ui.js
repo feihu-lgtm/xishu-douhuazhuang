@@ -328,7 +328,7 @@ export function openCook(st, { onFire, prefill, onSuAll } = {}) {
   let flavorId = null;
   let intended = "";
   let warn = "";
-  const excluded = new Set(); // 灶台标签筛选（排除）
+  let activeTag = null; // 灶台标签筛选：点了哪个只显示哪个，再点一下/点别的都会变
 
   function draw() {
     const judge = judgeStove(st, slots, techId, cwId, flavorId);
@@ -336,7 +336,7 @@ export function openCook(st, { onFire, prefill, onSuAll } = {}) {
     const counts = {};
     slots.forEach(s => { if (s) counts[s] = (counts[s] || 0) + 1; });
 
-    const mats = Object.entries(st.inv).filter(([name, n]) => n > 0 && !excluded.has(ingTag(name)));
+    const mats = Object.entries(st.inv).filter(([name, n]) => n > 0 && (!activeTag || ingTag(name) === activeTag));
     const modal = openModal(`
       <h2>灶 台 · 烹饪</h2>
       <div class="ck-label">料 · 调味料与食材混装（点击放入，点格取回）</div>
@@ -345,7 +345,7 @@ export function openCook(st, { onFire, prefill, onSuAll } = {}) {
            <span class="tag">料${i + 1}</span>${s || "空"}</div>`).join("")}</div>
 
       <div class="tagbar">${ING_TAGS.map(t =>
-        `<span class="tagchip ${excluded.has(t) ? "off" : "on"}" data-tag="${t}">${t}</span>`).join("")}</div>
+        `<span class="tagchip ${t === activeTag ? "on" : ""}" data-tag="${t}">${t}</span>`).join("")}</div>
       <div class="ck-label">🎒 可用材料</div>
       <div class="ck-mats">${mats.length ? mats.map(([name, n]) => {
         const left = n - (counts[name] || 0);
@@ -420,7 +420,7 @@ export function openCook(st, { onFire, prefill, onSuAll } = {}) {
     });
     modal.querySelectorAll("[data-tag]").forEach(el => el.onclick = () => {
       const t = el.dataset.tag;
-      excluded.has(t) ? excluded.delete(t) : excluded.add(t);
+      activeTag = activeTag === t ? null : t; // 再点一下同一个＝取消，回到显示全部
       draw();
     });
     modal.querySelector("#ck-intent").oninput = (e) => { intended = e.target.value; };
@@ -438,7 +438,7 @@ export function openCook(st, { onFire, prefill, onSuAll } = {}) {
 export function openShop(st, { onBuy, onLeave, onRefresh, onBuyAll }) {
   let tab = "ingredient";
   let cartOpen = false;
-  const excluded = new Set();
+  let activeTag = null; // 食材标签筛选：点了哪个只显示哪个，不是排除
   const TABS = { ingredient: ["食材", "ingredient"], cookware: ["厨具", "cookware"],
     tech: ["技法", "tech"], flavor: ["味型", "flavor"] };
   const qkey = (id) => `${tab}:${id}`;
@@ -462,7 +462,7 @@ export function openShop(st, { onBuy, onLeave, onRefresh, onBuyAll }) {
 
   function stockFor() {
     const s = shopStock(st)[tab];
-    return tab === "ingredient" ? s.filter(i => !excluded.has(ingTag(i.name))) : s;
+    return tab === "ingredient" ? s.filter(i => !activeTag || ingTag(i.name) === activeTag) : s;
   }
   function iconFor() {
     return ICONS[tab === "tech" ? "tech" : tab === "flavor" ? "flavor" : tab === "ingredient" ? "ingredient" : "cookware"];
@@ -484,7 +484,7 @@ export function openShop(st, { onBuy, onLeave, onRefresh, onBuyAll }) {
   }
   function tagbarHtml() {
     return `<div class="tagbar">${ING_TAGS.map(t =>
-      `<span class="tagchip ${excluded.has(t) ? "off" : "on"}" data-tag="${t}">${t}</span>`).join("")}</div>`;
+      `<span class="tagchip ${t === activeTag ? "on" : ""}" data-tag="${t}">${t}</span>`).join("")}</div>`;
   }
   function cartHtml() {
     const rows = [];
@@ -513,7 +513,7 @@ export function openShop(st, { onBuy, onLeave, onRefresh, onBuyAll }) {
   function bindBody(b) {
     b.querySelectorAll("[data-tag]").forEach(el => el.onclick = () => {
       const t = el.dataset.tag;
-      excluded.has(t) ? excluded.delete(t) : excluded.add(t);
+      activeTag = activeTag === t ? null : t; // 再点一下同一个＝取消，回到显示全部
       renderGrid(true);
     });
     b.querySelectorAll("[data-q]").forEach(el => el.onclick = () => {
