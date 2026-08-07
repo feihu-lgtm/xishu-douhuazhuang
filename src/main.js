@@ -15,7 +15,7 @@ import {
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg,
 } from "./ui.js";
 
 let st = null;
@@ -974,6 +974,8 @@ function importSave() {
 
 // ── 绑定 ───────────────────────────────────────────────────────────────
 function bind() {
+  const spiral = document.querySelector("#spiral");
+  if (spiral) spiral.onclick = () => openCg();   // 左上角圆圈 → 全屏 CG
   const input = $("#cmd");
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
