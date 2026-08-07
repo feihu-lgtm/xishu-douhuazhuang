@@ -760,12 +760,15 @@ export async function genSuTalk(cfg, ctx, onChunk) {
 
 export async function genReview(cfg, ctx) {
   if (cfgReady(cfg)) {
-    const lines = (ctx.dayLog || []).map(d =>
-      `客人${d.name}，点菜时说「${d.order}」，师兄做了「${d.dish}」，${d.flavorMatch ? "合口味" : "不合口味"}${d.favMatch ? "、正中TA兴趣的料" : ""}，满意度${d.score}。`);
+    const lines = (ctx.dayLog || []).map(d => {
+      const main = `主菜「${d.dish}」${d.mainBy === "苏唐" ? "是苏唐" : "是师兄"}做的，${d.mainScore ?? d.score}分`;
+      const snack = d.snackName ? `；小吃「${d.snackName}」苏唐做的，${d.snackScore ?? "—"}分` : "";
+      return `${d.name}那桌（点「${d.order}」）：${main}${snack}，${d.flavorMatch ? "口味对上了" : "口味偏了"}，总体${d.score}分。`;
+    });
     const snackLines = (ctx.snacks || []).map(s => `苏唐自己做了「${s.name}」（品质${s.quality}）。`);
-    const user = ["今日收工，逐客复盘：", ...lines,
+    const user = ["今日收工，逐客复盘（按上菜先后）：", ...lines,
       ...(snackLines.length ? ["今日苏唐做的小吃：", ...snackLines] : []),
-      `请苏唐总评：每位客人是怎么说的、她推测TA爱吃什么、师兄做的好不好；也要评一评她自己今日做的小吃（得意/嫌弃/自省）。用苏唐口吻，分短段，嘴硬心软。`].join("\n");
+      `请苏唐总评：按上菜先后一位位说，每位客人的主菜是师兄还是她做的、各多少分，她推测TA爱吃什么、谁做得更好；也评一评她自己今日做的小吃（得意/嫌弃/自省）。用苏唐口吻，分短段，嘴硬心软。`].join("\n");
     try {
       const raw = await callAI(cfg, "你是苏唐，西蜀豆花庄的师妹，红衣汉服，嘴硬心软，眼力好。只输出总评文字。", user, "苏唐总评");
       if (raw && raw.trim()) return { text: raw.trim(), ai: true };
@@ -777,8 +780,11 @@ function fallbackReview(ctx) {
   const dl = ctx.dayLog || [];
   const sn = ctx.snacks || [];
   if (!dl.length && !sn.length) return "【苏唐】今日没开张，锅都凉了，省柴。";
-  const guest = dl.map(d =>
-    `【苏唐】${d.name} 那桌，${d.flavorMatch ? "口味对上了，下回还这么配。" : `没对上，TA 要的是那口，你偏了。`} ${d.tier === 0 ? "师兄这手，我服。" : d.tier === 1 ? "还行，凑合。" : "得练。"}`);
+  const guest = dl.map(d => {
+    const main = `主菜「${d.dish}」${d.mainBy === "苏唐" ? "我做的" : "你做的"}，${d.mainScore ?? d.score}分`;
+    const snack = d.snackName ? `，我顺手的小吃「${d.snackName}」${d.snackScore ?? "—"}分` : "";
+    return `【苏唐】${d.name} 那桌：${main}${snack}，${d.flavorMatch ? "口味对上了。" : "口味没对上，还得练。"}`;
+  });
   const self = sn.map(s => `【苏唐】我自个儿的「${s.name}」，${s.quality >= 80 ? "火候拿捏得正好，得意。" : s.quality >= 60 ? "还成，下回更细些。" : "失手了，下回找补。"}`);
   return [...guest, ...self].join("\n");
 }

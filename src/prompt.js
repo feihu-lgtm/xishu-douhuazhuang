@@ -99,10 +99,10 @@ export function reactionUser(ctx) {
     sisterSec(ctx.guest) +
     rivalSec(ctx.guest) +
     bodySec(ctx.guest) +
-    sec("主菜", `「${ctx.dishName}」：${ctx.mainDesc || "（无描述）"}`) +
-    sec("佐餐", ctx.snackName ? `小吃「${ctx.snackName}」：${ctx.snackDesc || "苏唐手作。"}` : "（这顿没有佐餐小吃）") +
+    sec("主菜", `「${ctx.dishName}」（${ctx.mainBy || "师兄"}做的）：${ctx.mainDesc || "（无描述）"}。这道主菜评分 ${ctx.score} 分。`) +
+    sec("佐餐", ctx.snackName ? `小吃「${ctx.snackName}」（苏唐做的）：${ctx.snackDesc || "苏唐手作。"}。这道小吃评分 ${ctx.snackScore ?? "—"} 分。` : "（这顿没有佐餐小吃）") +
     sec("裁决", `${ctx.tierDesc}（${ctx.score}分）。客人对师兄的好感为 ${ctx.aff ?? 0}（${ctx.affName || "面生"}）。`) +
-    sec("写法", `写 2-4 段出餐品尝场景：客人尝主菜、也尝${ctx.snackName ? `小吃「${ctx.snackName}」` : "桌上吃食"}的反应，两道都要评到（小吃也要评），要有客人说出口的「」对话，动作带人设，按裁决档位不越档夸、不越档骂。`) +
+    sec("写法", `写 2-4 段出餐品尝场景：主菜是${ctx.mainBy || "师兄"}做的、小吃是苏唐做的，客人两道都尝、分别评价——主菜怎么、小吃怎么，要有客人说出口的「」对话，动作带人设，按裁决档位不越档夸、不越档骂。`) +
     sec("吃美", ctx.tier === 0 ? "客人吃美了——真心实意夸师兄手艺，夸得具体；好感越高夸得越亲。" : "") +
     sec("输出格式", `写完场景后，另起一行「纸条：」≤50字客观小结（给谁上了什么、客人反应、满意度）；最后一行单独输出「心情：」一个词（苏唐在一旁旁观的心情，八个里选）。`)
   );

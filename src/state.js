@@ -182,8 +182,9 @@ export function applyMartialExp(st, external, internal, gain = 3) {
 }
 
 // 基础分 = 外功(练到的几门均值)30% + 内功20% + 技法难度20% + 食材配合20% + 炊具10%
-export function computeBaseScore(st, d) {
-  const sk = st.skills || {};
+// skills 可传：默认师兄 st.skills；苏唐掌勺时传 st.suSkills
+export function computeBaseScore(st, d, skills) {
+  const sk = skills || st.skills || {};
   const chosen = (d.external || []).filter(x => EXT_SKILLS.includes(x));
   const pool = chosen.length ? chosen : EXT_SKILLS;
   const extAvg = pool.reduce((a, x) => a + (sk[x] || 0), 0) / pool.length;
@@ -192,6 +193,13 @@ export function computeBaseScore(st, d) {
   const synergy = d.synergy ?? 60;
   const cookScore = ((QUAL_BONUS[d.cookware?.quality] ?? 0) / 15) * 100;
   const s = 0.30 * extAvg + 0.20 * internal + 0.20 * techBase + 0.20 * synergy + 0.10 * cookScore;
+  return Math.max(0, Math.min(100, Math.round(s)));
+}
+
+// 苏唐小吃独立评分：品质为底 + 味型对客人口味 +10（小吃都是苏唐做的）
+export function snackScoreOf(snack, guest) {
+  let s = snack?.quality ?? 60;
+  if (snack?.flavor && snack.flavor === guest?.flavor) s += 10;
   return Math.max(0, Math.min(100, Math.round(s)));
 }
 export function tierOf(score) {

@@ -5,7 +5,7 @@ import {
   shopStock, buyItem, nextDay, currentGuest, GUESTS_PER_DAY,
   applyMartialExp, computeBaseScore, refreshShop, shopIngOf, applySuExp,
   checkChance, rollCheck, rankLabel, checkDim, skillValueOf, ACHIEVE_DEFS, ACHIEVE_N, ATTR_DIMS, CHECK_DIMS,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, inviteCandidates, findKnownGuest,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, inviteCandidates, findKnownGuest, snackScoreOf,
 } from "../src/state.js";
 import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS, rivalGuestAt, FEMALE_GUEST_IDS } from "../src/data.js";
 import {
@@ -354,6 +354,13 @@ test("专练技法：片/串/颠 分别专练 剑法/枪法/投掷", () => {
   assert.equal(train["片"], "剑法");
   assert.equal(train["串"], "枪法");
   assert.equal(train["颠"], "投掷");
+});
+
+test("小吃独立评分：品质为底，味型对上+10", () => {
+  const g = { flavor: "mala" };
+  assert.equal(snackScoreOf({ quality: 70, flavor: "mala" }, g), 80, "味型对上+10");
+  assert.equal(snackScoreOf({ quality: 50, flavor: "tian" }, g), 50, "味型不对不加");
+  assert.equal(snackScoreOf(null, g), 60, "无记录默认60");
 });
 
 test("女厨体貌：所有女厨 body 都含「美若天仙」，男厨不配", () => {

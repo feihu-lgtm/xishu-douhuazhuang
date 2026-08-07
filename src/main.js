@@ -5,7 +5,7 @@ import {
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, findKnownGuest,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, findKnownGuest, snackScoreOf,
 } from "./state.js";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts,
@@ -15,7 +15,7 @@ import {
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim,
 } from "./ui.js";
 
 let st = null;
@@ -144,6 +144,7 @@ async function doSuAll() {
     applySuExp(st, 3);
     const tT = TECHNIQUES[dish.technique]?.train;
     if (tT) { st.suSkills = st.suSkills || {}; st.suSkills[tT] = Math.min(100, (st.suSkills[tT] || 0) + 3); }
+    st.dish.baseScore = computeBaseScore(st, { technique: dish.technique, cookware: j.cookware, synergy: 70 }, st.suSkills); // 苏唐手艺
     suSys(`【苏唐】掌勺练功：各手艺+3${tT ? ` · ${tT}·专练+3` : ""}`);
   } else {
     await narr("苏唐站在灶边，袖子扎紧，递来菜刀：「师兄，听我口令。」");
@@ -152,6 +153,7 @@ async function doSuAll() {
     const got = applyMartialExp(st, martial.external, martial.internal);
     const tT = TECHNIQUES[dish.technique]?.train;
     if (tT) { applyMartialExp(st, [tT], null); got.push(`${tT}·专练`); }
+    st.dish.baseScore = computeBaseScore(st, { technique: dish.technique, cookware: j.cookware, synergy: martial.synergy, external: martial.external }); // 师兄武学
     suSys(`【苏唐指挥】练功：${got.join("、")} 各+3`);
   }
   gold(`「${dish.name}」出锅${suRoute ? "，苏唐手笔" : "，师兄执勺、苏唐口令"}。`);
@@ -301,8 +303,8 @@ async function doServe() {
   const flavorMatch = dish.flavorId === g.flavor;
   const favMatch = !!(g.fav && dish.materials.includes(g.fav));
   let score = scoreDish(dish, g);
-  // 配set 彩蛋：搭一份苏唐备的小吃；小吃味型由苏唐那次调用自己选定
-  let setName = null, snackMatch = false;
+  // 配set 彩蛋：搭一份苏唐备的小吃；小吃有独立评分（品质+味型），主菜加分仍在
+  let setName = null, snackMatch = false, snackScore = null;
   if (st.pendingSet && (st.snacks || {})[st.pendingSet] > 0) {
     setName = st.pendingSet;
     st.snacks[setName] -= 1;
@@ -310,9 +312,14 @@ async function doServe() {
     const srec = (st.snackRecipes || []).find(x => x.name === setName);
     snackMatch = !!srec && srec.flavor === g.flavor;
     if (snackMatch) score = Math.min(100, score + 6);
+    snackScore = snackScoreOf(srec, g); // 小吃独立评分（品质+客人口味）
   }
   const tier = tierOf(score);
-  (st.dayLog = st.dayLog || []).push({ id: g.id, name: g.name, order: g.order, dish: dish.name, tier, flavorMatch, favMatch, score });
+  const mainBy = dish.suCook ? "苏唐" : "你";   // 主菜是谁做的
+  (st.dayLog = st.dayLog || []).push({
+    id: g.id, name: g.name, order: g.order, dish: dish.name, tier, flavorMatch, favMatch, score,
+    mainBy, mainScore: score, snackScore, snackBy: setName ? "苏唐" : null, snackName: setName,
+  });
   st.aff = st.aff || {};
   const affNow = st.aff[g.id] || 0;
   const pay = payOf(g, score, affNow) + (setName ? 2 : 0);
@@ -326,9 +333,10 @@ async function doServe() {
   }
   const h = logStream("narr"); // 品尝场景进左栏
   const r = await genReaction(loadCfg(), {
-    guest: g, dishName: dish.name, score, tier,
+    guest: g, dishName: dish.name, score, tier, mainBy,
+    snackScore, snackName: setName, snackDesc,
     aff: affNow, affName: affName(affNow),
-    mainDesc, snackName: setName, snackDesc,
+    mainDesc,
   }, c => h.append(c));
   let reactNote = "";
   if (r.ai && h.text) {
@@ -348,8 +356,9 @@ async function doServe() {
   st.dish = null;
   st.pendingSet = null;
   gold(`${g.name} 放下 ${pay} 文铜钱。（满意度 ${score}）`);
-  // 出餐评分：每次上菜都给评分和星级（5 星制，满意度映射）
-  sys(`【出餐评分】${score} 分 ${starsOf(score)} · ${["赞不绝口", "满意", "觉得一般", "不太满意"][tier]}`);
+  // 出餐评分：主菜(谁做)和小吃(苏唐)分别评分+星级
+  sys(`【评分】主菜「${dish.name}」(${mainBy}做) ${score} 分 ${starsOf(score)}` +
+    (snackScore != null ? ` · 小吃「${setName}」(苏唐做) ${snackScore} 分 ${starsOf(snackScore)}` : ""));
   // 踢馆同行：按档位阈值（req）判定——达标把他赶走，必爆 ★食材 + 大额钱，并推进梯度
   if (g.rival) {
     const req = g.req ?? 85;
@@ -777,11 +786,15 @@ async function doNext() {
   await doReview();            // 收工总评在翻篇时做
   nextDay(st);
   applyRival(st);              // 第二客可能换成踢馆同行
+  dismissInvite();             // 新一天开门：收掉昨天晚上的邀请面板
   setMood(0);
   renderAll(st, handlers);
   saveGame(st);
   await narr(`第 ${st.day} 天，卯时。雾从溪面起来，小馆开门。`);
-  await showPendingGifts();    // 展示收功时后台备好的熟客送礼（剧情+★清单）
+  // 晨间送礼：收功后台备好的熟客送礼，仪式感领取后再展示（剧情+★清单）
+  const hasGifts = !!(st.pendingGifts && st.pendingGifts.givers && st.pendingGifts.givers.length);
+  if (hasGifts) await waitGiftClaim();
+  await showPendingGifts();
   if (Math.random() < 0.3) await maybeNewGuest(); // 三成机会，溪边又来了新面孔
   await guestArrives();
 }

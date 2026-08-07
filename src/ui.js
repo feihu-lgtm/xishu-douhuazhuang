@@ -638,6 +638,11 @@ export function openChallengePanel(st, ch, { onPick, onSkip }) {
 
 // ── 邀请面板：收功后右栏底部浮层，可最小化，邀请好感>15的女客留坐 ──
 let inviteCollapsed = false;
+// 第二天开门：移除前一天晚上的邀请面板
+export function dismissInvite() {
+  const el = document.querySelector("#invite-panel");
+  if (el) el.remove();
+}
 export function renderInvite(st, { onInvite, onCancel } = {}) {
   let el = document.querySelector("#invite-panel");
   if (!el) {
@@ -668,6 +673,21 @@ export function renderInvite(st, { onInvite, onCancel } = {}) {
   el.querySelector("[data-toggle]").onclick = () => { inviteCollapsed = !inviteCollapsed; renderInvite(st, { onInvite, onCancel }); };
   el.querySelectorAll("[data-invite]").forEach(b => b.onclick = () => onInvite?.(b.dataset.invite));
   el.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => onCancel?.());
+}
+
+// ── 晨间送礼领取：仪式感弹层，玩家点「领取」才展示熟客送礼剧情 ──────
+export function waitGiftClaim() {
+  return new Promise(res => {
+    const modal = openModal(`
+      <div class="gift-wrap">
+        <div class="gift-box">🎁</div>
+        <div class="gift-title">晨 间 送 礼</div>
+        <div class="gift-note">门边堆着几份心意——夜里熟客托人捎来的好东西，等着你收。</div>
+        <span class="ck-btn plain" data-claim>🎁 领 取</span>
+      </div>
+    `, () => res());
+    modal.querySelector("[data-claim]").onclick = () => { closeModal(); res(); };
+  });
 }
 
 // ── 小吃面板（玩家只口述，苏唐自决；已会的可复做）──────────────────

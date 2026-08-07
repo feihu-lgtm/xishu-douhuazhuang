@@ -242,6 +242,13 @@ body {
 .scard.owned .sbuy { color: var(--mute); cursor: default; }
 .scard.owned .sname { color: var(--ink-dim); }
 
+/* 晨间送礼 · 仪式感领取 */
+.gift-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 26px 44px; text-align: center; }
+.gift-box { font-size: 54px; animation: giftbounce 1.2s ease-in-out infinite; }
+@keyframes giftbounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px) rotate(-6deg); } }
+.gift-title { font-size: 16px; letter-spacing: 6px; color: var(--ink-bright); }
+.gift-note { font-size: 12px; color: var(--ink-dim); line-height: 1.8; }
+
 /* 邀请面板：右栏底部浮层，可最小化 */
 .invite-panel {
   position: fixed; right: 12px; bottom: 12px; width: 250px; z-index: 60;
