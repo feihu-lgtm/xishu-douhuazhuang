@@ -1,9 +1,9 @@
 // 西蜀豆花庄 · 界面层（DOM）
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
-  ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS,
+  ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS,
 } from "./data.js";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName } from "./state.js";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
 
 // 顶部限流五点是空心/实心 + 12s 计时
@@ -270,7 +270,7 @@ export function renderSide(st, h) {
   $("#side").innerHTML =
     item("灶台", "C", can.cook, "cook") +
     item("小吃", "X", can.snack, "snack") +
-    item("苏唐", "B", true, "su") +
+    item("邀客", "B", true, "pickGuest") +
     item(`■ 模式·${getNsfw() ? "开" : "关"}`, "G", true, "nsfw") +
     item("佐餐", "S", can.serve, "serve") +
     item("商店", "T", can.shop, "shop") +
@@ -790,19 +790,30 @@ export function openSet(st, { onSet }) {
   draw();
 }
 
-// ── 吩咐苏唐（专用入口，不做正则猜测）──────────────────────────────
-export function openSuPanel(st, { onTalk }) {
-  let txt = "";
-  const modal = openModal(`
-    <h2>吩 咐 · 苏唐</h2>
-    <div class="set-note">跟苏唐说句话，她回在右栏。好感加多少由她当时的心情决定。</div>
-    <input id="su-in" class="ck-intent" placeholder="如：小妹，今天累不累？" value="">
-    <div class="ck-btns"><span class="ck-btn" data-go>说 给 苏 唐</span></div>
-    <span class="return" data-back>Return · 返回</span>
-  `, () => {});
-  modal.querySelector("#su-in").oninput = (e) => { txt = e.target.value; };
-  modal.querySelector("[data-go]").onclick = () => { if (txt.trim()) { closeModal(); onTalk(txt.trim()); } };
-  modal.querySelector("[data-back]").onclick = () => closeModal();
+// ── 邀客·点将明日（最多 GUESTS_PER_DAY 位，任何人，含踢馆八线当前挑战者，点/取消即改）──
+export function openInviteGuest(st, { onToggle, onDone }) {
+  const known = [...GUESTS, ...(st.customGuests || [])];
+  const rivals = RIVAL_SCHOOLS.map((s, i) => ({ school: s, guest: rivalGuestForSchool(st, i) })).filter(x => x.guest);
+  const card = (g, picks) => `
+      <div class="menu-item-card pick ${picks.includes(g.id) ? "on" : ""}" data-pick="${g.id}">
+        <b>${g.name}</b><i>${g.ident}${g.ryuwei ? " · 顶级食评人" : ""}</i>
+        <p>${g.order || ""}</p>
+      </div>`;
+  function draw() {
+    const picks = st.nextGuestPicks || [];
+    const modal = openModal(`
+      <h2>邀 客 · 点 将 明 日</h2>
+      <div class="set-note">最多选 ${GUESTS_PER_DAY} 位，不管认不认得、平日在哪个据点——明日准来，各占一个客位。已选 ${picks.length}/${GUESTS_PER_DAY}，点一下选中/取消。</div>
+      ${rivals.length ? `<div class="ck-label">踢馆 · 八线各自进度，当前该来的挑战者</div>
+      <div class="menu-list">${rivals.map(r => card(r.guest, picks)).join("")}</div>` : ""}
+      <div class="ck-label">熟客</div>
+      <div class="menu-list">${known.map(g => card(g, picks)).join("")}</div>
+      <span class="return" data-back>Return · 返回</span>
+    `, () => onDone?.());
+    modal.querySelectorAll("[data-pick]").forEach(el => el.onclick = () => { onToggle(el.dataset.pick); draw(); });
+    modal.querySelector("[data-back]").onclick = () => closeModal(() => onDone?.());
+  }
+  draw();
 }
 
 // ── 小纸条（每轮动作/对话的小总结，按天回看）────────────────────────
@@ -968,7 +979,7 @@ export function openHelp() {
     </div>
     <div class="ck-label">终端命令</div>
     <div class="sdesc" style="min-height:0;text-align:left;line-height:2">
-      帮助 · 灶台/做菜 · 佐餐 · 小吃 · 苏唐 · 商店 · 探秘 · 下一日 · 仓库 · 设置 · 存档<br>
+      帮助 · 灶台/做菜 · 佐餐 · 小吃 · 邀客 · 商店 · 探秘 · 下一日 · 仓库 · 设置 · 存档<br>
       直接说话也行：说书人会接话；说「做 冷锅鱼」或提到食材，灶台自动备料。
     </div>
     <span class="return" data-back>Return · 返回</span>

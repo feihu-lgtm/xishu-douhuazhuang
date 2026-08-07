@@ -1,21 +1,21 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, rivalGuestAt, GUESTS, TECHNIQUES, FLAVOR_BY_ID } from "./data.js";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, GUESTS_PER_DAY,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genSuTalk, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openSuPanel, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg,
 } from "./ui.js";
 
 let st = null;
@@ -33,7 +33,7 @@ const handlers = {
   settings: () => openSettings(),
   trace: () => openTrace(),
   notes: () => openNotes(st),
-  su: () => openSuPanel(st, { onTalk: (txt) => doSuTalk(txt) }),
+  pickGuest: () => doPickGuest(),
   exp: () => openExpeditionMap(),
   nsfw: () => { setNsfw(!getNsfw()); sys(getNsfw() ? "■ 模式开启：相关写作规则强制注入。" : "■ 模式关闭。"); renderAll(st, handlers); },
   save: () => exportSave(),
@@ -394,18 +394,19 @@ async function doServe() {
       }
       const bonus = bmin + Math.floor(Math.random() * (bmax - bmin));
       st.coins += bonus; st.earned += bonus;
-      const isCurrent = st.rivalGuest && st.rivalGuest.id === g.id;
-      if (isCurrent) {
-        st.aff[g.id] = Math.min(100, (st.aff[g.id] || 0) + 15); // 挑过：好感+15，收为常客
+      // 头一回压下这位（该线该档）：收为常客+好感+15+推进该线梯度；已收过的回头客只加钱加料，不重复推进
+      const firstBeat = !(st.customGuests || []).some(x => x.id === g.id);
+      if (firstBeat) {
+        st.aff[g.id] = Math.min(100, (st.aff[g.id] || 0) + 15);
         st.customGuests = st.customGuests || [];
-        if (!st.customGuests.some(x => x.id === g.id)) st.customGuests.push(g); // 之后可能回来做客继续爆
-        rivalStageNext(st);
+        st.customGuests.push(g);
+        rivalStageNext(st, g.schoolIdx);
       }
       const done = st.rivalDone;
       await narr(`「${g.name}」放下筷子，半晌无言，起身抱拳：「服了。」丢下 ${bonus} 文，${sps.length > 1 ? "又搁下两件好东西" : "又搁下一件好东西"}——${sps.map(sp => `「${sp.name}」${"★".repeat(sp.stars)}`).join("、")}。`);
-      if (isCurrent) await narr(`${g.name}从此常来，${g.gender === "女" ? "眉眼带笑" : "不时踱来"}。`);
+      if (firstBeat) await narr(`${g.name}从此常来，${g.gender === "女" ? "眉眼带笑" : "不时踱来"}。`);
       if (done) await narr("八大菜系踢馆尽数压平。鱼定村小馆的名头，从此响彻四方。");
-      note("踢馆", `${g.name} 踢馆被压下(${score}分)，爆出 ${sps.map(sp => sp.name).join("、")} + ${bonus}文${isCurrent ? "·好感+15收为常客" : "·回头客"}${done ? "·全通关" : ""}。`);
+      note("踢馆", `${g.name} 踢馆被压下(${score}分)，爆出 ${sps.map(sp => sp.name).join("、")} + ${bonus}文${firstBeat ? "·好感+15收为常客" : "·回头客"}${done ? "·全通关" : ""}。`);
     } else {
       await narr(`「${g.name}」尝了一口，眉头皱起，冷笑：「就这？改日再来。」拂袖而去。`);
       note("踢馆", `${g.name} 踢馆得手，嘲讽而去（满意度${score}/${req}）。`);
@@ -722,46 +723,24 @@ async function doRemake(name) {
   saveGame(st);
 }
 
-// ── 苏唐长对话（右栏，好感只要对话就加）──────────────────────────────
-async function doSuTalk(text) {
-  if (busy) return sys("苏唐正忙着呢。");
-  busy = true;
-  startTrace("苏唐对话");
-  const h = slogStream("su");
-  const r = await genSuTalk(loadCfg(), {
-    text, words: loadCfg().suWords || 300, suAff: st.suAff || 0, suTier: suTierOf(st), context: ctxLine(st),
-  }, c => h.append(c));
-  if (!r.ai || !h.text) { h.remove(); await suLine(r.text); }
-  // ■模式·闲聊区：苏唐回复标了暧昧表情才按情节换 NSFW 表情
-  const faceIdx = POSE_INDEX[extractFace(r.text || "")];
-  const gain = r.aff ?? 1;
-  st.suAff = Math.max(0, Math.min(100, (st.suAff || 0) + gain));
-  // 苏唐对话也加受邀女客好感（同苏唐的 gain）
-  let invGain = "";
-  if (st.invitedGuest) {
-    st.aff = st.aff || {};
-    st.aff[st.invitedGuest] = Math.min(100, (st.aff[st.invitedGuest] || 0) + gain);
-    const inv = findKnownGuest(st, st.invitedGuest);
-    if (inv) invGain = ` · ${inv.name}好感+${gain}`;
-  }
-  note("苏唐对话", `师兄说「${text.slice(0, 14)}」，苏唐回了一段，好感+${gain}。`);
-  suSys(`【苏唐】好感+${gain}（今 ${st.suAff}）${invGain}`);
-  endTrace(`苏唐对话·好感+${gain}`);
-  setMood(3);
-  if (getNsfw() && Number.isInteger(faceIdx)) rollNsfwFace(faceIdx);
-  // 做爱做到位：受邀女客可能爆食材（AI 按她生成）
-  if (st.invitedGuest && r.intimacy === "到位" && Math.random() < 0.5) {
-    const inv = findKnownGuest(st, st.invitedGuest);
-    const sp = (await genDropIngredient(loadCfg(), { context: `${inv?.name || "她"}（${inv?.ident || "受邀女客"}）餍足满意，从包袱里拿出的好东西。` })) || fallbackSpecial()[0];
-    st.inv[sp.name] = (st.inv[sp.name] || 0) + 1;
-    st.stars = st.stars || {}; st.starLore = st.starLore || {};
-    st.stars[sp.name] = sp.stars;
-    if (sp.desc) st.starLore[sp.name] = sp.desc;
-    await narr(`${inv?.name || "她"}餍足地靠在榻上，随手从包袱里摸出一样东西塞给你——「${sp.name}」${"★".repeat(sp.stars)}。`);
-  }
-  busy = false;
-  renderAll(st, handlers);
-  saveGame(st);
+// ── 邀客·点将明日（B，替掉原来的"苏唐"私聊入口——闲聊本来就能聊，这里管的是明日客位）──
+// 最多点 GUESTS_PER_DAY 位，点谁都行，含踢馆八线的当前挑战者；再点一次取消。
+function doPickGuest() {
+  openInviteGuest(st, {
+    onToggle: (id) => {
+      st.nextGuestPicks = st.nextGuestPicks || [];
+      const i = st.nextGuestPicks.indexOf(id);
+      if (i >= 0) st.nextGuestPicks.splice(i, 1);
+      else if (st.nextGuestPicks.length < GUESTS_PER_DAY) st.nextGuestPicks.push(id);
+      saveGame(st);
+    },
+    onDone: () => {
+      const picks = st.nextGuestPicks || [];
+      if (!picks.length) return;
+      const names = picks.map(id => findKnownGuest(st, id)?.name || id).join("、");
+      sys(`已点将：${names}，明日必到。`);
+    },
+  });
 }
 
 // ── 佐餐（替代上菜+配set）──────────────────────────────────────────
@@ -772,15 +751,19 @@ function doZuocan() {
   openSet(st, { onSet: (name) => { st.pendingSet = name; doServe(); } });
 }
 
-// ── 踢馆梯度：第15天后，每天第二客 50% 概率来「当前该来」的那位同行 ──
+// ── 踢馆梯度：第15天后，每天第二客位 50% 概率来八线里随机一位「当前该来」的同行 ──
+// 玩家已经钦点了第2位客位（explicitPickCount≥2）时不抢——邀客点将优先。
 function applyRival(st) {
   if (st.day < 15) return;
-  if (st.rivalDone) return;                 // 八大菜系全挑完，不再来
+  if (st.rivalDone) return;                 // 八条线全挑完，不再来
+  if ((st.explicitPickCount || 0) >= 2) return;
   if (Math.random() >= 0.5) return;
-  const stg = st.rivalStage = st.rivalStage || { school: 0, level: 0 };
-  st.rivalGuest = rivalGuestAt(stg.school, stg.level);
+  const active = RIVAL_SCHOOLS.map((_, i) => i).filter(i => rivalGuestForSchool(st, i));
+  if (!active.length) return;
+  const schoolIdx = active[Math.floor(Math.random() * active.length)];
+  const guest = rivalGuestForSchool(st, schoolIdx);
   st.guests = st.guests || [];
-  st.guests[1] = st.rivalGuest.id;
+  st.guests[1] = guest.id;
 }
 // ── 熟客送礼：好感>20 的客人，新的一天几率送★食材（每天最多 3 人）──
 // ── 熟客送礼：收功打烊时后台预热生成，第二天翻篇直接展示 ─────────────
@@ -872,7 +855,7 @@ async function onCommand(text) {
   if (["设置"].includes(cmd)) return openSettings();
   if (["流程", "日志", "trace"].includes(cmd)) return openTrace();
   if (["纸条", "notes"].includes(cmd)) return openNotes(st);
-  if (["苏唐", "吩咐", "找苏唐"].includes(cmd)) return openSuPanel();
+  if (["邀客", "点将", "请客"].includes(cmd)) return doPickGuest();
   if (["存档"].includes(cmd)) return exportSave();
   if (["导入", "读档", "载入"].includes(cmd)) return importSave();
 
@@ -989,7 +972,7 @@ function bind() {
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();
-    const map = { c: "cook", x: "snack", b: "su", g: "nsfw", s: "serve", v: "set", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
+    const map = { c: "cook", x: "snack", b: "pickGuest", g: "nsfw", s: "serve", v: "set", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
     if (map[k]) handlers[map[k]]();
   });
   $("#btn-new").onclick = () => startNew();

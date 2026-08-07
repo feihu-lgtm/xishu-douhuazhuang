@@ -5,7 +5,7 @@ import {
   shopStock, buyItem, nextDay, currentGuest, GUESTS_PER_DAY,
   applyMartialExp, computeBaseScore, refreshShop, shopIngOf, applySuExp,
   checkChance, rollCheck, rankLabel, checkDim, skillValueOf, ACHIEVE_DEFS, ACHIEVE_N, ATTR_DIMS, CHECK_DIMS,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, inviteCandidates, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalLineDone, rivalGuestForSchool, inviteCandidates, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName,
 } from "../src/state.js";
 import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS, rivalGuestAt, FEMALE_GUEST_IDS } from "../src/data.js";
 import {
@@ -381,18 +381,32 @@ test("女厨体貌：所有女厨 body 都含「美若天仙」，男厨不配",
   }
 });
 
-test("踢馆进度：挑过一级推一档，满档换菜系，全通 rivalDone", () => {
+test("踢馆进度：八线各自独立，挑过一级只推该线，不影响其他线", () => {
   const st = newState();
-  const stg = st.rivalStage;
-  rivalStageNext(st);
-  assert.equal(st.rivalStage.level, 1, "喽啰→少主");
-  st.rivalStage = { school: 0, level: 4 };
-  rivalStageNext(st);
-  assert.equal(st.rivalStage.school, 1, "总厨挑过→换菜系");
-  assert.equal(st.rivalStage.level, 0);
-  st.rivalStage = { school: 7, level: 4 };
-  rivalStageNext(st);
-  assert.equal(st.rivalDone, true, "八大菜系全通");
+  assert.equal(st.rivalStages.length, 8, "开局八条线各自档位0");
+  rivalStageNext(st, 0);
+  assert.equal(st.rivalStages[0], 1, "0号线喽啰→少主");
+  assert.equal(st.rivalStages[1], 0, "1号线没动过，仍是喽啰");
+  rivalStageNext(st, 3);
+  assert.equal(st.rivalStages[3], 1, "3号线也能独立推进，互不干扰");
+  assert.equal(st.rivalStages[0], 1, "0号线不受3号线影响");
+});
+
+test("踢馆·单线全通：总厨挑过该线标记完成，不影响其余线", () => {
+  const st = newState();
+  st.rivalStages[2] = 4; // 2号线卡在总厨
+  rivalStageNext(st, 2);
+  assert.equal(rivalLineDone(st, 2), true, "2号线总厨挑过即全通");
+  assert.equal(rivalLineDone(st, 3), false, "3号线未动，不受影响");
+  assert.equal(rivalGuestForSchool(st, 2), null, "已全通的线拿不到挑战者");
+  assert.ok(rivalGuestForSchool(st, 3), "未全通的线正常给挑战者");
+  assert.equal(st.rivalDone, false, "只有一条线全通，八线还没全通");
+});
+
+test("踢馆·八线全通才 rivalDone", () => {
+  const st = newState();
+  for (let i = 0; i < 8; i++) { st.rivalStages[i] = 4; rivalStageNext(st, i); }
+  assert.equal(st.rivalDone, true, "八条线全部挑到总厨，才算全通");
 });
 
 test("女性客人标记：FEMALE_GUEST_IDS 都是有效 guest id，且含苏酥", () => {

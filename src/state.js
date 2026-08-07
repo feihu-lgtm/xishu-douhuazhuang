@@ -2,7 +2,7 @@
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
-  RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS,
+  RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS, rivalGuestAt,
 } from "./data.js";
 
 export const GUESTS_PER_DAY = 3;
@@ -72,13 +72,14 @@ export function newState() {
     flavorUses: {},          // 味型练功次数 {味型id: n}
     customGuests: [],        // AI 生成的新顾客池 [{...GUESTS 同构, custom:true}]
     starLore: {},            // 探秘带星食材的简短描述 {name: desc}（做菜/小吃时当 lore 注入，别让 AI 自己脑补成别的）
-    rivalGuest: null,        // 当前踢馆同行（动态生成，第15天后第二客）
-    rivalStage: { school: 0, level: 0 }, // 踢馆进度：八大菜系 × 5 档
-    rivalDone: false,        // 八大菜系总厨全挑完
+    rivalStages: RIVAL_SCHOOLS.map(() => 0), // 踢馆进度：八条线各自的档位(0-4)，互不干扰
+    rivalDone: false,        // 八大菜系·八线总厨全挑完
     invitedGuest: null,      // 收功后受邀留坐闲聊的女客 id（苏唐 + 女客 三人场）
     pendingGifts: null,      // 收功时后台备好的明日熟客送礼 {givers:[{name,gift}], text}
     guestMemories: {},       // 隔离记忆：{guestId:[{day,mainBy,dish,mainScore,snackName,snackScore}]} 每个客人只记得自己经历的事
     ryuweiRating: { pts: 0, tier: 0 }, // 食评人余味的鱼尾评级锚点：0无尾 1一尾鱼翘楚 2两尾鱼(绝世) 3三尾鱼(传说)
+    nextGuestPicks: [],      // 邀客点将：玩家钦点明日必到的客人 id 列表(最多 GUESTS_PER_DAY 个)，nextDay 消费后清空
+    explicitPickCount: 0,    // 今日客位里有几个是玩家钦点的（供 applyRival 判断该不该抢第2个客位）
   };
 }
 
@@ -250,34 +251,58 @@ export function buyItem(st, cat, id) {
 // ── 日循环 ─────────────────────────────────────────────────────────────
 export function currentGuest(st) {
   if (st.phase !== "guest") return null;
-  const id = st.guests[st.served];
-  if (st.rivalGuest && st.rivalGuest.id === id) return st.rivalGuest; // 动态踢馆同行
-  return GUESTS.find(g => g.id === id) || null;
-}
-// 踢馆进度：挑过一级，往前推一档（菜系内升档，满档换菜系，全通则 rivalDone）
-export function rivalStageNext(st) {
-  const stg = st.rivalStage = st.rivalStage || { school: 0, level: 0 };
-  const lastLevel = RIVAL_LEVELS.length - 1;
-  const lastSchool = RIVAL_SCHOOLS.length - 1;
-  if (stg.level < lastLevel) stg.level += 1;
-  else if (stg.school < lastSchool) { stg.school += 1; stg.level = 0; }
-  else st.rivalDone = true;
-  return stg;
+  return findKnownGuest(st, st.guests[st.served]);
 }
 
-// ── 邀请候选：所有认识的女性（预设女客 + 女厨/女新客等动态客人），好感>15 ──
+// ── 踢馆·八条线各自独立进度（互不干扰，可分别挑战）──────────────────
+// id 形如 rival_${schoolIdx}_${levelIdx}，自描述、不用另存指针，随时能反推回具体挑战者。
+export function rivalLineDone(st, schoolIdx) {
+  return ((st.rivalStages || [])[schoolIdx] ?? 0) >= RIVAL_LEVELS.length;
+}
+// 某条线当前该来的挑战者；该线已全通则返回 null
+export function rivalGuestForSchool(st, schoolIdx) {
+  if (rivalLineDone(st, schoolIdx)) return null;
+  const level = (st.rivalStages || [])[schoolIdx] || 0;
+  return rivalGuestAt(schoolIdx, level);
+}
+// 挑过一级，该线（仅该线）往前推一档；满档（超过总厨）即该线全通；八线全通则 rivalDone
+export function rivalStageNext(st, schoolIdx) {
+  st.rivalStages = st.rivalStages || RIVAL_SCHOOLS.map(() => 0);
+  if (st.rivalStages[schoolIdx] < RIVAL_LEVELS.length) st.rivalStages[schoolIdx] += 1;
+  if (RIVAL_SCHOOLS.every((_, i) => rivalLineDone(st, i))) st.rivalDone = true;
+  return st.rivalStages[schoolIdx];
+}
+
+// ── 认人：预设/AI动态客人，或踢馆 id 反推挑战者（不需要认识，随时能邀）──
 export function findKnownGuest(st, id) {
+  if (id && /^rival_\d+_\d+$/.test(id)) {
+    const [, s, l] = id.match(/^rival_(\d+)_(\d+)$/);
+    return rivalGuestAt(parseInt(s, 10), parseInt(l, 10));
+  }
   return GUESTS.find(g => g.id === id) || (st.customGuests || []).find(g => g.id === id) || null;
 }
+// ── 邀请候选：所有认识的女性（预设女客 + 女厨/女新客等动态客人），好感>15 ──
 export function inviteCandidates(st) {
   const known = [...GUESTS, ...(st.customGuests || [])];
   return known.filter(g => (FEMALE_GUEST_IDS.has(g.id) || g.gender === "女") && (st.aff[g.id] || 0) > 15);
 }
+// 邀客·点将明日：玩家钦点（最多 GUESTS_PER_DAY 位），不管认不认得、平日在哪、是不是踢馆同行，
+// 明天准来，各占一个客位；其余客位照常随机。
 export function nextDay(st) {
   st.day += 1;
   st.served = 0;
   st.phase = "guest";
-  st.guests = guestsOfDay(st.day, st.customGuests).map(g => g.id);
+  let guests = guestsOfDay(st.day, st.customGuests);
+  const picks = (st.nextGuestPicks || []).slice(0, GUESTS_PER_DAY);
+  st.nextGuestPicks = [];
+  st.explicitPickCount = 0;
+  if (picks.length) {
+    const pickedGuests = picks.map(id => findKnownGuest(st, id)).filter(Boolean);
+    const pickedIds = new Set(pickedGuests.map(g => g.id));
+    guests = [...pickedGuests, ...guests.filter(g => !pickedIds.has(g.id))].slice(0, GUESTS_PER_DAY);
+    st.explicitPickCount = pickedGuests.length;
+  }
+  st.guests = guests.map(g => g.id);
   st.dish = null;
   st.todaySnacks = [];
   return st;

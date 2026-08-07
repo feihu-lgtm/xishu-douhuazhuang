@@ -511,13 +511,6 @@ function fallbackSnack(ctx) {
   };
 }
 
-// ── 收工总评（苏唐逐客复盘）──────────────────────────────────────────
-// ── 苏唐长对话（右栏，好感只要对话就加）──────────────────────────────
-const SU_SYS = "你是苏唐，西蜀豆花庄的师妹，红衣汉服，手艺好。你对师兄是调情、撒娇、打情骂俏：嘴上逗他、嗔他、撩他，嗔怪里带甜，心里喜欢他；绝不是责备、嫌弃或骂他。回话分 3-5 个自然段，段间空一行；可带「」对话与 *心理*，不要写旁白总结。";
-function fallbackSuTalk() {
-  return "【苏唐】师兄说什么呢，灶上还忙着，别逗我。";
-}
-
 // ── 副本·探秘（轻度武侠，统一主叙事文风：第三人称师兄/苏唐+苏唐批）──
 // 一次调用产出：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special。
 // 不再单独 genChallenge——主叙事和出题一起出，省一次调用与限流间隔。
@@ -734,33 +727,6 @@ export async function genGifts(cfg, ctx) {
     } catch { /* 降级 */ }
   }
   return { text: "", ai: false };
-}
-
-export async function genSuTalk(cfg, ctx, onChunk) {
-  if (cfgReady(cfg)) {
-    const user = [
-      ctx.context ? `【上下文】\n${ctx.context}` : "",
-      `师兄对苏唐说：${ctx.text}`,
-      `苏唐对师兄的好感为 ${ctx.suAff ?? 0}。`,
-      tierGuide(ctx.suTier || 1, "苏唐手艺"),
-      `以苏唐的口吻与动作回话，约 ${ctx.words || 300} 字，分 3-5 个自然段；对师兄调情撒娇、逗他嗔他带甜，不要责备他；好感越高越撩越软。`,
-      `回话末尾单独一行「好感：+N」，N 取 0-3，由你当时心情决定（被逗乐、暖心就高）。`,
-      `再单独一行「表情：」——若这回应答里真有暧昧/亲密/逗弄氛围，从 脸红出汗/微微翻白眼/憋气/吐舌/wink/嘟嘴/鼓气/娇羞比耶 里选一个最贴的；否则就写「平常」。`,
-      getNsfw() ? `再单独一行「亲密：」——若涉及亲热/做爱情节，判断有没有做到位，写「无」「未尽兴」或「到位」。` : "",
-    ].join("\n");
-    const t0 = Date.now();
-    try {
-      const raw = streamOn(cfg) && onChunk
-        ? await callAIStream(cfg, SU_SYS, user, onChunk, "苏唐对话")
-        : await callAI(cfg, SU_SYS, user, "苏唐对话");
-      const m = (raw || "").match(/好感[：:]\s*\+?\s*(\d)/);
-      const aff = m ? Math.max(0, Math.min(3, parseInt(m[1], 10))) : 1;
-      const intM = (raw || "").match(/亲密[：:]\s*([^\n]+)/);
-      const intimacy = intM ? intM[1].trim() : "";
-      return { text: raw, aff, intimacy, ms: Date.now() - t0, ai: true };
-    } catch { /* 降级 */ }
-  }
-  return { text: fallbackSuTalk(), aff: 1, ai: false };
 }
 
 export async function genReview(cfg, ctx) {
