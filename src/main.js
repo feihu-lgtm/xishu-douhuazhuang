@@ -395,6 +395,7 @@ async function doServe() {
     setMood(r.mood ?? [2, 0, 5, 6][tier]);
   } else {
     h.remove(); await sv(r.scene || "");
+    if (!r.ai) sys("（说书人未接线或掉线，品尝场景模板白描。设置里填 AI 密钥可现写。）");
     setMood(r.mood ?? [2, 0, 5, 6][tier]);
   }
   // 好感结算：满意度+口味匹配+配set 勾连
@@ -586,6 +587,7 @@ async function doExpedition(node, intent) {
     rescueTarget: rescueTarget ? { name: rescueTarget.name, ident: rescueTarget.ident, aff: st.aff[rescueTarget.id] || 0 } : null,
   });
   await expNarr(r.narrative);
+  if (!r.ai) sys("（说书人未接线或掉线，探秘先走模板。设置里填 AI 密钥可现写。）");
   if (r.comment) await expComment(r.comment, faceOf(r.mood));
   setMood(r.mood ?? 0);
   let special = (r.special && r.special.length) ? r.special : fallbackSpecial();
@@ -985,6 +987,7 @@ async function onCommand(text) {
     setMood(moodIndex(mood) ?? 0);
   } else {
     h.remove(); await narr(r.prose);
+    if (!r.ai) sys("（说书人未接线或掉线，闲聊先用模板接话。设置里填 AI 密钥可现写。）");
     if (r.comment) await commentLine(r.comment, faceOf(r.mood));
     setMood(r.mood ?? 0);
   }
