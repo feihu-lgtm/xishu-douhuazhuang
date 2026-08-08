@@ -3,10 +3,10 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
-} from "./data.js?v=v6";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v6";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v6";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v6";
+} from "./data.js?v=v7";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v7";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v7";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v7";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
