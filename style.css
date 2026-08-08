@@ -678,11 +678,11 @@ body {
 /* ── 世界回响滚动条：底部一条，一条一条滚，可收起 ── */
 .echo-bar {
   position: fixed; left: 0; right: 0; bottom: 0; height: 30px;
-  background: rgba(24, 18, 14, 0.92); backdrop-filter: blur(4px);
-  border-top: 1px solid rgba(212, 175, 55, 0.35);
+  background: linear-gradient(180deg, rgba(19, 34, 52, 0.96), rgba(14, 28, 44, 0.98));
+  border-top: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(201, 161, 155, 0.12), 0 -2px 12px rgba(0, 0, 0, 0.4);
   display: flex; align-items: center; overflow: hidden;
-  z-index: 60; font-family: var(--serif);
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.35);
+  z-index: 15; font-family: var(--serif);   /* modal(20) 之下：弹窗盖住滚动条 */
 }
 .echo-bar.hidden-bar { display: none; }
 .echo-bar-text {
@@ -691,10 +691,11 @@ body {
 }
 .echo-bar-text i {
   font-style: normal; color: var(--gold); letter-spacing: 1px; margin-right: 8px;
+  text-shadow: 0 0 6px rgba(216, 180, 106, 0.35);
 }
 .echo-bar-text span.eb-body {
   display: inline-block; white-space: nowrap;
-  color: #e8dfc8; font-size: 12.5px; letter-spacing: 0.5px;
+  color: var(--ink-bright); font-size: 12.5px; letter-spacing: 0.5px;
   animation: echoMarquee 24s linear infinite;
   padding-left: 100%;
 }
@@ -705,6 +706,9 @@ body {
 .echo-bar-x {
   flex: 0 0 34px; height: 30px; line-height: 30px; text-align: center;
   color: var(--ink-dim); cursor: pointer; font-size: 16px;
-  border-left: 1px solid rgba(212, 175, 55, 0.2); user-select: none;
+  border-left: 1px solid var(--line-soft); user-select: none;
 }
-.echo-bar-x:hover { color: var(--gold); background: rgba(212, 175, 55, 0.08); }
+.echo-bar-x:hover { color: var(--gold); background: rgba(216, 180, 106, 0.08); }
+
+/* 底部滚动条不挡输入行：bar 显示时输入框抬高 30px（收起/关闭时不留空隙） */
+#term.eb-space #inputline { margin-bottom: 30px; }
