@@ -3,7 +3,7 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
   RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS, rivalGuestAt, BREW_RECIPES,
-} from "./data.js?v=v17";
+} from "./data.js?v=v18";
 
 export const GUESTS_PER_DAY = 3;
 const SAVE_KEY = "xiaochu-save-v1";
@@ -425,6 +425,8 @@ export function loadGame() {
     if (!raw) return null;
     const st = JSON.parse(raw);
     if (!st || typeof st.day !== "number" || !st.inv) return null;
+    // 菜库清洗：没货（qty≤0）的菜读档即删，绝不留残货占菜库
+    if (Array.isArray(st.dishStore)) st.dishStore = st.dishStore.filter(d => (d.qty ?? 1) > 0);
     return st;
   } catch { return null; }
 }

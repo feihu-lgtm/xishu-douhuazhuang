@@ -3,10 +3,10 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
-} from "./data.js?v=v17";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v17";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v17";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v17";
+} from "./data.js?v=v18";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v18";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v18";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v18";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -315,8 +315,9 @@ export function renderLeft(st, hideGuest) {
     html += `<div id="guestcard" class="pcard"><div class="gid">${hideGuest ? "灶房空着" : st.phase === "closing" ? "今日客已送完" : "灶房空着"}</div></div>`;
   }
   html += `<h3>菜 库</h3>`;
-  html += (st.dishStore || []).length
-    ? `<div id="dishcard">${st.dishStore.map(d =>
+  const liveDishes = (st.dishStore || []).filter(d => (d.qty ?? 1) > 0); // 只显示还有货的，没货的绝不上榜
+  html += liveDishes.length
+    ? `<div id="dishcard">${liveDishes.map(d =>
         `<div class="dname">「${d.name}」${(d.qty || 1) > 1 ? `<i class="qty">×${d.qty}</i>` : ""}</div><div class="gid">${d.technique} · ${d.flavorId ? FLAVOR_BY_ID[d.flavorId].name : "家常"}${d.suCook ? " · 苏唐做" : ""}</div>`).join("")}</div>`
     : `<div id="dishcard"><div class="gid">菜库空着，先做菜</div></div>`;
   html += `<h3>家 什</h3>` +
