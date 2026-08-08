@@ -15,7 +15,7 @@ import {
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf,
 } from "./ui.js";
 
 let st = null;
@@ -292,16 +292,16 @@ async function cookNarrate(j) {
   if (res.ai && h.text) {
     const ex = extractComment(h.text);
     noteTxt = ex.note || "";
-    h.apply(ex.main, ex.comment ? `苏唐批：${ex.comment}` : "");
+    h.apply(ex.main, ex.comment ? `苏唐批：${ex.comment}` : "", faceOf(moodIndex(ex.mood)));
     setMood(moodIndex(ex.mood) ?? 0);
   } else {
     h.remove();
     if (glowCook) {
       if (res.prose) await narrGlow(res.prose);
-      if (res.comment) await commentGlow(res.comment);
+      if (res.comment) await commentGlow(res.comment, faceOf(res.mood));
     } else {
       await narr(res.prose);
-      if (res.comment) await commentLine(res.comment);
+      if (res.comment) await commentLine(res.comment, faceOf(res.mood));
     }
     setMood(res.mood ?? 0);
   }
@@ -577,7 +577,7 @@ async function doExpedition(node, intent) {
   // 食评人余味同行（据点常客或救美目标）· 本次探秘对话全部流光炫彩
   const withRyu = guestListOf(node).some(x => x.ryuwei) || !!rescueTarget?.ryuwei;
   const expNarr = (t) => (withRyu ? narrGlow(t) : narr(t));
-  const expComment = (t) => (withRyu ? commentGlow(t) : commentLine(t));
+  const expComment = (t, face) => (withRyu ? commentGlow(t, face) : commentLine(t, face));
   sys(`【探秘·${node.name}】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……${intent ? `（师兄交代：${intent}）` : ""}`);
   // ① 一次调用：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special；玩家钦定主线夺舍；勾连据点常客与隔离记忆；弱关联时至少带一句当下节气
   const r = await genExpedition(loadCfg(), {
@@ -586,7 +586,7 @@ async function doExpedition(node, intent) {
     rescueTarget: rescueTarget ? { name: rescueTarget.name, ident: rescueTarget.ident, aff: st.aff[rescueTarget.id] || 0 } : null,
   });
   await expNarr(r.narrative);
-  if (r.comment) await expComment(r.comment);
+  if (r.comment) await expComment(r.comment, faceOf(r.mood));
   setMood(r.mood ?? 0);
   let special = (r.special && r.special.length) ? r.special : fallbackSpecial();
   const ch = r.challenge || { prompt: "", options: [] };
@@ -980,11 +980,11 @@ async function onCommand(text) {
   endTrace("闲聊一段");
   if (r.ai && h.text) {
     const { main, comment, mood } = extractComment(h.text);
-    h.apply(main, comment ? `苏唐批：${comment}` : "");
+    h.apply(main, comment ? `苏唐批：${comment}` : "", faceOf(moodIndex(mood)));
     setMood(moodIndex(mood) ?? 0);
   } else {
     h.remove(); await narr(r.prose);
-    if (r.comment) await commentLine(r.comment);
+    if (r.comment) await commentLine(r.comment, faceOf(r.mood));
     setMood(r.mood ?? 0);
   }
   // ■模式·闲聊区：AI 标了暧昧表情才按情节换 NSFW 表情，否则保持正常心情表情

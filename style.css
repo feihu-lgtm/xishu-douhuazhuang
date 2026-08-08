@@ -517,6 +517,26 @@ body {
   font-size: 13.5px;
 }
 
+/* 苏唐批 · 高兴评带表情图标（四个 favicon 表情之一），不高兴/中性评不带 */
+.entry.comment.su-face-1 .bd::before,
+.entry.comment.su-face-2 .bd::before,
+.entry.comment.su-face-3 .bd::before,
+.entry.comment.su-face-4 .bd::before {
+  content: "";
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  vertical-align: -6px;
+  margin-right: 7px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.entry.comment.su-face-1 .bd::before { background-image: url("./assets/su_face_1.png"); }
+.entry.comment.su-face-2 .bd::before { background-image: url("./assets/su_face_2.png"); }
+.entry.comment.su-face-3 .bd::before { background-image: url("./assets/su_face_3.png"); }
+.entry.comment.su-face-4 .bd::before { background-image: url("./assets/su_face_4.png"); }
+
 /* 日记三色：旁白(底) / 对话「」(金) / 心理 *…*(斜灰)，多分段左对齐 */
 .entry .para { margin: 0 0 10px; text-align: left; }
 .entry .para:last-child { margin-bottom: 0; }

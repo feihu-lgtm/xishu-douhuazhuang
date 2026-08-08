@@ -93,11 +93,11 @@ export function slog(type, text) {
 export function logStream(type, { extraClass = "" } = {}) {
   let entry = null, bd = null, text = "", ready = false, pendingApply = null;
   const put = (str) => { if (RICH.has(type)) bd.innerHTML = richHtml(str); else bd.textContent = str; };
-  const doApply = (main, comment) => {
+  const doApply = (main, comment, face = 0) => {
     put(main);
     if (comment) {
       const c = document.createElement("div");
-      c.className = `entry comment${extraClass ? " " + extraClass : ""}`;
+      c.className = `entry comment${extraClass ? " " + extraClass : ""}${face ? ` su-face-${face}` : ""}`;
       c.innerHTML = `<span class="ts">${ts()}</span><span class="bd">${escapeHtml(comment)}</span>`;
       entry.after(c);
     }
@@ -108,7 +108,7 @@ export function logStream(type, { extraClass = "" } = {}) {
     entry = bd.parentElement;
     if (text) put(text);
     ready = true;
-    if (pendingApply) { doApply(pendingApply.main, pendingApply.comment); pendingApply = null; }
+    if (pendingApply) { doApply(pendingApply.main, pendingApply.comment, pendingApply.face); pendingApply = null; }
     $("#log").scrollTop = $("#log").scrollHeight;
     done();
   }));
@@ -117,9 +117,9 @@ export function logStream(type, { extraClass = "" } = {}) {
       text += c;
       if (ready) { put(text); $("#log").scrollTop = $("#log").scrollHeight; }
     },
-    apply(main, comment) {
-      if (ready) doApply(main, comment);
-      else pendingApply = { main, comment };
+    apply(main, comment, face = 0) {
+      if (ready) doApply(main, comment, face);
+      else pendingApply = { main, comment, face };
     },
     remove() {
       if (ready) entry.remove();
@@ -154,8 +154,11 @@ export const say = (t) => log("say", t);
 export const sys = (t) => log("sys", t, { instant: true });
 export const gold = (t) => log("gold", t);
 export const playerLine = (t) => log("player", t, { instant: true });
-export const commentLine = (t) => log("comment", `苏唐批：${t}`);
-export const commentGlow = (t) => log("comment", `苏唐批：${t}`, { extraClass: "ryuwei-comment" }); // 余味场景评语 · 流光炫彩
+// 苏唐批 · 高兴评带表情图标（su_face_1..4，四个 favicon 表情），不高兴/中性评不带
+const HAPPY_MOODS = new Set([0, 2, 3, 4]); // 开心/兴奋/心动/得意（MOOD_WORDS 索引）
+export const faceOf = (mood) => (HAPPY_MOODS.has(mood) ? 1 + Math.floor(Math.random() * 4) : 0);
+export const commentLine = (t, face = 0) => log("comment", `苏唐批：${t}`, { extraClass: face ? `su-face-${face}` : "" });
+export const commentGlow = (t, face = 0) => log("comment", `苏唐批：${t}`, { extraClass: `ryuwei-comment${face ? ` su-face-${face}` : ""}` }); // 余味场景评语 · 流光炫彩
 export const suLine = (t) => slog("su", t);      // 苏唐的话 → 右栏，粉色
 export const suSys = (t) => slog("susys", t);    // 苏唐的练功/用料/买卖 → 右栏
 
@@ -212,6 +215,9 @@ export function renderStatus(st) {
   }
 }
 
+// 余味名字 · 氪金装饰框（配流光炫彩，彰显顶级食评人的排面）
+const ryuweiTag = (name) => `꧁༺✧${name}✧༻꧂`;
+
 // 食评人余味 · 出场特效（星星文字 + 渐变炫彩，贴合 UI 玫瑰色系）
 export function ryuweiIntro(g) {
   const bd = mkEntry($("#log"), "ryuwei");
@@ -235,7 +241,7 @@ export function renderLeft(st, hideGuest) {
       : `<div class="portrait">${guest.name[0]}</div>`;
     html += `<div id="guestcard" class="pcard">
       ${portrait}
-      <div class="gname${guest.ryuwei ? " ryuwei-name" : ""}">${guest.name}</div>
+      <div class="gname${guest.ryuwei ? " ryuwei-name" : ""}">${guest.ryuwei ? ryuweiTag(guest.name) : guest.name}</div>
       <div class="gid">${guest.ident}${guest.ryuwei ? ` · <span class="ryuwei-glow">顶级食评人</span>` : ""} · 消费力 ${guest.spend} 文</div>
       <div class="gid">好感 ${(st.aff || {})[guest.id] || 0} · ${affName((st.aff || {})[guest.id] || 0)}</div>
       <div class="gorder">「${guest.order}」</div>
@@ -619,7 +625,7 @@ export function openExpeditionAsk(node, { onGo, guests = [] }) {
       <div class="ck-label">此地常客 · 好感 &gt; 高愿意搭手，&gt; 更高肯让压箱底好料</div>
       ${guests.length ? guests.map(g => `
         <div class="exp-guest">
-          <span class="exp-gname">${g.ryuwei ? `<span class="ryuwei-glow">${g.name}</span>` : g.name}<i>${g.ident} · 好感 ${g.aff}（${affName(g.aff)}）</i></span>
+          <span class="exp-gname">${g.ryuwei ? `<span class="ryuwei-glow">${ryuweiTag(g.name)}</span>` : g.name}<i>${g.ident} · 好感 ${g.aff}（${affName(g.aff)}）</i></span>
           ${g.mem ? `<span class="exp-gmem">记得：${g.mem}</span>` : `<span class="exp-gmem none">还没有来往。</span>`}
         </div>`).join("") : `<span class="ck-mat zero">此地暂无熟人。</span>`}
     </div>
@@ -700,7 +706,7 @@ export function renderInvite(st, { onInvite, onCancel } = {}) {
         const a = st.aff[g.id] || 0;
         const isInv = invited && invited.id === g.id;
         return `<div class="invite-row">
-          <span class="invite-name">${g.ryuwei ? `<span class="ryuwei-glow">${g.name}</span>` : g.name}<i>${g.ident}</i></span>
+          <span class="invite-name">${g.ryuwei ? `<span class="ryuwei-glow">${ryuweiTag(g.name)}</span>` : g.name}<i>${g.ident}</i></span>
           <span class="invite-aff">好感 ${a}</span>
           ${isInv ? `<span class="ck-btn plain" data-cancel="${g.id}">请她回去</span>` : `<span class="ck-btn plain" data-invite="${g.id}">邀请</span>`}
         </div>`;

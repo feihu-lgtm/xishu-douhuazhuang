@@ -294,20 +294,21 @@ export function moodIndex(word) {
   return null;
 }
 
-// 拆出末尾的「苏唐批：」与「心情：」
+// 拆出「苏唐批：」「心情：」「菜单：」「纸条：」结构块（宽容版）：
+// 块顺序任意、冒号中英文都认；苏唐批可跨行直到下一个标记或结尾，心情/菜单/纸条取单行；其余文字归 main
 export function extractComment(t) {
-  let s = (t || "");
-  let comment = "", mood = "", menu = "";
-  const cm = s.match(/\n?[ \t]*苏唐批[：:][ \t]*([^\n]+)/);
-  if (cm) { comment = cm[1].trim(); s = s.replace(cm[0], ""); }
-  const mm = s.match(/\n?[ \t]*心情[：:][ \t]*([^\n]+)/);
-  if (mm) { mood = mm[1].trim(); s = s.replace(mm[0], ""); }
-  const mu = s.match(/\n?[ \t]*菜单[：:][ \t]*([^\n]+)/);
-  if (mu) { menu = mu[1].trim(); s = s.replace(mu[0], ""); }
-  let noteTxt = "";
-  const nt = s.match(/\n?[ \t]*纸条[：:][ \t]*([^\n]+)/);
-  if (nt) { noteTxt = nt[1].trim(); s = s.replace(nt[0], ""); }
-  return { main: s.trim(), comment, mood, menu, note: noteTxt };
+  const s = (t || "");
+  const out = { comment: "", mood: "", menu: "", note: "" };
+  const CM = /(?:^|\n)[ \t]*苏唐批[：:][ \t]*([\s\S]*?)(?=\n[ \t]*(?:苏唐批|心情|菜单|纸条)[：:]|$)/g;
+  const ONE = /(?:^|\n)[ \t]*(心情|菜单|纸条)[：:][ \t]*([^\n]+)/g;
+  let m;
+  while ((m = CM.exec(s))) out.comment = m[1].trim();
+  while ((m = ONE.exec(s))) {
+    if (m[1] === "心情") out.mood = m[2].trim();
+    else if (m[1] === "菜单") out.menu = m[2].trim();
+    else if (m[1] === "纸条") out.note = m[2].trim();
+  }
+  return { main: s.replace(CM, "").replace(ONE, "").trim(), comment: out.comment, mood: out.mood, menu: out.menu, note: out.note };
 }
 
 // ── 第一轮·武学裁决：看食材/技法/意图，判练到哪几门功、配合几分 ─────────
