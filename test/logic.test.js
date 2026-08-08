@@ -482,12 +482,12 @@ test("calendarContextFor：撞上据点分类=强夺舍，没撞上=弱提示当
   assert.ok(strong.scenario.includes("春节"));
   assert.ok(strong.text.includes("正月初一"));
 
-  const weak = calendarContextFor(7, "探洞地宫"); // 同一周，但雪线古洞跟春节不沾边
+  const weak = calendarContextFor(7, "雪山派"); // 同一周，但雪山派跟春节不沾边
   assert.equal(weak.strong, false);
   assert.equal(weak.scenario, null);
   assert.ok(weak.text === null || typeof weak.text === "string"); // 该周本身就是节气/节庆周，允许有回溯文本
 
-  const noneAtAll = calendarContextFor(11, "探洞地宫"); // week11 无节气无节庆，纯回溯
+  const noneAtAll = calendarContextFor(11, "雪山派"); // week11 无节气无节庆，纯回溯
   assert.equal(noneAtAll.strong, false);
   assert.ok(noneAtAll.text.includes("节气"));
 });

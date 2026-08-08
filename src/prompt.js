@@ -1,7 +1,7 @@
 // ── Prompt 编排（学 ji-haitang：分块、标号、不冗余；数据与拼接分离）──────
 // 每个调用 = 一个 system（身份+文风+格式）+ 一个 user（【标号】分块的事实与约束）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel } from "./data.js?v=v25";
-import { currentGuest } from "./state.js?v=v25";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel, GUESTS } from "./data.js?v=v26";
+import { currentGuest } from "./state.js?v=v26";
 
 // 标号块：空内容则整块省略，避免冗余空段
 export const sec = (t, b) => (b ? `【${t}】\n${b}\n` : "");
@@ -22,6 +22,9 @@ export const bodySec = (g) => (g?.body ? sec("体貌", `${g.name}${g.body}。描
 // 店誉：余味送的银簪（一支=一星米其林）。有星后全蜀地都知道豆花庄，NPC 态度要变：旧友熟人夸、同行忌惮
 // 余味的口癖（猫钦定）：时刻自称「奴家」，称呼旁人一律「这位小哥」（不叫师兄/姑娘/前辈）
 export const RYUWEI_VOICE = "她说话时刻自称「奴家」，称呼旁人一律「这位小哥」（无论对方是谁都不例外，不叫师兄/姑娘/前辈）；只有心理活动可写第三人称「她」。";
+
+// 何雨谢的底子（qucuo 移植）：雪山派掌门师母，守寡三十年；被阴毒所伤每到雪季咳血，撑着不让人声张
+export const HEYUXIE_VOICE = "她说话温声细语、持重体面，自称「我」，称呼旁人一律「这位小友」；守寡三十年的寡妇，亡夫与旧事从不挂在嘴上，只从细节里漏出来（佛珠、药汤、雪莲）；被阴毒所伤每到雪季咳血，撑着一门派，绝不让人看出。";
 
 export const starSec = (st) => {
   const n = (st?.ryuweiRating || {}).tier ?? 0;
@@ -45,6 +48,7 @@ export const ryuweiSec = (g, st) => {
 export function chatContext(st) {
   const stars = (st?.ryuweiRating || {}).tier ?? 0;
   const g = currentGuest(st);
+  const inv = st?.invitedGuest ? GUESTS.find(x => x.id === st.invitedGuest) || (st.customGuests || []).find(x => x.id === st.invitedGuest) : null;
   const dayLogTxt = (st?.dayLog || []).slice(-3).map(d => `给${d.name}上了「${d.dish}」${d.score}分`).join("；");
   const snacks = (st?.todaySnacks || []).slice(-2).map(s => `备了「${s.name}」`).join("、");
   const notes = (st?.notes || []).slice(-4).map(n => `${n.act}·${n.text}${n.ai ? `｜${n.ai}` : ""}`).join("；");
@@ -53,6 +57,7 @@ export function chatContext(st) {
   return [
     sec("场景", `第${st?.day}周（${weekLabel(st?.day)}）· 已待客${st?.served ?? 0}位。${cur}。${dayLogTxt ? `今日来客：${dayLogTxt}。` : ""}${snacks ? `苏唐今日${snacks}。` : ""}`),
     sec("客人", g ? `${g.name}（${g.ident}）坐在灶边等菜，点菜时说「${g.order}」。师兄可以跟他搭话，聊他想吃什么。` : "店里没有客人。"),
+    sec("留坐", inv ? `${inv.name}（${inv.ident}）受师兄邀请留坐，正与苏唐一处陪师兄说话。${inv.body ? `${inv.name}${inv.body}。` : ""}${inv.ryuwei ? RYUWEI_VOICE : inv.heyuxie ? HEYUXIE_VOICE : ""}` : ""),
     sec("苏唐与师兄", `苏唐对师兄好感 ${st?.suAff ?? 0}。${stars > 0 ? `店里挂着余味送的${stars}支银簪（一支=一星），苏唐为这份名头得意，熟人面前会显摆两句，也怕砸了招牌。` : `还没拿到银簪，苏唐盼着余味再来——余味是峨眉破戒的任性女侠，年纪轻轻的一流高手，口味刁钻，苏唐跟她斗嘴斗得开心，也从她嘴里听见天下名馆的见闻。别叫她前辈。${RYUWEI_VOICE}`}`),
     sec("近况", notes || "平淡一日，灶上安稳。"),
     chatLog ? sec("最近对话", chatLog) : "",

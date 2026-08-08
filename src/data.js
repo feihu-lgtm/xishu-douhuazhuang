@@ -436,6 +436,11 @@ export const GUESTS = [
   { id: "huyanxue", name: "呼延雪", ident: "雪山派小师妹", spend: 60, gender: "女",
     flavor: "tian", tech: "蒸", fav: "雪山雪莲瓣",
     order: "松子糖不离身——甜是她的软肋。" },
+  // ── 雪山派掌门师母 · 何雨谢（qucuo 移植：守寡三十年的寡妇，掌门坠崖、隐疾咳血，撑着一门派）──
+  { id: "heyuxie", name: "何雨谢", ident: "雪山派掌门师母", spend: 70, gender: "女", heyuxie: true,
+    flavor: "qingdan", tech: "炖", fav: "雪山雪莲瓣",
+    body: "雪山派掌门遗孀，守寡三十年的寡妇：眉目温和，腕上一串旧佛珠，说话温声细语、持重体面，把整个门派撑在肩上；被阴毒所伤，每到雪季咳血，从不与人说，只有呼延雪知道她半夜咳醒的次数；偶尔下山，只吃一碗热面",
+    order: "清淡养胃的来一道，少油盐——老毛病，吃不得重口，劳烦了。" },
   { id: "meiduo", name: "梅朵", ident: "土司之女", spend: 60, gender: "女",
     flavor: "mala", tech: "烤", fav: "大草甸黄羊腿",
     order: "跑马回来的姑娘——烤肉要撒厚辣椒。" },
@@ -521,7 +526,7 @@ export const GUESTS = [
 export const FEMALE_GUEST_IDS = new Set([
   "caidan", "zhuoma", "huasao", "huyanxue", "meiduo",
   "baiguniang", "daijiak", "suniang", "lasan", "tiannan", "susu",
-  "lanjie", "luosha", "liruoyou", "ryuwei",
+  "lanjie", "luosha", "liruoyou", "ryuwei", "heyuxie",
 ]);
 export const RIVAL_LEVELS = [
   { tag: "喽啰·采买", req: 65, bonus: [40, 60] },
@@ -613,7 +618,7 @@ export const WORLD_LOCATIONS = [
   { id: "tusi",    name: "土司府", icon: "🏯", top: 15, left: 82, desc: "土司宴席、差事", vibe: "府门深" },
 ];
 
-export const EXPEDITION_MAP = [  { id: "xuedong",   name: "雪线古洞", category: "探洞地宫", top: 32, left: 15, guests: ["huyanxue", "qingxu"] },
+export const EXPEDITION_MAP = [  { id: "xuedong",   name: "雪山派", category: "雪山派", top: 32, left: 15, guests: ["huyanxue", "heyuxie", "qingxu"] },
   { id: "yakou",     name: "风雪垭口", category: "天灾",     top: 15, left: 67, guests: ["basang", "caimai"] },
   { id: "linchang",  name: "转经林场", category: "密林采山", top: 58, left: 20, guests: ["laoliehu", "asuo"] },
   { id: "yeyi",      name: "牧道野驿", category: "奇遇",     top: 74, left: 8,  guests: ["zhaxi", "maguotou"] },
@@ -644,8 +649,8 @@ export const EXP_SCEN_BY_CAT = {
     "以食证冤·尝味查出真凶，翻了一桩冤案",
     "劫贡还民·截下征贡车，顶级食材物归原主",
     "拦路遇劫·同行女子身陷险境"],
-  探洞地宫: ["探山洞·钟乳滴泉", "下地宫·石门锁阵", "探山洞·暗河渡险", "下地宫·长明灯阵", "探山洞·蝙蝠惊群",
-    "下地宫·塌陷逃生", "探山洞·石髓采撷", "下地宫·古墓避毒", "探山洞·一线天光", "下地宫·水牢摸鱼"],
+  雪山派: ["雪山派·掌门失踪的悬案", "雪山派·雪夜内堂师母咳血", "雪山派·后山采雪莲遇守塔僧", "雪山派·顶峰绝顶探崖底", "雪山派·雪崩封山抢生路",
+    "雪山派·商坊失窃查旧账", "雪山派·练功堂考较剑法", "雪山派·三十年前绝顶死斗旧闻", "雪山派·寒毒入体寻暖源", "雪山派·雪夜送药汤"],
   密林采山: ["穿密林·瘴气迷途", "穿密林·兽径追踪", "采山·雨后捡菌", "采山·悬崖采药", "穿密林·藤蔓缠人",
     "采山·雪线寻莲", "穿密林·夜宿山神庙", "采山·溪边网鱼", "穿密林·蜂群夺蜜", "采山·秋风打枣",
     "悬崖失足·同行女子脚下一滑"],
@@ -838,7 +843,7 @@ export const EXPEDITION_TASK_TYPES = {
 };
 // 地图据点 category（EXP_SCEN_BY_CAT 的key）→ 候选任务类型池，决定该据点抽题时任务类型的取值范围
 export const CATEGORY_TASK_TYPES = {
-  探洞地宫: ["探寻"],
+  雪山派: ["探寻"],
   天灾: ["夜行"],
   密林采山: ["探寻", "穿行"],
   奇遇: ["造化"],

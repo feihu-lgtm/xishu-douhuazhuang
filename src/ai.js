@@ -1,8 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v25";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v26";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
-import { CHECK_DIMS } from "./state.js?v=v25";
+import { CHECK_DIMS } from "./state.js?v=v26";
 
 // ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
 let nsfwOn = true;
@@ -13,7 +13,7 @@ const msgsWithMode = (system, user) =>
   nsfwOn
     ? [{ role: "system", content: system }, ...MODE_PRIMER_MESSAGES, { role: "user", content: user }]
     : [{ role: "system", content: system }, { role: "user", content: user }];
-import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE } from "./prompt.js?v=v25";
+import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v26";
 export { tierOfScore, tierGuide };
 
 const CFG_KEY = "xiaochu-ai-v1";
@@ -521,10 +521,10 @@ export async function genExpedition(cfg, ctx) {
         : "",
       `今次的情境是：${ctx.scenario}。情境只是背景底色，玩家钦定主线存在时以玩家主线为准。`,
       ctx.rescueTarget
-        ? `【同行】${ctx.rescueTarget.name}（${ctx.rescueTarget.ident}，与师兄好感${ctx.rescueTarget.aff}${ctx.rescueTarget.aff <= 5 ? "，几乎是陌生人，别写成老相识那样熟络" : ""}）这趟一起在场。${ctx.rescueTarget.name === "余味" ? RYUWEI_VOICE : ""}`
+        ? `【同行】${ctx.rescueTarget.name}（${ctx.rescueTarget.ident}，与师兄好感${ctx.rescueTarget.aff}${ctx.rescueTarget.aff <= 5 ? "，几乎是陌生人，别写成老相识那样熟络" : ""}）这趟一起在场。${ctx.rescueTarget.name === "余味" ? RYUWEI_VOICE : ctx.rescueTarget.name === "何雨谢" ? HEYUXIE_VOICE : ""}`
         : "",
       ctx.guestList && ctx.guestList.length
-        ? `【此地常客】${ctx.guestList.map(g => `${g.name}（${g.gender === "女" ? "她" : "他"}，好感${g.aff}${g.mem ? `，记得「${g.mem}」` : "，还不熟"}${g.ryuwei ? `；余味是峨眉破戒的女侠食评人，年轻姑娘，一律用「她」，别称前辈/大哥/兄台；${RYUWEI_VOICE}` : ""}）`).join("；")}。好感≥40 的常客愿意搭把手（带路/递料/保料），好感≥60 的肯把压箱底的好料让给你；剧情里自然地勾连他们，别生硬。`
+        ? `【此地常客】${ctx.guestList.map(g => `${g.name}（${g.gender === "女" ? "她" : "他"}，好感${g.aff}${g.mem ? `，记得「${g.mem}」` : "，还不熟"}${g.ryuwei ? `；余味是峨眉破戒的女侠食评人，年轻姑娘，一律用「她」，别称前辈/大哥/兄台；${RYUWEI_VOICE}` : ""}${g.heyuxie ? `；何雨谢是雪山派掌门师母、守寡的寡妇，温声细语持重体面；${HEYUXIE_VOICE}` : ""}）`).join("；")}。好感≥40 的常客愿意搭把手（带路/递料/保料），好感≥60 的肯把压箱底的好料让给你；剧情里自然地勾连他们，别生硬。`
         : "",
       `师兄（武功约 ${ctx.skillAvg}、凭平日见识与智慧）与苏唐（手艺 ${ctx.suAvg}）同行，寻稀有食材。`,
       `只输出一个 JSON：{"narrative":"约500字（±10%）第三人称主叙事，3-5段，师兄化解阻碍、苏唐辨认得手，穿插「」对话与*心理*，收尾回店","comment":"苏唐批一句","mood":"八个心情词之一(开心/悠闲/兴奋/心动/得意/不满/吃惊/专注)","special":[{"name":"高级带星食材名，武侠/市井感","stars":1-3,"desc":"一句"}]}`,
@@ -567,7 +567,7 @@ export async function genChallenge(cfg, ctx) {
       `【情境】${ctx.scenario}`,
       `【背景】${ctx.background || ""}`,
       ctx.intent ? `【玩家钦定主线】${ctx.intent}——关卡要贴合这条主线。` : "",
-      ctx.rescueTarget ? `【同行】${ctx.rescueTarget.name}这趟在场，关卡可围绕${ta}可能身陷的风险设计——是"师兄这一手要护住${ta}"还是"${ta}自己反手救场"，成败留到玩家选了再定，题干只写悬念，别提前剧透。${ctx.rescueTarget.name === "余味" ? RYUWEI_VOICE : ""}` : "",
+      ctx.rescueTarget ? `【同行】${ctx.rescueTarget.name}这趟在场，关卡可围绕${ta}可能身陷的风险设计——是"师兄这一手要护住${ta}"还是"${ta}自己反手救场"，成败留到玩家选了再定，题干只写悬念，别提前剧透。${ctx.rescueTarget.name === "余味" ? RYUWEI_VOICE : ctx.rescueTarget.name === "何雨谢" ? HEYUXIE_VOICE : ""}` : "",
       `可用维度池：${pool.join(" / ")}。`,
       `只输出一个 JSON：{"prompt":"约80-120字文学化题干，只写关口与悬而未决的处境，绝不写解法/维度名/成功率","options":[{"text":"玩家可选动作，8-20字，文学化，不写维度名/成功率","dim":"从可用维度池里选"}...]}`,
       `options 给 4-6 个，尽量覆盖不同路子：硬闯硬碰、巧取身法、细看辨认、上前搭话、押一把赌注等；题干与选项像小说正文，让玩家自己猜要考什么。`,
@@ -636,8 +636,8 @@ export async function genSettlement(cfg, ctx) {
       ctx.special ? `此行收成：${ctx.special}。` : "",
       ctx.rescueName
         ? (ctx.ok
-            ? `这一手是护住了同行的${ctx.rescueName}——写出${ctx.rescueShe ? "英雄救美的高光，但别落公主抱那种俗套" : "侠义救场的高光，干净利落"}，给点新意与分寸感。${ctx.rescueName === "余味" ? RYUWEI_VOICE : ""}`
-            : `这一手没成，反倒是${ctx.rescueName}眼疾手快救场/扶住了师兄——${ctx.rescueShe ? "美救英雄，她的干练果决要写出来" : "他反手救场，那份利落果决要写出来"}，师兄可以嘴上讨饶或事后打趣，别写得太狼狈失了体面。${ctx.rescueName === "余味" ? RYUWEI_VOICE : ""}`)
+            ? `这一手是护住了同行的${ctx.rescueName}——写出${ctx.rescueShe ? "英雄救美的高光，但别落公主抱那种俗套" : "侠义救场的高光，干净利落"}，给点新意与分寸感。${ctx.rescueName === "余味" ? RYUWEI_VOICE : ctx.rescueName === "何雨谢" ? HEYUXIE_VOICE : ""}`
+            : `这一手没成，反倒是${ctx.rescueName}眼疾手快救场/扶住了师兄——${ctx.rescueShe ? "美救英雄，她的干练果决要写出来" : "他反手救场，那份利落果决要写出来"}，师兄可以嘴上讨饶或事后打趣，别写得太狼狈失了体面。${ctx.rescueName === "余味" ? RYUWEI_VOICE : ctx.rescueName === "何雨谢" ? HEYUXIE_VOICE : ""}`)
         : "",
       `写约 500 字（±10%）、2-4 段的第三人称收尾叙事：交代这一手如何奏效/如何落空，务必回扣【来龙去脉】里的具体细节（雾、石、摊、人言等），自然带出收成——${ctx.ok ? "此次手到擒来，收成丰硕" : "此番失手，收成潦草"}。用「」对话与 *心理*。`,
       `只输出正文本身，不要旁白总结，不要「心情：」「苏唐批：」。`,

@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v25";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v26";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v25";
+} from "./state.js?v=v26";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeilu,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v25";
-import { chatContext } from "./prompt.js?v=v25";
+} from "./ai.js?v=v26";
+import { chatContext } from "./prompt.js?v=v26";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, initMobileDrawers,
-} from "./ui.js?v=v25";
+} from "./ui.js?v=v26";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -142,7 +142,7 @@ function ctxLine(s) {
     `第${s.day}周（${weekLabel(s.day)}），已待客${s.served}位。`,
     g ? `当前客人：${g.name}（${g.ident}），点菜时说「${g.order}」。${g.body ? `（${g.name}${g.body}。）` : ""}` : `当前无客人。`,
     g && g.sister ? `（苏酥是苏唐的亲姐姐，在座。苏唐正吃醋掉脸，语气带酸带嗔，一边防着姐姐勾引师兄、一边防着师兄献殷勤。）` : "",
-    invited ? `（${invited.name}（${invited.ident}）受师兄邀请留坐，正与苏唐一处说话。苏唐见师兄待她热络，暗里吃味，嘴上还要大方。）` : "",
+    invited ? `（${invited.name}（${invited.ident}）受师兄邀请留坐，正与苏唐一处说话。苏唐见师兄待她热络，暗里吃味，嘴上还要大方。${invited.body ? `${invited.name}${invited.body}。` : ""}）` : "",
     notes ? `近况小纸条：${notes}` : "",
   ].filter(Boolean).join("\n");
 }
@@ -573,6 +573,51 @@ async function doReview() {
   note("收工", `第${st.day}周送${(st.dayLog || []).length}客，苏唐总评已记。`);
   endTrace(`第${st.day}周收工`);
   st.dayLog = [];
+  await doNightLedger(r.text || "");   // 黄历对账：记账 + 苏唐复盘 + 可回一句（彩蛋）
+}
+
+// ── 黄历对账：每日一页（收支/大事/苏唐复盘），玩家可回一句（suAff+1 彩蛋）──
+function doNightLedger(reviewText) {
+  const income = (st.ledger || []).filter(l => l.day === st.day && l.delta > 0).reduce((a, l) => a + l.delta, 0);
+  const expense = (st.ledger || []).filter(l => l.day === st.day && l.delta < 0).reduce((a, l) => a - l.delta, 0);
+  st.calendar = st.calendar || [];
+  st.calendar.push({
+    day: st.day, week: weekLabel(st.day),
+    events: (st.notes || []).filter(n => n.day === st.day).slice(-5).map(n => n.text || n.ai || n.act).filter(Boolean),
+    income, expense, mood: (st.mood != null ? ["专注", "开心", "悠闲", "兴奋", "心动", "得意", "不满", "吃惊"][st.mood] : "") || "",
+    sutang: (reviewText || "").split("\n")[0].slice(0, 60),
+  });
+  if (st.calendar.length > 40) st.calendar.shift();
+  saveGame(st);
+  return new Promise((resolve) => {
+    const modal = openModal(`
+      <h2>黄 历 · 第 ${st.day} 周 · 对账</h2>
+      <div class="loc-fresh">今日进 <b>${income}</b> 文 · 出 <b>${expense}</b> 文 · 苏唐心情：${st.mood != null ? ["专注", "开心", "悠闲", "兴奋", "心动", "得意", "不满", "吃惊"][st.mood] : "—"}</div>
+      <div class="loc-fresh none">${esc((reviewText || "苏唐合上账本，今日无甚可说。").slice(0, 120))}</div>
+      <div class="loc-chat">
+        <input id="night-inp" placeholder="跟苏唐说一句（可留空）……" />
+        <span class="ck-btn plain" data-say>说</span>
+      </div>
+      <span class="return" data-skip>跳过 · 翻篇</span>
+    `, () => {});
+    const q = (s) => modal.querySelector(s);
+    const finish = () => { closeModal(); resolve(); };
+    q("[data-say]").onclick = () => {
+      const v = q("#night-inp").value.trim();
+      if (v) {
+        st.convos = st.convos || {};
+        (st.convos.sutang = st.convos.sutang || []).push({ who: "me", text: v, day: st.day, ts: nowTs() });
+        (st.convos.sutang).push({ who: "苏唐", text: "（苏唐抿嘴笑了笑）嗯，师兄今日辛苦了，账我记着呢。", day: st.day, ts: nowTs() });
+        st.suAff = Math.min(100, (st.suAff || 0) + 1);
+        suLine("苏唐抿嘴笑了笑：「嗯，师兄今日辛苦了，账我记着呢。」");
+        sys("（苏唐心里熨帖，好感+1。）");
+        saveGame(st);
+      }
+      finish();
+    };
+    q("#night-inp").addEventListener("keydown", (e) => { if (e.key === "Enter") q("[data-say]").click(); });
+    q("[data-skip]").onclick = finish;
+  });
 }
 
 // ── 副本·探秘（先点地图选据点，再去，武功+智慧+苏唐 寻稀有食材）────
@@ -978,6 +1023,7 @@ function doLedger() {
     { t: "星料谱", d: Object.entries(st.stars || {}).map(([n, s]) => `${n} ${"★".repeat(s)}`).join("\n") || "（还没寻到带星食材）" },
     { t: "酒库", d: Object.entries(st.wines || {}).map(([n, c]) => `${n}×${c}`).join("、") || "（酒库空）" },
     { t: "待客簿", d: (st.dayLog || []).slice(-10).map(l => `${l.day}周·${l.name}·${l.dish || ""}${l.score != null ? "·" + l.score + "分" : ""}`).join("\n") || "（还没待过客）" },
+    { t: "杂物柜", d: (st.junk || []).slice(-10).map(j => `${j.name}${j.desc ? "·" + j.desc : ""}${j.price ? "·" + j.price + "文" : ""}`).join("\n") || "（柜子空着——广场淘来的稀奇玩意都放这）" },
   ];
   let idx = 0;
   const draw = () => {
@@ -999,18 +1045,29 @@ function doLedger() {
   };
   draw();
 }
-// ── 黄历（简单版：当日页；夜间对账阶段3）──
+// ── 黄历（当日页 + 历史翻页；夜间对账在翻篇时自动弹）──
 function doCalendar() {
   const cal = calendarContextFor(st.day, null);
-  const today = (st.dayLog || []).filter(l => l.day === st.day);
-  const coins = st.coins || 0;
-  openModal(`
-    <h2>黄 历 · 第 ${st.day} 周（${weekLabel(st.day)}）</h2>
-    <div class="loc-fresh">${cal.strong ? `【节庆】${cal.strong}` : ""}${cal.text ? `【时节】${cal.text}` : ""}</div>
-    <div class="loc-fresh none">今日待客 ${today.length} 位${today.length ? "：" + today.map(l => `${l.name}「${l.dish || ""}」${l.score ?? ""}分`).join("、") : "（还没客人上门）"}<br>钱袋：${coins} 文 · 名声：${st.fame || 0}</div>
-    <span class="return" data-back>Return · 返回</span>
-  `, () => {});
-  document.querySelector("#modal-root [data-back]").onclick = () => closeModal();
+  let idx = (st.calendar || []).length - 1;
+  const draw = () => {
+    const pages = st.calendar || [];
+    const p = pages[idx];
+    openModal(`
+      <h2>黄 历 · ${p ? `第 ${p.day} 周（${p.week}）` : `第 ${st.day} 周（${weekLabel(st.day)}）`}</h2>
+      ${!p ? `<div class="loc-fresh">${cal.strong ? `【节庆】${cal.strong}` : ""}${cal.text ? `【时节】${cal.text}` : ""}</div>` : ""}
+      ${p ? `
+      <div class="loc-fresh">${p.sutang ? `苏唐记：${esc(p.sutang)}` : ""}</div>
+      <div class="loc-fresh none">进 <b>${p.income || 0}</b> 文 · 出 <b>${p.expense || 0}</b> 文 · 苏唐心情：${p.mood || "—"}${p.events?.length ? `<br>当日：${p.events.map(e => esc(e)).join("；")}` : ""}</div>`
+      : `<div class="loc-fresh none">今日的对账还没记——翻篇时会跟苏唐对一页。</div>`}
+      <div class="ck-btns"><span class="ck-btn plain" data-prev>上一周</span><span class="ck-btn plain" data-next>下一周</span></div>
+      <span class="return" data-back>Return · 返回</span>
+    `, () => {});
+    const q = (s) => document.querySelector(`#modal-root ${s}`);
+    q("[data-prev]").onclick = () => { if (idx > 0) { idx -= 1; draw(); } };
+    q("[data-next]").onclick = () => { if (idx < pages.length - 1) { idx += 1; draw(); } };
+    q("[data-back]").onclick = () => closeModal();
+  };
+  draw();
 }
 // ── 广场 · 本周在场的 NPC：列表 → 点人 → 对话（流水线）+ 买卖 ──
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
