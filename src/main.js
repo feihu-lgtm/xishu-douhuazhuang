@@ -632,6 +632,7 @@ async function doExpedition(node, intent) {
   setMood(r.mood ?? 0);
   let special = (r.special && r.special.length) ? r.special : fallbackSpecial();
   // ② 出题（第二次调用）：叙事之后单独出关卡题干+选项
+  sys("（说书人正在推演此行的关口……）");
   const background = `${scenario}。${(r.narrative || "").slice(0, 220)}`;
   const ch = await genChallenge(loadCfg(), {
     scenario, category: node.category, intent,
