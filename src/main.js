@@ -8,7 +8,7 @@ import {
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
@@ -564,7 +564,7 @@ function guestListOf(node) {
   const push = (guest) => {
     const aff = st.aff[guest.id] || 0;
     const m = ((st.guestMemories || {})[guest.id] || [])[0]; // 最近一条记忆
-    list.push({ name: guest.name, ident: guest.ident, aff, ryuwei: !!guest.ryuwei, mem: m ? fmtGuestMemory(m) : "" });
+    list.push({ name: guest.name, ident: guest.ident, aff, gender: guest.gender, ryuwei: !!guest.ryuwei, mem: m ? fmtGuestMemory(m) : "" });
   };
   const ryu = GUESTS.find(x => x.ryuwei);
   if (ryu) push(ryu); // 食评人余味 · 每个据点都愿搭手，置顶
@@ -631,10 +631,15 @@ async function doExpedition(node, intent) {
   if (r.comment) await expComment(r.comment, faceOf(r.mood));
   setMood(r.mood ?? 0);
   let special = (r.special && r.special.length) ? r.special : fallbackSpecial();
-  const ch = r.challenge || { prompt: "", options: [] };
+  // ② 出题（第二次调用）：叙事之后单独出关卡题干+选项
+  const background = `${scenario}。${(r.narrative || "").slice(0, 220)}`;
+  const ch = await genChallenge(loadCfg(), {
+    scenario, category: node.category, intent,
+    background,
+    rescueTarget: rescueTarget ? { name: rescueTarget.name } : null,
+  });
   stepTrace("出题", "pass", `${ch.options.length} 个选项（${ch.options.map(o => o.dim).join("/")}）`);
   await expNarr(`走到紧要处——${ch.prompt}`);
-  const background = `${scenario}。${(r.narrative || "").slice(0, 220)}`;
   const specialNames = special.map(s => `${s.name}${"★".repeat(s.stars)}`).join("、");
   const outcome = await new Promise((resolve) => {
     openChallengePanel(st, ch, {
@@ -873,6 +878,63 @@ async function doBrew({ base, qu, extras, distill }) {
 
 // ── 余味开席：四样（大菜/汤/小吃/酒水）各 25%，总分定星 ────────
 // ── 买基酒（应急：商店现成的品质固定，自己酿的更高）────────────
+// ── 米酒配甜：扣 1 杯米酒 + 甜料 → 苏唐做甜点小吃（酒入馔）────
+function doWineDessert(name) {
+  const d = WINE_DESSERTS.find(x => x.name === name);
+  if (!d) return;
+  const riceWines = Object.keys(st.wines || {}).filter(n => (st.wines[n] || 0) > 0
+    && ((st.wineRecipes || []).find(r => r.name === n)?.kind === "米酒" || SHOP_WINES.some(w => w.name === n)));
+  if (!riceWines.length) return sys("没有米酒——先酿坛米酒（或商店买锦官米酒）。");
+  if ((st.inv[d.sweet] || 0) <= 0) return sys(`缺「${d.sweet}」。`);
+  if (busy) return sys("说书人正忙着呢。");
+  const wineName = riceWines[0];
+  st.wines[wineName] -= 1;
+  if (st.wines[wineName] <= 0) delete st.wines[wineName];
+  st.inv[d.sweet] -= 1;
+  if (st.inv[d.sweet] <= 0) delete st.inv[d.sweet];
+  st.snacks = st.snacks || {};
+  st.snacks[d.name] = (st.snacks[d.name] || 0) + 3;
+  const wq = (st.wineRecipes || []).find(r => r.name === wineName)?.quality ?? 60;
+  const q = Math.min(100, Math.round(55 + wq / 4));
+  st.snackRecipes = st.snackRecipes || [];
+  const rec = st.snackRecipes.find(x => x.name === d.name);
+  if (rec) rec.quality = Math.max(rec.quality, q);
+  else st.snackRecipes.push({ name: d.name, cat: d.cat, tag: d.cat, used: [wineName, d.sweet], quality: q, desc: d.desc, flavor: "tian" });
+  suLine(`「${d.name}」成了——${wineName}配${d.sweet}，${d.desc}`);
+  sys(`【甜点】${d.name} 3 份（用 ${wineName} · 品质 ${q}）`);
+  note("甜点", `苏唐用${wineName}做了「${d.name}」3份，品质${q}。`);
+  renderAll(st, handlers);
+  saveGame(st);
+}
+
+// ── 白酒/黄酒入药：酒泡药材 → 药酒（品质=酒×0.6+药材星×12）────
+function doMedicate(wineName, herbName) {
+  const herb = MEDICINE_HERBS.find(h => h.name === herbName);
+  if (!herb) return;
+  if ((st.wines[wineName] || 0) <= 0) return sys(`没有「${wineName}」。`);
+  if ((st.inv[herbName] || 0) <= 0) return sys(`缺药材「${herbName}」。`);
+  const wq = (st.wineRecipes || []).find(r => r.name === wineName)?.quality
+    || SHOP_WINES.find(w => w.name === wineName)?.quality || 60;
+  const hStar = (st.stars || {})[herbName] || 0;
+  st.wines[wineName] -= 1;
+  if (st.wines[wineName] <= 0) delete st.wines[wineName];
+  st.inv[herbName] -= 1;
+  if (st.inv[herbName] <= 0) delete st.inv[herbName];
+  const med = `${herbName}药酒`;
+  const q = Math.min(100, Math.round(wq * 0.6 + hStar * 12));
+  st.wines = st.wines || {};
+  st.wines[med] = (st.wines[med] || 0) + 1;
+  st.wineRecipes = st.wineRecipes || [];
+  const rec = st.wineRecipes.find(r => r.name === med);
+  if (rec) rec.quality = Math.max(rec.quality, q);
+  else st.wineRecipes.push({ name: med, base: wineName, qu: "", extra: [herbName], flavor: herb.flavor, quality: q, kind: "药酒" });
+  suLine(`「${med}」入坛——${wineName}泡${herbName}，酒色转沉，药气入酒。`);
+  sys(`【药酒】${med} 1 瓶（品质 ${q}）——药铺收，懂行的客人也认。`);
+  note("药酒", `${wineName}泡${herbName}成「${med}」，品质${q}。`);
+  renderAll(st, handlers);
+  saveGame(st);
+}
+
 function doBuyWine(name) {
   const w = SHOP_WINES.find(x => x.name === name);
   if (!w) return;
@@ -1233,6 +1295,8 @@ function bind() {
   });
   document.addEventListener("keydown", (e) => {
     if (e.target === input) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // Ctrl/Cmd/Alt 组合（复制/切窗等）不触发游戏键
+    if (e.repeat) return;                            // 长按自动重复不触发
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();

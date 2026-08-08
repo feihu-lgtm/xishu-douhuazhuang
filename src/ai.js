@@ -148,7 +148,12 @@ export async function callAIStream(cfg, system, user, onChunk, label, timeoutMs,
   const t0 = Date.now();
   const ctrl = new AbortController();
   const ms = timeoutMs || cfg.timeoutMs || 120000;
-  const timer = setTimeout(() => ctrl.abort(), ms);
+  // 超时：abort 后某些浏览器 fetch 的 reader 不 resolve——用 race 强制断（拿已收部分再抛超时）
+  let aborted = false, abortTimer;
+  const abortP = new Promise(res => {
+    abortTimer = setTimeout(() => { ctrl.abort(); aborted = true; res("abort"); }, ms);
+    if (abortTimer.unref) abortTimer.unref();
+  });
   try {
     const res = await fetch(normalizeEndpoint(cfg.endpoint), {
       method: "POST",
@@ -184,7 +189,13 @@ export async function callAIStream(cfg, system, user, onChunk, label, timeoutMs,
       } catch { /* 半截 JSON，等下一块 */ }
     };
     for (;;) {
-      const { done, value } = await reader.read();
+      // reader.read() 可能因上游挂起永不 resolve——与超时 abort 竞争，超时即断
+      const outcome = await Promise.race([
+        reader.read().then(v => ({ v })),
+        abortP.then(() => "abort"),
+      ]);
+      if (outcome === "abort") break;
+      const { done, value } = outcome.v;
       if (done) break;
       buf += dec.decode(value, { stream: true });
       let idx;
@@ -194,6 +205,7 @@ export async function callAIStream(cfg, system, user, onChunk, label, timeoutMs,
       }
     }
     eat(buf); // 收尾：最后一行可能不带换行
+    if (aborted) throw new Error(`上游响应超时（${Math.round(ms / 1000)}s 未返回）`);
     pushTrace({ ts: t0, label: label || "流式", system, user, response: full, ms: Date.now() - t0 });
     return full;
   } catch (e) {
@@ -201,7 +213,7 @@ export async function callAIStream(cfg, system, user, onChunk, label, timeoutMs,
     pushTrace({ ts: t0, label: label || "流式", system, user, response: "", error: err.message, ms: Date.now() - t0 });
     throw err;
   } finally {
-    clearTimeout(timer);
+    clearTimeout(abortTimer);
   }
 }
 
@@ -492,11 +504,9 @@ function fallbackSnack(ctx) {
 }
 
 // ── 副本·探秘（轻度武侠，统一主叙事文风：第三人称师兄/苏唐+苏唐批）──
-// 一次调用产出：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special。
-// 不再单独 genChallenge——主叙事和出题一起出，省一次调用与限流间隔。
+// 探秘三步走 · 第一步：主叙事（500字）+ 预判收获 special（出题/结算各自单独调用）
 export async function genExpedition(cfg, ctx) {
-  const c = { ...cfg, maxTokens: Math.max(cfg.maxTokens || 0, 4096) }; // 500字叙事+选项+题干，别截断
-  const pool = challengeDims(ctx.category);
+  const c = { ...cfg, maxTokens: Math.max(cfg.maxTokens || 0, 4096) };
   if (cfgReady(cfg)) {
     const user = [
       ctx.context ? `【上下文】\n${ctx.context}` : "",
@@ -504,33 +514,28 @@ export async function genExpedition(cfg, ctx) {
         ? `【玩家钦定主线】${ctx.intent}。这是此行唯一主线，凌驾于一切预设情节之上——情节、细节、关口、收获全部围绕它展开；不许另起剧情脉络、不许淡化、不许忽略，你只负责把玩家钦定的方向写成好故事。`
         : "",
       ctx.calendarStrong
-        ? `【节庆背景·强关联】今日正值${ctx.calendarStrong}。这是此行的背景底色，据点性质与节庆高度相关——narrative、challenge、special 收获都要紧扣这个节庆真实展开的活动来写，不可当成无关的寻常探秘${ctx.intent ? "（玩家另有钦定主线时，节庆仍作背景铺陈，情节主干仍以玩家主线为准）" : ""}。`
+        ? `【节庆背景·强关联】今日正值${ctx.calendarStrong}。这是此行的背景底色，据点性质与节庆高度相关——narrative、special 收获都要紧扣这个节庆真实展开的活动来写，不可当成无关的寻常探秘${ctx.intent ? "（玩家另有钦定主线时，节庆仍作背景铺陈，情节主干仍以玩家主线为准）" : ""}。`
         : "",
       ctx.calendarMention
         ? `【时节】${ctx.calendarMention}。可在细节里带一两笔应景描写（天气、吃食、村人闲谈），不必展开，不可喧宾夺主，主体仍按今次情境走。`
         : "",
       `今次的情境是：${ctx.scenario}。情境只是背景底色，玩家钦定主线存在时以玩家主线为准。`,
       ctx.rescueTarget
-        ? `【同行】${ctx.rescueTarget.name}（${ctx.rescueTarget.ident}，与师兄好感${ctx.rescueTarget.aff}${ctx.rescueTarget.aff <= 5 ? "，几乎是陌生人，别写成老相识那样熟络" : ""}）这趟一起在场。关卡的题干与选项要围绕她可能身陷的风险来设计——是"师兄这一手要护住她"还是"她自己反手救场"，成败留在结算那步再定，题干只写悬念，别提前剧透谁救谁。`
+        ? `【同行】${ctx.rescueTarget.name}（${ctx.rescueTarget.ident}，与师兄好感${ctx.rescueTarget.aff}${ctx.rescueTarget.aff <= 5 ? "，几乎是陌生人，别写成老相识那样熟络" : ""}）这趟一起在场。`
         : "",
       ctx.guestList && ctx.guestList.length
-        ? `【此地常客】${ctx.guestList.map(g => `${g.name}（好感${g.aff}${g.mem ? `，记得「${g.mem}」` : "，还不熟"}）`).join("；")}。好感≥40 的常客愿意搭把手（带路/递料/保料），好感≥60 的肯把压箱底的好料让给你；剧情里自然地勾连他们，别生硬。`
+        ? `【此地常客】${ctx.guestList.map(g => `${g.name}（${g.gender === "女" ? "她" : "他"}，好感${g.aff}${g.mem ? `，记得「${g.mem}」` : "，还不熟"}${g.ryuwei ? "；余味是峨眉破戒的女侠食评人，年轻姑娘，一律用「她」，别称前辈/大哥/兄台" : ""}）`).join("；")}。好感≥40 的常客愿意搭把手（带路/递料/保料），好感≥60 的肯把压箱底的好料让给你；剧情里自然地勾连他们，别生硬。`
         : "",
       `师兄（武功约 ${ctx.skillAvg}、凭平日见识与智慧）与苏唐（手艺 ${ctx.suAvg}）同行，寻稀有食材。`,
-      `可用维度池（关卡各路本事都能考，不限于口舌眼力）：${pool.join(" / ")}。`,
-      `只输出一个 JSON，一次给全：{"narrative":"约500字（±10%）第三人称主叙事，3-5段，师兄化解阻碍、苏唐辨认得手，穿插「」对话与*心理*，收尾回店","comment":"苏唐批一句","mood":"八个心情词之一(开心/悠闲/兴奋/心动/得意/不满/吃惊/专注)","challenge":{"prompt":"约80-120字文学化题干，只写关口与悬而未决的处境，绝不写解法/维度名/成功率","options":[{"text":"玩家可选动作，8-20字，文学化，不写维度名/成功率","dim":"从可用维度池里选"}...]},"special":[{"name":"高级带星食材名，武侠/市井感","stars":1-3,"desc":"一句"}]}`,
-      `challenge.options 给 4-6 个，尽量覆盖不同路子：硬闯硬碰、巧取身法、细看辨认、上前搭话、押一把赌注等；题干与选项像小说正文，让玩家自己猜要考什么。`,
+      `只输出一个 JSON：{"narrative":"约500字（±10%）第三人称主叙事，3-5段，师兄化解阻碍、苏唐辨认得手，穿插「」对话与*心理*，收尾回店","comment":"苏唐批一句","mood":"八个心情词之一(开心/悠闲/兴奋/心动/得意/不满/吃惊/专注)","special":[{"name":"高级带星食材名，武侠/市井感","stars":1-3,"desc":"一句"}]}`,
       `special 给 1-2 种，种类要多样：肉/河鲜/野果/药材/菌菇/酒/主食等都要有机会，别全是药材菌菇。全部放进同一个 JSON 对象，不要 JSON 之外的多余文字。`,
     ].filter(Boolean).join("\n");
     const t0 = Date.now();
     try {
-      const raw = await callAI(c, "你是探秘总编排：一次输出主叙事+关卡题干与选项+收获。只输出 JSON，不写多余文字。", user, "探秘", 180000, true);
+      const raw = await callAI(c, "你是探秘总编排：输出主叙事与收获。只输出 JSON，不写多余文字。", user, "探秘", 180000, true);
       const o = parseJSONRescue(raw);
       const narrative = (o.narrative || "").trim();
       if (narrative) {
-        let opts = Array.isArray(o.challenge?.options) ? o.challenge.options : [];
-        opts = opts.filter(x => x && x.text && RESOLVABLE_DIMS.includes(x.dim)).slice(0, 6);
-        const prompt = (o.challenge?.prompt || "").trim();
         let special = Array.isArray(o.special) ? o.special : [];
         special = special.filter(s => s && s.name).map(s => ({
           name: s.name, stars: Math.max(1, Math.min(3, parseInt(s.stars, 10) || 2)), desc: s.desc || "",
@@ -539,23 +544,43 @@ export async function genExpedition(cfg, ctx) {
           narrative,
           comment: (o.comment || "").trim(),
           mood: moodIndex(o.mood),
-          challenge: {
-            prompt: prompt || fallbackChallengePrompt(pool),
-            options: opts.length ? opts : fallbackChallengeOpts(pool),
-          },
           special,
           ms: Date.now() - t0, ai: true,
         };
       }
     } catch { /* 降级 */ }
   }
-  const opts = fallbackChallengeOpts(pool);
   return {
     narrative: "师兄与苏唐深入险地，凭一身武功与苏唐的眼力，觅得几样罕见食材，满载而归。",
     comment: "师兄腿脚还行，就是话少。", mood: 4,
-    challenge: { prompt: fallbackChallengePrompt(pool), options: opts },
     special: [], ai: false,
   };
+}
+
+// 探秘三步走 · 第二步：出题（独立调用，叙事后单独给关卡题干+选项）
+export async function genChallenge(cfg, ctx) {
+  const pool = challengeDims(ctx.category);
+  if (cfgReady(cfg)) {
+    const sys = "你是探秘总编排，出关卡。只输出 JSON，不写多余文字。";
+    const user = [
+      `【情境】${ctx.scenario}`,
+      `【背景】${ctx.background || ""}`,
+      ctx.intent ? `【玩家钦定主线】${ctx.intent}——关卡要贴合这条主线。` : "",
+      ctx.rescueTarget ? `【同行】${ctx.rescueTarget.name}这趟在场，关卡可围绕她可能身陷的风险设计——是"师兄这一手要护住她"还是"她自己反手救场"，成败留到玩家选了再定，题干只写悬念，别提前剧透。` : "",
+      `可用维度池：${pool.join(" / ")}。`,
+      `只输出一个 JSON：{"prompt":"约80-120字文学化题干，只写关口与悬而未决的处境，绝不写解法/维度名/成功率","options":[{"text":"玩家可选动作，8-20字，文学化，不写维度名/成功率","dim":"从可用维度池里选"}...]}`,
+      `options 给 4-6 个，尽量覆盖不同路子：硬闯硬碰、巧取身法、细看辨认、上前搭话、押一把赌注等；题干与选项像小说正文，让玩家自己猜要考什么。`,
+    ].filter(Boolean).join("\n");
+    try {
+      const raw = await callAI(cfg, sys, user, "探秘出题", 120000, true);
+      const o = parseJSONRescue(raw);
+      let opts = Array.isArray(o?.options) ? o.options : [];
+      opts = opts.filter(x => x && x.text && RESOLVABLE_DIMS.includes(x.dim)).slice(0, 6);
+      const prompt = (o?.prompt || "").trim();
+      if (prompt && opts.length) return { prompt, options: opts, ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { prompt: fallbackChallengePrompt(pool), options: fallbackChallengeOpts(pool), ai: false };
 }
 function fallbackChallengePrompt(pool) {
   const d = pool[0];
