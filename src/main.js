@@ -634,11 +634,25 @@ async function doExpedition(node, intent) {
   // ② 出题（第二次调用）：叙事之后单独出关卡题干+选项
   sys("（说书人正在推演此行的关口……）");
   const background = `${scenario}。${(r.narrative || "").slice(0, 220)}`;
-  const ch = await genChallenge(loadCfg(), {
-    scenario, category: node.category, intent,
-    background,
-    rescueTarget: rescueTarget ? { name: rescueTarget.name } : null,
-  });
+  let ch;
+  try {
+    ch = await genChallenge(loadCfg(), {
+      scenario, category: node.category, intent,
+      background,
+      rescueTarget: rescueTarget ? { name: rescueTarget.name } : null,
+    });
+  } catch (e) {
+    // 出题异常也不中断探秘：兜底一道考题，继续往下走
+    ch = {
+      prompt: "走到紧要处，前路被雾气与杀机裹住，一步踏错便是万劫不复——师兄，此事如何处置？",
+      options: [
+        { text: "稳住心神，细看辨个分明", dim: "见识" },
+        { text: "上前搭话，套个虚实", dim: "口才" },
+        { text: "押一把，赌它个运气", dim: "赌博" },
+      ],
+      ai: false,
+    };
+  }
   stepTrace("出题", "pass", `${ch.options.length} 个选项（${ch.options.map(o => o.dim).join("/")}）`);
   await expNarr(`走到紧要处——${ch.prompt}`);
   const specialNames = special.map(s => `${s.name}${"★".repeat(s.stars)}`).join("、");
