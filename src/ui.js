@@ -74,7 +74,7 @@ function typeInto(bd, target, text, put, { fast = false, done = () => {} } = {})
   el.classList.add("typing");
   let i = 0;
   const step = () => {
-    if (skip || i >= text.length) {
+    if (skip || document.hidden || i >= text.length) {  // 后台标签页 setTimeout 被浏览器节流到 ~1/s，逐字打 500 字会卡死几百秒；tab 隐藏则整段瞬显、立刻 done()，绝不阻塞探秘/结算的 await
       put(text);
       el.classList.remove("typing");
       target.scrollTop = target.scrollHeight;
