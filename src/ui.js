@@ -957,7 +957,7 @@ export function openSettings() {
     <div class="set-row"><label>苏唐对话字数</label><input id="set-suwords" type="number" min="50" step="10" value="${cfg.suWords ?? 300}"></div>
     <div class="set-row"><label>小吃剧情字数</label><input id="set-snackwords" type="number" min="50" step="10" value="${cfg.snackWords ?? 300}"></div>
     <div class="set-row"><label>浮动 %</label><input id="set-tol" type="number" min="0" max="60" step="5" value="${cfg.tolPct ?? 15}"></div>
-    <div class="set-note" id="set-msg">流式开着，说书人的字边写边上屏；关了则想完一次给出。<br>长度上限即 max_tokens，默认 200000，厂商报参数错就调小。<br>出菜/闲聊字数是说书人正文的目标字数（±浮动%），想长想短自己调。<br>不填也能玩——说书人退成模板白描，灶神照样起名。</div>
+    <div class="set-note" id="set-msg">流式开着，说书人的字边写边上屏；关了则想完一次给出。<br>长度上限即 max_tokens，默认 65536，厂商报参数错就调小。<br>出菜/闲聊字数是说书人正文的目标字数（±浮动%），想长想短自己调。<br>不填也能玩——说书人退成模板白描，灶神照样起名。</div>
     <div class="ck-btns"><span class="ck-btn plain" data-save>保存</span></div>
     <span class="return" data-back>Return · 返回</span>
   `, () => {});
@@ -992,7 +992,7 @@ export function openSettings() {
       apiKey: q("#set-key").value.trim(),
       model: q("#set-model").value.trim(),
       stream: q("#set-stream").checked,
-      maxTokens: Number.isFinite(mt) && mt > 0 ? mt : 200000,
+      maxTokens: Number.isFinite(mt) && mt > 0 ? mt : 65536,
       dishWords: Number.isFinite(dw) && dw >= 40 ? dw : 360,
       chatWords: Number.isFinite(cw) && cw >= 20 ? cw : 160,
       suWords: Number.isFinite(sw) && sw >= 50 ? sw : 300,

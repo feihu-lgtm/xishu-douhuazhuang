@@ -19,13 +19,13 @@ export { tierOfScore, tierGuide };
 const CFG_KEY = "xiaochu-ai-v1";
 
 export function loadCfg() {
-  // 默认预填 DeepSeek 官方端点与模型（key 只在设置里填，绝不下发到代码/仓库）
-  const DEFAULTS = { endpoint: "https://api.deepseek.com", apiKey: "", model: "deepseek-chat", stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, suWords: 300, snackWords: 300, tolPct: 15 };
+  // 配置完全来自设置面板（endpoint/apiKey/model 都以 localStorage 为准），
+  // 不预填任何厂商默认——避免旧存档里 endpoint 空串把请求打到 openai 上
   try {
     const raw = localStorage.getItem(CFG_KEY);
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+    if (raw) return { stream: true, maxTokens: 65536, dishWords: 360, chatWords: 160, suWords: 300, snackWords: 300, tolPct: 15, ...JSON.parse(raw) };
   } catch { /* noop */ }
-  return DEFAULTS;
+  return { endpoint: "", apiKey: "", model: "", stream: true, maxTokens: 65536, dishWords: 360, chatWords: 160, suWords: 300, snackWords: 300, tolPct: 15 };
 }
 export function saveCfg(cfg) {
   try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch { /* noop */ }
@@ -134,45 +134,12 @@ export async function listModels(cfg) {
   }
 }
 
-// max_tokens 默认 200000，设置里可调（厂商报错就调小）
+// max_tokens 默认 65536（Gemini 3 flash 等思考型模型别给太大，思考会吞预算），设置里可调（厂商报错就调小）
 // timeoutMs：调用级覆盖；默认 cfg.timeoutMs 或 120s（探秘等大叙事给更长，见调用点）
 // skipMode：true 时跳过 ■NSFW 注入（探秘等纯叙事调用不需要色情规则，也免得拖慢/污染输出）
 export async function callAI(cfg, system, user, label, timeoutMs, skipMode) {
-  await throttle();
-  const t0 = Date.now();
-  const ctrl = new AbortController();
-  const ms = timeoutMs || cfg.timeoutMs || 120000;
-  const timer = setTimeout(() => ctrl.abort(), ms);
-  try {
-    const res = await fetch(normalizeEndpoint(cfg.endpoint), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${cfg.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: cfg.model,
-        temperature: 0.9,
-        max_tokens: cfg.maxTokens || 200000,
-        messages: skipMode
-          ? [{ role: "system", content: system }, { role: "user", content: user }]
-          : msgsWithMode(sysWithMode(system), user),
-      }),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    const text = json?.choices?.[0]?.message?.content;
-    if (!text) throw new Error("空回复");
-    pushTrace({ ts: t0, label: label || "调用", system, user, response: text, ms: Date.now() - t0 });
-    return text;
-  } catch (e) {
-    const err = e?.name === "AbortError" ? new Error(`上游响应超时（${Math.round(ms / 1000)}s 未返回）`) : e;
-    pushTrace({ ts: t0, label: label || "调用", system, user, response: "", error: err.message, ms: Date.now() - t0 });
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
+  // 统一走流式（SSE）：ggchan 等反代对非流式支持差/慢，流式快且稳；返回全文，语义与非流式一致
+  return callAIStream(cfg, system, user, () => {}, label, timeoutMs, skipMode);
 }
 
 // 流式调用：SSE data: 行，逐块回调 onChunk，返回全文
@@ -192,7 +159,7 @@ export async function callAIStream(cfg, system, user, onChunk, label, timeoutMs,
       body: JSON.stringify({
         model: cfg.model,
         temperature: 0.9,
-        max_tokens: cfg.maxTokens || 200000,
+        max_tokens: cfg.maxTokens || 65536,
         stream: true,
         messages: skipMode
           ? [{ role: "system", content: system }, { role: "user", content: user }]
@@ -297,14 +264,16 @@ export function moodIndex(word) {
 }
 
 // 拆出「苏唐批：」「心情：」「菜单：」「纸条：」结构块（宽容版）：
-// 块顺序任意、冒号中英文都认；苏唐批可跨行直到下一个标记或结尾，心情/菜单/纸条取单行；其余文字归 main
+// 标记可在行首、也可跟在正文同行（AI 常写「……苏唐批：xxx」）；苏唐批可跨行直到
+// 下一个标记或结尾，心情/菜单/纸条取单行；其余文字归 main
 export function extractComment(t) {
   const s = (t || "");
   const out = { comment: "", mood: "", menu: "", note: "" };
-  const CM = /(?:^|\n)[ \t]*苏唐批[：:][ \t]*([\s\S]*?)(?=\n[ \t]*(?:苏唐批|心情|菜单|纸条)[：:]|$)/g;
-  const ONE = /(?:^|\n)[ \t]*(心情|菜单|纸条)[：:][ \t]*([^\n]+)/g;
+  const LABEL = /(?:^|[，。！？…\s])[ \t]*(苏唐批|心情|菜单|纸条)[：:][ \t]*/;
+  const CM = new RegExp(LABEL.source + "([\\s\\S]*?)(?=" + "(?:^|[，。！？…\\s])[ \\t]*(?:苏唐批|心情|菜单|纸条)[：:]|$)", "g");
+  const ONE = /(?:^|[，。！？…\s])[ \t]*(心情|菜单|纸条)[：:][ \t]*([^\n]+)/g;
   let m;
-  while ((m = CM.exec(s))) out.comment = m[1].trim();
+  while ((m = CM.exec(s))) if (m[1] === "苏唐批") out.comment = m[2].trim();
   while ((m = ONE.exec(s))) {
     if (m[1] === "心情") out.mood = m[2].trim();
     else if (m[1] === "菜单") out.menu = m[2].trim();
