@@ -15,7 +15,7 @@ import {
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt,
 } from "./ui.js";
 
 let st = null;
@@ -940,6 +940,7 @@ function doNewGuest() {
 async function onCommand(text) {
   const t = text.trim();
   if (!t) return;
+  markPrompt(); // 新一轮开始：左右滚动条打分段点
   playerLine(t);
   const cmd = t.toLowerCase();
   if (["帮助", "help", "?"].includes(cmd)) return openHelp();

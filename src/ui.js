@@ -58,35 +58,96 @@ const mkEntry = (target, type, extraClass = "") => {
   return div.querySelector(".bd");
 };
 
+// ── 伪流式打字节奏：中文逐字、西文快、标点停顿、段落顿挫（点击可跳过）──
+const charMs = (ch) => {
+  if (ch === "\n") return 45;
+  if (/[A-Za-z0-9 ]/.test(ch)) return 10;
+  if ("。！？…".includes(ch)) return 120;
+  if ("；，、：—".includes(ch)) return 60;
+  return 24;
+};
+// 在 bd 里逐字渐显文本，打完全量收尾；fast=true 快速出字（系统消息用）
+function typeInto(bd, target, text, put, { fast = false, done = () => {} } = {}) {
+  const el = bd.parentElement;
+  el.classList.add("typing");
+  let i = 0;
+  const step = () => {
+    if (skip || i >= text.length) {
+      put(text);
+      el.classList.remove("typing");
+      target.scrollTop = target.scrollHeight;
+      done();
+      return;
+    }
+    const ch = text[i];
+    i += 1;
+    put(text.slice(0, i));
+    target.scrollTop = target.scrollHeight;
+    // 段间（\n\n）再多停一拍，读起来有呼吸感
+    const nl = ch === "\n" && text[i] === "\n" ? 90 : 0;
+    setTimeout(step, (fast ? 6 : charMs(ch)) + nl);
+  };
+  setTimeout(step, fast ? 4 : 16);
+}
+
+// ── 分段滑块：每轮 prompt 的开始在两侧滚动条旁打点（左=主叙事，右=苏唐）──
+let pendingLeft = false, pendingRight = false;
+export function markPrompt() { pendingLeft = pendingRight = true; } // 玩家输入 → 新一轮开始
+function marksBar(sc) {
+  let bar = sc.querySelector(":scope > .log-marks");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.className = "log-marks";
+    sc.appendChild(bar);
+    sc.addEventListener("scroll", syncMarks);
+  }
+  return bar;
+}
+function addMark(sc, entry) {
+  const bar = marksBar(sc);
+  const top = entry.offsetTop;
+  const m = document.createElement("div");
+  m.className = "log-mark";
+  m.dataset.top = top;
+  m.style.top = (top + 4) + "px";
+  m.title = "本轮开始";
+  m.onclick = (e) => { e.stopPropagation(); sc.scrollTo({ top: top - 60, behavior: "smooth" }); };
+  bar.appendChild(m);
+  syncMarks.call(sc);
+}
+function syncMarks() {
+  const sc = this, bar = sc.querySelector(":scope > .log-marks");
+  if (!bar) return;
+  const top = sc.scrollTop, viewH = sc.clientHeight;
+  let cur = null;
+  for (const m of bar.querySelectorAll(".log-mark")) {
+    if (parseFloat(m.dataset.top) <= top + viewH * 0.25) cur = m;
+  }
+  for (const m of bar.querySelectorAll(".log-mark")) m.classList.toggle("cur", m === cur);
+}
+
 export function log(type, text, { instant = false, extraClass = "" } = {}) {
   queue = queue.then(() => new Promise((done) => {
     const bd = mkEntry($("#log"), type, extraClass);
+    if (pendingLeft && type === "player") { addMark($("#log"), bd.parentElement); pendingLeft = false; }
     const put = (str) => { if (RICH.has(type)) bd.innerHTML = richHtml(str); else bd.textContent = str; };
-    const finish = () => {
-      put(text);
-      bd.parentElement.classList.remove("typing");
-      $("#log").scrollTop = $("#log").scrollHeight;
-      skip = false;
-      done();
-    };
-    if (instant || skip) return finish();
-    bd.parentElement.classList.add("typing");
-    let i = 0;
-    const timer = setInterval(() => {
-      i += 5;
-      put(text.slice(0, i));
-      $("#log").scrollTop = $("#log").scrollHeight;
-      if (skip || i >= text.length) { clearInterval(timer); finish(); }
-    }, 10);
+    if (skip || text.length <= 1) { put(text); skip = false; return done(); }
+    typeInto(bd, $("#log"), text, put, { fast: instant, done: () => { skip = false; done(); } });
   }));
   return queue;
 }
 
-// 右栏·苏唐日志（粉色，即时，带时间戳）
+// 右栏·苏唐日志（粉色，伪流式打字，带时间戳；独立队列不挤主栏）
+let suQueue = Promise.resolve();
 export function slog(type, text) {
-  const bd = mkEntry($("#sulog"), type);
-  if (RICH.has(type)) bd.innerHTML = richHtml(text); else bd.textContent = text;
-  $("#sulog").scrollTop = $("#sulog").scrollHeight;
+  suQueue = suQueue.then(() => new Promise((done) => {
+    const bd = mkEntry($("#sulog"), type);
+    if (pendingRight) { addMark($("#sulog"), bd.parentElement); pendingRight = false; }
+    const put = (str) => { if (RICH.has(type)) bd.innerHTML = richHtml(str); else bd.textContent = str; };
+    if (text.length <= 1) { put(text); return done(); }
+    typeInto(bd, $("#sulog"), text, put, { done });
+  }));
+  return suQueue;
 }
 // 流式上屏：AI 边写边长，返回句柄。
 // 走同一条日志队列排队创建 div，保证排在未打完的条目之后（不往上插）。
@@ -98,8 +159,10 @@ export function logStream(type, { extraClass = "" } = {}) {
     if (comment) {
       const c = document.createElement("div");
       c.className = `entry comment${extraClass ? " " + extraClass : ""}${face ? ` su-face-${face}` : ""}`;
-      c.innerHTML = `<span class="ts">${ts()}</span><span class="bd">${escapeHtml(comment)}</span>`;
+      c.innerHTML = `<span class="ts">${ts()}</span><span class="bd"></span>`;
       entry.after(c);
+      // 评语也伪流式渐显（textContent 安全，流光/图标 CSS 照常生效）
+      typeInto(c.querySelector(".bd"), $("#log"), comment, (s) => { c.querySelector(".bd").textContent = s; });
     }
     $("#log").scrollTop = $("#log").scrollHeight;
   };
