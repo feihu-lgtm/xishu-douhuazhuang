@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v9";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v10";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY,
-} from "./state.js?v=v9";
+} from "./state.js?v=v10";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v9";
-import { chatContext } from "./prompt.js?v=v9";
+} from "./ai.js?v=v10";
+import { chatContext } from "./prompt.js?v=v10";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
   commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho,
-} from "./ui.js?v=v9";
+} from "./ui.js?v=v10";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -811,11 +811,13 @@ function note(act, text) {
 // 200 字存 st.echoes 播放池（不注入 prompt）；AI 纸条行挂到该轮系统小纸条之后（st.notes 条目 ai 字段）。
 // 播放：新回响夺舍（立即上），之后每 15s 随机换池子一条，播 3 条自然收尾。
 let echoTimer = null;
+let lastEchoAt = 0; // 最近一次回响触发时间：没动静超 5 分钟，后台自动补一条日常回响（说书人自己跑）
 function worldState() {
   const tier = (st.ryuweiRating || {}).tier ?? 0;
   return `西蜀豆花庄第${st.day}周${tier > 0 ? `，挂着余味送的${tier}支银簪（${ryuweiTierName(st)}）` : "，还没拿到银簪"}。苏唐好感${st.suAff ?? 0}。`;
 }
 async function fireEcho(event, result) {
+  lastEchoAt = Date.now();
   const r = await genEcho(loadCfg(), { event, result, world: worldState() });
   if (!r.prose) return;
   st.echoes = st.echoes || [];
@@ -836,13 +838,10 @@ async function fireEcho(event, result) {
 function playEcho(echo) {
   stopEcho();
   showEcho(echo);
-  let n = 0;
   echoTimer = setInterval(() => {
-    n += 1;
-    if (n >= 3) { stopEcho(); return; }      // 播 3 条自然收尾，等下一个事件夺舍
     const pool = st.echoes || [];
     if (pool.length) showEcho(pool[Math.floor(Math.random() * pool.length)]);
-  }, 15000);
+  }, 15000); // 持续滚动播放：每 15s 一条（池子里随机），新回响夺舍重置；不再播 3 条就收
 }
 function stopEcho() {
   if (echoTimer) { clearInterval(echoTimer); echoTimer = null; }
@@ -1314,6 +1313,12 @@ function bind() {
   if (hasSave()) $("#btn-cont").style.display = "";
   renderRate();
   setInterval(renderRate, 1000); // 限流灯每秒刷新（12s 计时）
+  // 说书人后台跑：超过 5 分钟没事件回响，自动补一条日常回响（每分钟检查一次），滚动播放不冷场
+  setInterval(() => {
+    if (busy || !st) return;
+    if (Date.now() - lastEchoAt < 300000) return;
+    void fireEcho("豆花庄日常", `豆花庄第${st.day}周，灶火未歇，街坊都在念叨店里的新菜。`);
+  }, 60000);
 }
 
 function $(sel) { return document.querySelector(sel); }
