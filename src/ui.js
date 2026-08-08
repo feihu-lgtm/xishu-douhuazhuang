@@ -3,10 +3,10 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
-} from "./data.js?v=v14";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v14";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v14";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v14";
+} from "./data.js?v=v15";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v15";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v15";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v15";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -336,6 +336,7 @@ function currentGuestSafe(st) {
 }
 
 export function renderSide(st, h) {
+  const mobile = window.matchMedia("(max-width: 900px)").matches;
   const can = {
     cook: st.phase === "guest",
     snack: true,       // 副厨：小吃面板（苏唐做小吃）
@@ -348,6 +349,7 @@ export function renderSide(st, h) {
     `<div class="menu-item ${enabled ? "" : "disabled"}" data-act="${fn}">
        <span>${label}</span><span class="key">${key}</span></div>`;
   $("#side").innerHTML =
+    (mobile ? `<span class="drawer-close">×</span>` : "") +
     item("主厨", "C", can.cook, "cook") +
     item("副厨", "U", can.snack, "snack") +
     item("酿酒", "W", true, "brew") +
@@ -371,6 +373,52 @@ export function renderSide(st, h) {
   $("#side").querySelectorAll(".menu-item:not(.disabled)").forEach(el => {
     el.onclick = () => h[el.dataset.act]?.();
   });
+  if (mobile) {
+    const tabs = $("#mob-tabs");
+    if (tabs) {
+      tabs.innerHTML =
+        item("主厨", "C", can.cook, "cook") +
+        item("副厨", "U", can.snack, "snack") +
+        item("酿酒", "W", true, "brew") +
+        item("备餐", "X", can.serve, "serve") +
+        item("商店", "T", can.shop, "shop") +
+        item("探秘", "M", can.exp, "exp") +
+        item("下一日", "N", can.next, "next") +
+        item("更多", "≡", true, "moredrawer");
+      tabs.querySelectorAll(".menu-item:not(.disabled)").forEach(el => {
+        if (el.dataset.act === "moredrawer") {
+          el.onclick = () => {
+            document.querySelector("#side").classList.add("open-drawer");
+            document.querySelector("#drawer-scrim").classList.add("show");
+          };
+        } else {
+          el.onclick = () => h[el.dataset.act]?.();
+        }
+      });
+    }
+  }
+}
+
+// ── 移动端抽屉：汉堡开左栏、scrim 关两抽屉、更多≡开右栏、断点切换重渲染 ──
+export function initMobileDrawers(renderAllFn) {
+  const left = $("#left");
+  const side = $("#side");
+  const scrim = $("#drawer-scrim");
+  const btn = $("#btn-drawer");
+  const closeDrawers = () => {
+    left?.classList.remove("open-drawer");
+    side?.classList.remove("open-drawer");
+    scrim?.classList.remove("show");
+  };
+  btn?.addEventListener("click", () => {
+    left?.classList.add("open-drawer");
+    scrim?.classList.add("show");
+  });
+  scrim?.addEventListener("click", closeDrawers);
+  document.addEventListener("click", (e) => {
+    if (e.target.classList?.contains("drawer-close")) closeDrawers();
+  });
+  window.matchMedia("(max-width: 900px)").addEventListener("change", () => renderAllFn?.());
 }
 
 export function renderAll(st, h, { hideGuest } = {}) {
