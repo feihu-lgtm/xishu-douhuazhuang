@@ -1,24 +1,24 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v41";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v41";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v42";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v42";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v41";
+} from "./state.js?v=v42";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeiluChat, genDuel,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v41";
-import { chatContext } from "./prompt.js?v=v41";
+} from "./ai.js?v=v42";
+import { chatContext } from "./prompt.js?v=v42";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, openWeiluChat, initMobileDrawers,
-} from "./ui.js?v=v41";
+} from "./ui.js?v=v42";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -192,7 +192,7 @@ async function doSuAll() {
   if (!dish) { sys("苏唐今天没兴致，还是你自己来。"); endTrace("苏唐全包·未成"); return; }
   for (const m of dish.materials) { st.inv[m] = (st.inv[m] || 0) - 1; if (st.inv[m] <= 0) delete st.inv[m]; }
   const j = judgeStove(st, dish.materials, dish.technique, st.cookware[0], dish.flavor);
-  st.dish = { name: dish.name, materials: dish.materials, technique: dish.technique, cookwareId: st.cookware[0], flavorId: dish.flavor, quality: j.quality, recipe: !!j.recipe, suCook: true };
+  st.dish = { name: dish.name, materials: dish.materials, technique: dish.technique, cookwareId: st.cookware[0], flavorId: dish.flavor, quality: j.quality, recipe: !!j.recipe, suCook: true, menuDesc: menuDescOf({ flavorId: dish.flavor, materials: dish.materials, technique: dish.technique }, dish.name) };
   if (suRoute) {
     await narr("苏唐系上围裙，袖子一挽：「师兄坐着看就好。」");
     await narr(dish.prose);
