@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v8";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v9";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY,
-} from "./state.js?v=v8";
+} from "./state.js?v=v9";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v8";
-import { chatContext } from "./prompt.js?v=v8";
+} from "./ai.js?v=v9";
+import { chatContext } from "./prompt.js?v=v9";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
   commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho,
-} from "./ui.js?v=v8";
+} from "./ui.js?v=v9";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -409,7 +409,8 @@ async function doServe(sel) {
   const glowServe = !!g.ryuwei; // 食评人余味的菜 · 端菜与品尝全部流光炫彩
   const sv = (t) => (glowServe ? narrGlow(t) : narr(t));
   await sv(`师兄把${dishItems.map(d => `「${d.name}」`).join("、")}${snackNames.length ? `和${snackNames.map(n => `「${n}」`).join("、")}` : ""}端上桌，往 ${g.name} 面前一放。`);
-  for (const d of dishItems) if (d.menuDesc) await sv(`【菜牌】${d.menuDesc}`); // 每道菜一张菜牌，不合并
+  for (const d of dishItems) if (d.menuDesc) await sv(`【菜牌】${d.menuDesc}`); // 每道大菜一张菜牌，不合并
+  for (const n of snackNames) { const rec = (st.snackRecipes || []).find(x => x.name === n); if (rec?.desc) await sv(`【菜牌】${rec.desc}`); } // 每道小吃也有菜牌（苏唐手作的用料与做法）
   if (wineName) await sv(`又斟上一杯「${wineName}」。`);
   const h = logStream("narr", glowServe ? { extraClass: "ryuwei-comment" } : {}); // 品尝场景进左栏
   const r = await genReaction(loadCfg(), {
