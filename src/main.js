@@ -1,24 +1,24 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v31";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v31";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v32";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v32";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v31";
+} from "./state.js?v=v32";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeilu, genDuel,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v31";
-import { chatContext } from "./prompt.js?v=v31";
+} from "./ai.js?v=v32";
+import { chatContext } from "./prompt.js?v=v32";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, initMobileDrawers,
-} from "./ui.js?v=v31";
+} from "./ui.js?v=v32";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -973,18 +973,24 @@ async function rollFreshEvents(st) {
   const folks = await genSquareFolks(loadCfg(), cands.map(g => ({ id: g.id, name: g.name, ident: g.ident })));
   st.squareFolks = folks.map(f => ({ ...f, week: st.day }));
   if (folks.length) sys(`（广场来了 ${folks.length} 位熟人：${folks.map(f => f.name).join("、")}——去广场聊聊。）`);
-  // 江湖客：每周随机一批现身地图各地点（147 人池子，不进客人表；交谈后才相识，相识可邀留坐）
-  const jh = st.jianghu = st.jianghu || { week: 0, batch: [], known: {} };
-  if (jh.week !== st.day) {
-    jh.week = st.day;
-    const fresh = JIANGHU_ROSTER.filter(c => !jh.known[c.id]).sort(() => Math.random() - 0.5);
-    const old = JIANGHU_ROSTER.filter(c => jh.known[c.id]).sort(() => Math.random() - 0.5);
-    const pick = [...fresh.slice(0, 4 + Math.floor(Math.random() * 3)), ...old.slice(0, 2)];
-    const locs = WORLD_LOCATIONS;
-    jh.batch = pick.map((c, i) => ({ id: c.id, locId: locs[i % locs.length].id }));
-    if (pick.length) sys(`（江湖客本周现身 ${pick.length} 位：${pick.slice(0, 4).map(c => c.name).join("、")}${pick.length > 4 ? " 等" : ""}——地图各处可寻，交谈后便相识，可在「请客坐坐·江湖」邀来留坐。）`);
-  }
+  // 江湖客：每周翻篇随机刷一批（纯系统随机，不调 AI）；地图上也可手动刷新
+  const batch = rollJianghuBatch(st, false);
+  if (batch.length) sys(`（江湖客本周现身 ${batch.length} 位：${batch.slice(0, 4).map(c => c.name).join("、")}${batch.length > 4 ? " 等" : ""}——地图各处可寻，交谈后便相识，可在「请客坐坐·江湖」邀来留坐。）`);
   saveGame(st);
+}
+// ── 江湖客批次（系统随机，无 AI）：每周一次 + 地图手动刷新 ──
+// forceDifferent=true 时排除当前批次成员，保证刷新后必是全新一批
+function rollJianghuBatch(st, forceDifferent) {
+  const jh = st.jianghu = st.jianghu || { week: 0, batch: [], known: {} };
+  if (!forceDifferent) jh.week = st.day;
+  const curIds = new Set((jh.batch || []).map(b => b.id));
+  const exclude = new Set(forceDifferent ? curIds : []);
+  const fresh = JIANGHU_ROSTER.filter(c => !jh.known[c.id] && !exclude.has(c.id)).sort(() => Math.random() - 0.5);
+  const old = JIANGHU_ROSTER.filter(c => jh.known[c.id] && !exclude.has(c.id)).sort(() => Math.random() - 0.5);
+  const pick = [...fresh.slice(0, 4 + Math.floor(Math.random() * 3)), ...old.slice(0, 2)];
+  const locs = WORLD_LOCATIONS;
+  jh.batch = pick.map((c, i) => ({ id: c.id, locId: locs[i % locs.length].id }));
+  return pick;
 }
 // ── 江湖大地图编排：进地图 → 进地点页 → 搭话（走流水线）/ 功能台 ──
 function locOf(id) {
@@ -1011,12 +1017,16 @@ function openWorld() {
   openWorldMap(st, { onEnter: enterLoc, onExplore: () => openExpeditionMap() });
 }
 // ── 江湖客搭话：交谈即相识（进邀请面板·江湖分区），聊天走地点互动流水线 ──
+// 相识那一刻系统刷新：换一批江湖客（纯随机不调 AI，保证与上一批不同）
 function doJianghuChat(char, loc, text) {
   if (!text) return sys(`说点什么——「跟${char.name}打个招呼」。`);
   const jh = st.jianghu = st.jianghu || { week: 0, batch: [], known: {} };
   if (!jh.known[char.id]) {
     jh.known[char.id] = { aff: st.aff[char.id] || 0, day: st.day };
     sys(`（与${char.name}相识——「请客坐坐·江湖」里多了一位，可邀 TA 留坐闲聊。）`);
+    const batch = rollJianghuBatch(st, true);
+    if (batch.length) sys(`（江湖客换了一批：${batch.slice(0, 4).map(c => c.name).join("、")}${batch.length > 4 ? " 等" : ""}——各处寻寻新面孔。）`);
+    saveGame(st);
   }
   const ls = locOf(loc.id);
   const fresh = (ls.fresh && ls.fresh.week === st.day) ? `${loc.name}·${ls.fresh.title}` : "";
@@ -1788,6 +1798,7 @@ async function onCommand(text) {
   if (["酿造", "酿酒", "brew", "酒"].includes(cmd)) return openBrew(st, { onBrew: doBrew, onBuy: doBuyWine, onDessert: doWineDessert, onMedicate: doMedicate });
   if (["商店", "买", "逛街"].includes(cmd)) return doShop();
   if (["探秘", "副本", "exp"].includes(cmd)) return openExpeditionMap();
+  if (["江湖", "地图", "world"].includes(cmd)) return openWorld();
   if (["新客", "招客", "newguest"].includes(cmd)) return doNewGuest();
   if (["成就", "徽章", "ach"].includes(cmd)) return showAchievements();
   if (["■", "黑方块", "nsfw", "模式"].includes(cmd)) return handlers.nsfw();

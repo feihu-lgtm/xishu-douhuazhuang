@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v31";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v31";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v31";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v31";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v31";
+} from "./data.js?v=v32";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v32";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v32";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v32";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v32";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -738,11 +738,20 @@ export function openWorldMap(st, { onEnter, onExplore }) {
   const cleanup = () => window.removeEventListener("resize", fit);
   const locs = (st.locs || {});
   const freshOf = (id) => (locs[id] && locs[id].fresh && locs[id].fresh.week === st.day) ? locs[id].fresh : null;
+  const jhNow = (st.jianghu?.batch || []).map(b => {
+    const c = JIANGHU_ROSTER.find(x => x.id === b.id);
+    const l = WORLD_LOCATIONS.find(x => x.id === b.locId);
+    return c ? `${c.name}·${l ? l.name : "?"}` : "";
+  }).filter(Boolean);
   const modal = openModal(`
     <div class="map-head">
       <span class="map-title">江 湖 · 四方有事</span>
       <span class="ck-btn plain" data-explore style="margin-left:auto">探秘地图 →</span>
       <span class="return" data-leave>Return · 返回</span>
+    </div>
+    <div class="map-jh">
+      <span class="map-jh-title">江湖客在野</span>
+      <span class="map-jh-list">${jhNow.length ? jhNow.join(" ／ ") : "尚无——翻篇或与江湖客交谈后换新"}</span>
     </div>
     <div class="map-body">
       <div class="map-frame">
