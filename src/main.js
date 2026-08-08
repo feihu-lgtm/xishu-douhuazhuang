@@ -1,24 +1,24 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v46";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v46";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v47";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v47";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v46";
+} from "./state.js?v=v47";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeiluChat, genDuel, genJianghuEnter,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v46";
-import { chatContext } from "./prompt.js?v=v46";
+} from "./ai.js?v=v47";
+import { chatContext } from "./prompt.js?v=v47";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, openWeiluChat, initMobileDrawers,
-} from "./ui.js?v=v46";
+} from "./ui.js?v=v47";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -115,35 +115,43 @@ async function continueGame() {
 // ── 客人 ───────────────────────────────────────────────────────────────
 async function guestArrives() {
   const g = currentGuest(st);
-  if (!g) return;
-  setMood(1);
-  renderAll(st, handlers); // 这才是真正露脸的时候，不带 hideGuest，左栏正常显示客人卡
-  await narr(`门帘一掀，${g.name}（${g.ident}）走了进来，找个灶边位子坐下。`);
-  const isJianghu = JIANGHU_ROSTER.some(c => c.id === g.id);
-  if (g.ryuwei) {
-    ryuweiIntro(g);   // 食评人余味 · 星星特效出场
-    // 余味进场：苏唐右栏迎接「又来了！」/ 首次介绍 / 熟络 / 簪子期待
-    const er = await genRyuweiEnter(loadCfg(), {
-      ryuweiVisits: st.ryuweiVisits ?? 0,
-      tier: (st.ryuweiRating || {}).tier ?? 0,
-    });
-    if (er.ai && er.prose) await suLine(er.prose);
+  if (!g) { sys(`（说书人没寻到第 ${st.served + 1} 位客人——回头看看客单）`); return; }
+  try {
+    setMood(1);
+    renderAll(st, handlers); // 这才是真正露脸的时候，不带 hideGuest，左栏正常显示客人卡
+    await narr(`门帘一掀，${g.name}（${g.ident}）走了进来，找个灶边位子坐下。`);
+    const isJianghu = JIANGHU_ROSTER.some(c => c.id === g.id);
+    if (g.ryuwei) {
+      ryuweiIntro(g);   // 食评人余味 · 星星特效出场
+      // 余味进场：苏唐右栏迎接「又来了！」/ 首次介绍 / 熟络 / 簪子期待
+      const er = await genRyuweiEnter(loadCfg(), {
+        ryuweiVisits: st.ryuweiVisits ?? 0,
+        tier: (st.ryuweiRating || {}).tier ?? 0,
+      });
+      if (er.ai && er.prose) await suLine(er.prose);
+    }
+    else if (isJianghu) {
+      // 江湖客进店：说书人现场编登场（贴人设），没接 AI 时模板兜底
+      const jh = await genJianghuEnter(loadCfg(), g);
+      if (jh.ai && jh.prose) await narr(jh.prose);
+      else await narr(`${g.name}在门口站定，${g.wu ? g.wu + "的架势，一眼便知不是寻常食客" : "扫了圈灶房，气度不凡"}。`);
+      await say(`「${g.order}」`);
+    }
+    else await say(`「${g.order}」`);
+  } catch (e) {
+    // 进场任何一步出错都不静默：诊断可见 + 兜底白描，下一位客人照常
+    console.error("进场出错:", e);
+    try { await narr(`「${g.name}」进了门（${g.ident}）。`); } catch { /* 连白描都挂了就跳过 */ }
   }
-  else if (isJianghu) {
-    // 江湖客进店：说书人现场编登场（贴人设），没接 AI 时模板兜底
-    const jh = await genJianghuEnter(loadCfg(), g);
-    if (jh.ai && jh.prose) await narr(jh.prose);
-    else await narr(`${g.name}在门口站定，${g.wu ? g.wu + "的架势，一眼便知不是寻常食客" : "扫了圈灶房，气度不凡"}。`);
-    await say(`「${g.order}」`);
-  }
-  else await say(`「${g.order}」`);
-  sys(`第 ${st.served + 1} 位客人。右栏「灶台」开火，做好了「上菜」。`);
-  note("迎客", `第${st.served + 1}位客人 ${g.name} 进门，说「${g.order}」。`);
-  if (g.sister) {
-    setMood(5); // 苏唐掉脸
-    await suLine(`【苏唐】……她怎么来了。师兄你眼睛往哪儿看呢，菜自己做去。`);
-    note("迎客", `苏酥（苏唐姐姐）上门，苏唐吃醋掉脸。`);
-  }
+  try { sys(`第 ${st.served + 1} 位客人。右栏「灶台」开火，做好了「上菜」。`); } catch { /* 不阻塞 */ }
+  try {
+    note("迎客", `第${st.served + 1}位客人 ${g.name} 进门，说「${g.order}」。`);
+    if (g.sister) {
+      setMood(5); // 苏唐掉脸
+      await suLine(`【苏唐】……她怎么来了。师兄你眼睛往哪儿看呢，菜自己做去。`);
+      note("迎客", `苏酥（苏唐姐姐）上门，苏唐吃醋掉脸。`);
+    }
+  } catch { /* 不阻塞 */ }
 }
 
 // 情境上下文：当前客人+近况小纸条，喂给各 AI 调用
@@ -539,23 +547,31 @@ async function doServe(sel) {
   endTrace(`给${g.name}·满意度${score}·好感+${d}`);
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)}`);
   } finally { busy = false; saveGame(st); }  // 结算完立即落盘（回响等尾部流程不阻塞存档）
-  // 世界回响：客人吃菜 / 踢馆 / 余味大阵仗
-  void fireEcho(g.ryuwei ? "余味大阵仗" : g.rival ? "踢馆" : "客人吃菜", g.ryuwei
-    ? `余味开席：${dishItems.map(d => `「${d.name}」`).join("、")}${snackNames.length ? " + " + snackNames.join("、") : ""} + 「${wineName}」→ 总分 ${total}${(st.ryuweiRating?.tier ?? 0) > 0 ? `，已是${ryuweiTierName(st)}` : "，还差一支银簪"}。`
-    : g.rival
-    ? `${g.name}（${g.ident}）上门踢馆，尝了「${dish?.name || snackNames[0] || ""}」${score}分——${score >= (g.req ?? 85) ? "认了栽，丢下看家好料走了" : "摇头冷笑，撂了句改日再来"}。`
-    : `${g.name}（${g.ident}）吃了${dishItems.map(d => `「${d.name}」`).join("、")}${snackNames.length ? `和${snackNames.map(n => `「${n}」`).join("、")}` : ""}${wineName ? `，配「${wineName}」` : ""}，总分 ${total}，好感${d >= 0 ? "+" : ""}${d}。`);
-  if (st.served >= 3) {
-    await narr("最后一位客人走了。灶上还温着汤，今日不自动打烊。");
-    sys("三位送完。苏唐照例要总评一句；可逛「商店」/「探秘」，或点「下一日」翻篇。");
-    showInvite();           // 收功：右栏弹邀请面板，可邀好感>15的女客留坐
-    renderAll(st, handlers);
+  // 世界回响：客人吃菜 / 踢馆 / 余味大阵仗（收功与下客流程整体防抛：任何一步出错都不卡死界面）
+  try {
+    void fireEcho(g.ryuwei ? "余味大阵仗" : g.rival ? "踢馆" : "客人吃菜", g.ryuwei
+      ? `余味开席：${dishItems.map(d => `「${d.name}」`).join("、")}${snackNames.length ? " + " + snackNames.join("、") : ""} + 「${wineName}」→ 总分 ${total}${(st.ryuweiRating?.tier ?? 0) > 0 ? `，已是${ryuweiTierName(st)}` : "，还差一支银簪"}。`
+      : g.rival
+      ? `${g.name}（${g.ident}）上门踢馆，尝了「${dish?.name || snackNames[0] || ""}」${score}分——${score >= (g.req ?? 85) ? "认了栽，丢下看家好料走了" : "摇头冷笑，撂了句改日再来"}。`
+      : `${g.name}（${g.ident}）吃了${dishItems.map(d => `「${d.name}」`).join("、")}${snackNames.length ? `和${snackNames.map(n => `「${n}」`).join("、")}` : ""}${wineName ? `，配「${wineName}」` : ""}，总分 ${total}，好感${d >= 0 ? "+" : ""}${d}。`);
+    if (st.served >= 3) {
+      await narr("最后一位客人走了。灶上还温着汤，今日不自动打烊。");
+      sys("三位送完。苏唐照例要总评一句；可逛「商店」/「探秘」，或点「下一日」翻篇。");
+      showInvite();           // 收功：右栏弹邀请面板，可邀好感>15的女客留坐
+      renderAll(st, handlers);
+      saveGame(st);
+      await doReview();   // 每日苏唐总结自动触发
+      collectGifts();     // 后台预热：备好明日熟客送礼（不阻塞打烊）
+    } else {
+      saveGame(st);
+      await guestArrives();
+    }
+  } catch (e) {
+    // 收功/下客任何一步出错：诊断可见，绝不卡死（busy 已释放，存档已落）
+    console.error("收功/下客出错:", e);
+    busy = false;
     saveGame(st);
-    await doReview();   // 每日苏唐总结自动触发
-    collectGifts();     // 后台预热：备好明日熟客送礼（不阻塞打烊）
-  } else {
-    saveGame(st);
-    await guestArrives();
+    try { renderAll(st, handlers); } catch { /* 渲染也挂了就保持现状 */ }
   }
 }
 

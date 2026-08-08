@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v46";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v46";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v46";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v46";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v46";
+} from "./data.js?v=v47";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v47";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v47";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v47";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v47";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -70,16 +70,25 @@ const charMs = (ch) => {
   return 24;
 };
 // 在 bd 里逐字渐显文本，打完全量收尾；fast=true 快速出字（系统消息用）
+// 保险丝：30s 内无论如何强制完成并 done()——打字动画异常也不让日志队列死锁
 function typeInto(bd, target, text, put, { fast = false, done = () => {} } = {}) {
   const el = bd.parentElement;
   el.classList.add("typing");
   let i = 0;
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(fuse);
+    put(text);
+    el.classList.remove("typing");
+    target.scrollTop = target.scrollHeight;
+    done();
+  };
+  const fuse = setTimeout(finish, 30000);
   const step = () => {
     if (skip || document.hidden || i >= text.length) {  // 后台标签页 setTimeout 被浏览器节流到 ~1/s，逐字打 500 字会卡死几百秒；tab 隐藏则整段瞬显、立刻 done()，绝不阻塞探秘/结算的 await
-      put(text);
-      el.classList.remove("typing");
-      target.scrollTop = target.scrollHeight;
-      done();
+      finish();
       return;
     }
     const ch = text[i];
