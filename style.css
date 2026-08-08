@@ -570,6 +570,7 @@ body {
 }
 #start .big { font-size: 40px; letter-spacing: 14px; color: var(--ink-bright); }
 #start .small { font-size: 13px; letter-spacing: 3px; color: var(--ink-dim); }
+#start .ver { margin-top: 14px; font-size: 11px; letter-spacing: 2px; color: var(--ink-dim); opacity: .65; }
 #start .btns { display: flex; gap: 30px; margin-top: 26px; }
 #start .btn { border: 1px solid var(--line); padding: 8px 30px; letter-spacing: 4px; cursor: pointer; }
 #start .btn:hover { background: rgba(201,161,155,.12); color: var(--ink-bright); }
