@@ -8,7 +8,7 @@ import {
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, GUESTS_PER_DAY,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
@@ -110,7 +110,15 @@ async function guestArrives() {
   setMood(1);
   renderAll(st, handlers); // 这才是真正露脸的时候，不带 hideGuest，左栏正常显示客人卡
   await narr(`门帘一掀，${g.name}（${g.ident}）走了进来，找个灶边位子坐下。`);
-  if (g.ryuwei) { ryuweiIntro(g); }   // 食评人余味 · 星星特效出场
+  if (g.ryuwei) {
+    ryuweiIntro(g);   // 食评人余味 · 星星特效出场
+    // 余味进场：苏唐右栏迎接「又来了！」/ 首次介绍 / 熟络 / 簪子期待
+    const er = await genRyuweiEnter(loadCfg(), {
+      ryuweiVisits: st.ryuweiVisits ?? 0,
+      tier: (st.ryuweiRating || {}).tier ?? 0,
+    });
+    if (er.ai && er.prose) await suLine(er.prose);
+  }
   else await say(`「${g.order}」`);
   sys(`第 ${st.served + 1} 位客人。右栏「灶台」开火，做好了「上菜」。`);
   note("迎客", `第${st.served + 1}位客人 ${g.name} 进门，说「${g.order}」。`);
@@ -839,6 +847,7 @@ async function doFeastServe() {
   sys(`【开席】大菜 ${mainScore} · 汤 ${soupScore} · 小吃 ${snackPts} · 酒水 ${winePts} → 总分 ${total}（四样各25%）`);
   note("开席", `余味大阵仗：${mainScore}/${soupScore}/${snackPts}/${winePts} → ${total}分${newTier ? `，晋${ryuweiTierName(st)}` : ""}。`);
   endTrace(`开席·总分${total}`);
+  st.ryuweiVisits = (st.ryuweiVisits || 0) + 1;
   st.feast = null;
   } finally { busy = false; }
   renderAll(st, handlers);

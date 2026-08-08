@@ -84,6 +84,7 @@ export function newState() {
     wineRecipes: [],         // 自酿酒单 [{name,base,qu,extra,flavor,quality,strong,kind}]（出过酒才记）
     brewing: [],             // 在酿清单 [{recipeId, name, base, qu, extra, startedDay, dueDay, still, flavor, strong, kind}]
     ryuweiRating: { pts: 0, tier: 0 }, // 食评人余味的鱼尾评级锚点：0无尾 1一尾鱼翘楚 2两尾鱼(绝世) 3三尾鱼(传说)
+    ryuweiVisits: 0,            // 余味来过几次（开席结算时+1；首次进场 AI 介绍她）
     nextGuestPicks: [],      // 邀客点将：玩家钦点明日必到的客人 id 列表(最多 GUESTS_PER_DAY 个)，nextDay 消费后清空
     explicitPickCount: 0,    // 今日客位里有几个是玩家钦点的（供 applyRival 判断该不该抢第2个客位）
   };

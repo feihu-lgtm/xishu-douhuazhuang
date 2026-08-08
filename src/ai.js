@@ -780,6 +780,23 @@ export async function genBrew(cfg, brew) {
   return { prose: `苏唐把${brew.base}蒸透，拌进${brew.qu}，封了坛口，在坛沿画了道记号。`, ai: false };
 }
 
+// ── 余味进场：苏唐迎接「又来了！」+ 状态（首次介绍/熟络/簪子期待）──
+export async function genRyuweiEnter(cfg, ctx) {
+  if (cfgReady(cfg)) {
+    const sys = "你是西蜀豆花庄的苏唐，红衣汉服、灶边递料擦碗的师妹（这段是苏唐的笔迹，写右栏）。余味是峨眉破戒的女侠食评人——任性少女、口味刁钻、年轻一流高手，没架子，但给银簪很谨慎。她进店，你迎上去。以苏唐第一人称写迎接的话和心理：先来一句「又来了！」式的熟络话，高兴里带点紧张。对话用「」，心理用 *...*。分 2-3 段。";
+    const user = `【来客】余味（峨眉·品馔录人）进店。\n${ctx.ryuweiVisits === 0
+      ? "这是她第一次来——借苏唐或旁白之口介绍她的来头：峨眉破戒的女侠，吃酒吃肉破了戒，但仍是峨眉系的一流高手；任性、口味刁钻，别叫她前辈。"
+      : `她已经来过 ${ctx.ryuweiVisits} 次，跟店里熟络了——苏唐迎接带着高兴，又有点紧张（怕这次菜不够格）。`}\n${ctx.tier > 0
+      ? `店里挂着余味送的 ${ctx.tier} 支银簪（一支=一星）——苏唐和师兄都带着这份骄傲，也紧张这次够不够再添一支。`
+      : "店里还没拿到银簪——苏唐和师兄都盼着这次能不能让余味点头。两人心里都在期待：这次给不给簪？"}\n写余味进门、苏唐迎上（先来一句「又来了！」式的熟络话），把两人对簪子的期待自然带出来。`;
+    try {
+      const raw = await callAI(cfg, sys, user, "余味进场");
+      return { prose: (raw || "").trim(), ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { prose: "", ai: false };
+}
+
 // ── 余味开席：四样大阵仗的品评叙事（分数系统判定，AI 只写戏）────
 export async function genFeastReview(cfg, ctx) {
   if (cfgReady(cfg)) {
