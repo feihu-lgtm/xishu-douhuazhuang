@@ -851,3 +851,11 @@ body {
      否则桌面规则 margin-bottom:30px（更高优先级）会把输入行压到 tabs 栏下面 */
   #term.eb-space #inputline { margin-bottom: calc(78px + env(safe-area-inset-bottom)); }
 }
+
+/* 移动端：邀客面板抬到底部功能栏+回响条之上，别被盖住 */
+@media (max-width: 900px) {
+  #invite-panel {
+    right: 8px; bottom: calc(86px + env(safe-area-inset-bottom));
+    width: 44vw; max-width: 250px;
+  }
+}
