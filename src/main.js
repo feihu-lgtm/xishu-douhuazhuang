@@ -5,7 +5,7 @@ import {
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, GUESTS_PER_DAY,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, wishMatchScore, GUESTS_PER_DAY,
 } from "./state.js";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts,
@@ -347,7 +347,10 @@ async function doServe() {
   const dish = st.dish;
   const flavorMatch = dish.flavorId === g.flavor;
   const favMatch = !!(g.fav && dish.materials.includes(g.fav));
-  let score = scoreDish(dish, g);
+  const gWish = (st.guestWishes || {})[g.id]; // 客人聊出来想吃啥（说了什么就是什么）
+  let score = scoreDish(dish, g, gWish);
+  const wishBonus = gWish ? wishMatchScore(gWish, dish) : 0;
+  if (wishBonus > 0) sys(`${g.name}说过想吃「${gWish}」，这菜对味，心愿+${wishBonus}分。`);
   // 配set 彩蛋：搭一份苏唐备的小吃；小吃有独立评分（品质+味型），主菜加分仍在
   let setName = null, snackMatch = false, snackScore = null;
   if (st.pendingSet && (st.snacks || {})[st.pendingSet] > 0) {
@@ -980,6 +983,15 @@ async function onCommand(text) {
   startTrace("闲聊");
   const h = logStream("narr");
   const r = await genChat(loadCfg(), t, c => h.append(c), chatContext(st));
+  // 客人心愿：AI 在对话里判断客人说出想吃什么 → 原话入小纸条 + 存档，做菜匹配加分（说了什么就是什么）
+  const wish = (r.ai && h.text) ? extractComment(h.text).wish : (r.wish || "");
+  if (wish) {
+    const gWish = currentGuest(st);
+    st.guestWishes = st.guestWishes || {};
+    if (gWish) st.guestWishes[gWish.id] = wish;
+    note("问客", `${gWish ? gWish.name : "客人"}说：「${wish}」`);
+    sys(`记住了：${gWish ? gWish.name : "客人"}想吃「${wish}」——做菜对上了加分。`);
+  }
   // 闲聊历史入档（苏唐接话有据：后几轮能提前面说过的事）
   const replyText = (r.prose || "").replace(/\n/g, " ").trim();
   if (replyText) {

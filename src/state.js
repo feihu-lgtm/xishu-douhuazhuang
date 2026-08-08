@@ -78,6 +78,7 @@ export function newState() {
     invitedGuest: null,      // 收功后受邀留坐闲聊的女客 id（苏唐 + 女客 三人场）
     pendingGifts: null,      // 收功时后台备好的明日熟客送礼 {givers:[{name,gift}], text}
     guestMemories: {},       // 隔离记忆：{guestId:[{day,mainBy,dish,mainScore,snackName,snackScore}]} 每个客人只记得自己经历的事
+    guestWishes: {},         // 问客心愿：{guestId: "客人原话"} 说了什么就是什么，做菜匹配加分
     ryuweiRating: { pts: 0, tier: 0 }, // 食评人余味的鱼尾评级锚点：0无尾 1一尾鱼翘楚 2两尾鱼(绝世) 3三尾鱼(传说)
     nextGuestPicks: [],      // 邀客点将：玩家钦点明日必到的客人 id 列表(最多 GUESTS_PER_DAY 个)，nextDay 消费后清空
     explicitPickCount: 0,    // 今日客位里有几个是玩家钦点的（供 applyRival 判断该不该抢第2个客位）
@@ -162,12 +163,38 @@ export function judgeStove(st, slots, techId, cookwareId, flavorId) {
 
 // ── 客人满意度裁决（AI 只写文字，数值系统说了算）──────────────────────
 // 客人看「基础分 + 自己口味」
-export function scoreDish(dish, guest) {
+export function scoreDish(dish, guest, wish) {
   let s = dish.baseScore ?? 40;
   if (dish.flavorId === guest.flavor) s += 10;
   if (dish.technique === guest.tech) s += 4;
   if (guest.fav && dish.materials.includes(guest.fav)) s += 6;
+  if (wish) s += wishMatchScore(wish, dish); // 问客心愿：说了什么就是什么，做菜对上了就加
   return Math.max(0, Math.min(100, s));
+}
+
+// ── 问客心愿匹配：客人聊出来的「想吃什么」原话 → 菜对上了加分 ────────
+// 味型 +5 / 技法 +3 / 点名食材 +4，封顶 +10；不命中不加
+const WISH_FLAVOR = [
+  ["suanla", ["酸", "开胃"]],
+  ["tian", ["甜", "蜜"]],
+  ["mala", ["辣", "麻"]],
+  ["qingdan", ["清淡", "素", "清爽"]],
+  ["xianxiang", ["咸", "鲜"]],
+];
+const WISH_TECH = ["炖", "炒", "烤", "蒸", "炸", "腌"];
+export function wishMatchScore(wish, dish) {
+  if (!wish || !dish) return 0;
+  let pts = 0;
+  for (const [fid, words] of WISH_FLAVOR) {
+    if (words.some(w => wish.includes(w)) && dish.flavorId === fid) { pts += 5; break; }
+  }
+  for (const t of WISH_TECH) {
+    if (wish.includes(t) && dish.technique === t) { pts += 3; break; }
+  }
+  for (const m of dish.materials || []) {
+    if (wish.includes(m)) { pts += 4; break; }
+  }
+  return Math.min(10, pts);
 }
 
 // ── 武学七艺 · 做菜即练功 ─────────────────────────────────────────────

@@ -267,8 +267,16 @@ export function moodIndex(word) {
 // 标记可在行首、也可跟在正文同行（AI 常写「……苏唐批：xxx」）；苏唐批可跨行直到
 // 下一个标记或结尾，心情/菜单/纸条取单行；其余文字归 main
 export function extractComment(t) {
-  const s = (t || "");
-  const out = { comment: "", mood: "", menu: "", note: "" };
+  let s = (t || "");
+  const out = { comment: "", mood: "", menu: "", note: "", wish: "" };
+  // 心愿行（AI 在行首写「心愿：」）：纯字符串剥离，不用正则；心愿由 AI 判断提取
+  const lines = s.split("\n");
+  const wi = lines.findIndex(l => l.trim().startsWith("心愿：") || l.trim().startsWith("心愿:"));
+  if (wi >= 0) {
+    out.wish = lines[wi].trim().slice(3).trim();
+    lines.splice(wi, 1);
+    s = lines.join("\n");
+  }
   const LABEL = /(?:^|[，。！？…\s])[ \t]*(苏唐批|心情|菜单|纸条)[：:][ \t]*/;
   const CM = new RegExp(LABEL.source + "([\\s\\S]*?)(?=" + "(?:^|[，。！？…\\s])[ \\t]*(?:苏唐批|心情|菜单|纸条)[：:]|$)", "g");
   const ONE = /(?:^|[，。！？…\s])[ \t]*(心情|菜单|纸条)[：:][ \t]*([^\n]+)/g;
@@ -279,7 +287,7 @@ export function extractComment(t) {
     else if (m[1] === "菜单") out.menu = m[2].trim();
     else if (m[1] === "纸条") out.note = m[2].trim();
   }
-  return { main: s.replace(CM, "").replace(ONE, "").trim(), comment: out.comment, mood: out.mood, menu: out.menu, note: out.note };
+  return { main: s.replace(CM, "").replace(ONE, "").trim(), comment: out.comment, mood: out.mood, menu: out.menu, note: out.note, wish: out.wish };
 }
 
 // ── 第一轮·武学裁决：看食材/技法/意图，判练到哪几门功、配合几分 ─────────
@@ -761,7 +769,7 @@ let chatIdx = 0;
 
 export async function genChat(cfg, text, onChunk, context) {
   if (cfgReady(cfg)) {
-    const sys = STYLE + `\n师兄在日记里写了句话，你以日记的笔法接下去，分 2-4 段，用上对话「」与心理 *...*。正文总字数约 ${cfg.chatWords || 160} 字（±${cfg.tolPct ?? 15}%）。【上下文】里是店里实况（今日来客、近况、最近对话、银簪名声）——苏唐的回应要接住这些：提到的人与事要跟上下文对得上（来过的客人、做过的菜、师兄的招牌名声都是谈资），别凭空造人造事，也别生硬报清单，自然勾连即可。末尾照例附「苏唐批：」一句和「心情：」一个词（八个里选）；再一行「表情：」——若这回应答里有暧昧/亲密/逗弄氛围，从 脸红出汗/微微翻白眼/憋气/吐舌/wink/嘟嘴/鼓气/娇羞比耶 里选一个最贴的，否则写「平常」；再一行「好感：+N」，N 取 0-3，按这回应答的甜度/用心/文本质量来定，被逗乐、暖心、撩到位就给高；${getNsfw() ? `再一行「亲密：」——若涉及亲热/做爱情节，判断有没有做到位，写「无」「未尽兴」或「到位」。` : ""}`;
+    const sys = STYLE + `\n师兄在日记里写了句话，你以日记的笔法接下去，分 2-4 段，用上对话「」与心理 *...*。正文总字数约 ${cfg.chatWords || 160} 字（±${cfg.tolPct ?? 15}%）。【上下文】里是店里实况（今日来客、近况、最近对话、银簪名声）——苏唐的回应要接住这些：提到的人与事要跟上下文对得上（来过的客人、做过的菜、师兄的招牌名声都是谈资），别凭空造人造事，也别生硬报清单，自然勾连即可。若对话里在场的客人说出了想吃什么（口味/食材/做法），末尾再单独一行「心愿：」+ 客人原话（一字不改，他说了什么就写什么）；客人没提就不写这行。末尾照例附「苏唐批：」一句和「心情：」一个词（八个里选）；再一行「表情：」——若这回应答里有暧昧/亲密/逗弄氛围，从 脸红出汗/微微翻白眼/憋气/吐舌/wink/嘟嘴/鼓气/娇羞比耶 里选一个最贴的，否则写「平常」；再一行「好感：+N」，N 取 0-3，按这回应答的甜度/用心/文本质量来定，被逗乐、暖心、撩到位就给高；${getNsfw() ? `再一行「亲密：」——若涉及亲热/做爱情节，判断有没有做到位，写「无」「未尽兴」或「到位」。` : ""}`;
     const user = (context ? `【上下文】\n${context}\n` : "") + `【师兄写道】${text}`;
     const t0 = Date.now();
     try {
@@ -770,13 +778,13 @@ export async function genChat(cfg, text, onChunk, context) {
         : await callAI(cfg, sys, user, "闲聊");
       const ms = Date.now() - t0;
       if (raw && raw.trim()) {
-        const { main, comment, mood } = extractComment(raw.trim());
+        const { main, comment, mood, wish } = extractComment(raw.trim());
         if (main) {
           const affM = (raw || "").match(/好感[：:]\s*\+?\s*(\d)/);
           const aff = affM ? Math.max(0, Math.min(3, parseInt(affM[1], 10))) : 0;
           const intM = (raw || "").match(/亲密[：:]\s*([^\n]+)/);
           const intimacy = intM ? intM[1].trim() : "";
-          return { prose: main, comment, mood: moodIndex(mood), ms, ai: true, aff, intimacy };
+          return { prose: main, comment, mood: moodIndex(mood), wish, ms, ai: true, aff, intimacy };
         }
       }
     } catch { /* 降级 */ }
