@@ -204,7 +204,10 @@ export function renderStatus(st) {
   const rb = document.querySelector("#ryuwei-badge");
   if (rb) {
     const t = (st.ryuweiRating || {}).tier ?? 0;
-    rb.innerHTML = `<img src="./assets/ryuwei_fishtail.png" alt="鱼尾银簪"> <span>${ryuweiTierName(st)}${t > 0 ? ` · 银簪×${t}` : ""}</span>`;
+    // 没拿到银簪之前（tier 0）不显示鱼尾银簪，只有称号
+    rb.innerHTML = t > 0
+      ? `<img src="./assets/ryuwei_fishtail.png" alt="鱼尾银簪"> <span>${ryuweiTierName(st)} · 银簪×${t}</span>`
+      : `<span>${ryuweiTierName(st)}</span>`;
     rb.className = "ryuwei-badge t" + t;
   }
 }
