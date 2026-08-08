@@ -3,10 +3,10 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
-} from "./data.js?v=v10";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v10";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v10";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v10";
+} from "./data.js?v=v11";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v11";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v11";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v11";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -889,10 +889,22 @@ export function openSet(st, { onSet, feast = false }) {
 }
 
 // ── 世界回响 · 播放（主栏金色卷轴条目，等待时轮播）─────────────
+const ECHO_BAR_KEY = "xiaochu-echo-bar";
+export function echoBarOn() { return localStorage.getItem(ECHO_BAR_KEY) !== "0"; }
+export function setEchoBar(v) { localStorage.setItem(ECHO_BAR_KEY, v ? "1" : "0"); }
+
 export function showEcho(echo) {
-  const bd = mkEntry($("#log"), "echo");
-  bd.innerHTML = `<span class="echo-tag">【${escapeHtml(echo.form || "传闻")}】</span>${escapeHtml(echo.prose || "")}`;
-  $("#log").scrollTop = $("#log").scrollHeight;
+  // 世界回响 → 底部滚动条（一条一条滚）；不再写左栏 log
+  const bar = $("#echo-bar");
+  if (!bar) return;
+  if (!echoBarOn()) return; // 设置里关了就静默
+  bar.classList.remove("hidden-bar");
+  const txt = bar.querySelector(".echo-bar-text");
+  txt.innerHTML = `<i>【${escapeHtml(echo.form || "传闻")}】</i><span class="eb-body">${escapeHtml(echo.prose || "")}</span>`;
+  const body = txt.querySelector(".eb-body");
+  body.style.animation = "none";
+  void body.offsetWidth; // 重触发跑马灯
+  body.style.animation = "";
 }
 
 // ── 上菜面板（多选）：菜库 + 小吃 + 酒，合计 ≤3 菜 + 1 酒 ──────
@@ -1121,6 +1133,7 @@ export function openSettings() {
     <div class="set-row"><label>苏唐对话字数</label><input id="set-suwords" type="number" min="50" step="10" value="${cfg.suWords ?? 300}"></div>
     <div class="set-row"><label>小吃剧情字数</label><input id="set-snackwords" type="number" min="50" step="10" value="${cfg.snackWords ?? 300}"></div>
     <div class="set-row"><label>浮动 %</label><input id="set-tol" type="number" min="0" max="60" step="5" value="${cfg.tolPct ?? 15}"></div>
+    <div class="set-row"><label>回响滚动条</label><input id="set-echo" type="checkbox" ${echoBarOn() ? "checked" : ""}><span class="set-hint">底部一条一条滚说书人的市井回响；可收起，这里随时开回</span></div>
     <div class="set-row" style="border-top:1px dashed #d8c3bd;margin-top:10px;padding-top:10px"><label>留声机</label><select id="set-bgm"><option value="-1" ${bst.on ? "" : "selected"}>停</option>${bgmOptions()}</select><span class="ck-btn plain" data-bgm-toggle>${bst.on ? "暂停" : "播放"}</span><span class="ck-btn plain" data-bgm-next>下首</span></div>
     <div class="set-row"><label>音量</label><input id="set-vol" type="range" min="0" max="100" step="1" value="${Math.round(bst.vol * 100)}"></div>
     <div class="set-row"><label>循环播放</label><input id="set-loop" type="checkbox" ${bst.loop ? "checked" : ""}><span class="set-hint">单曲循环，听完自己接着放</span></div>
@@ -1165,6 +1178,7 @@ export function openSettings() {
   };
   q("[data-save]").onclick = () => {
     setNsfw(q("#set-nsfw")?.checked ?? getNsfw()); // ■ 方块模式（从顶部移到设置）
+    setEchoBar(q("#set-echo")?.checked ?? true);   // 回响滚动条开关（即时生效，关则收起 bar）
     const mt = parseInt(q("#set-max").value, 10);
     const dw = parseInt(q("#set-dish").value, 10);
     const cw = parseInt(q("#set-chat").value, 10);

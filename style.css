@@ -674,3 +674,37 @@ body {
 
 .typing::after { content: "▌"; color: var(--ink-dim); animation: blink 0.8s infinite; }
 @keyframes blink { 50% { opacity: 0; } }
+
+/* ── 世界回响滚动条：底部一条，一条一条滚，可收起 ── */
+.echo-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; height: 30px;
+  background: rgba(24, 18, 14, 0.92); backdrop-filter: blur(4px);
+  border-top: 1px solid rgba(212, 175, 55, 0.35);
+  display: flex; align-items: center; overflow: hidden;
+  z-index: 60; font-family: var(--serif);
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.35);
+}
+.echo-bar.hidden-bar { display: none; }
+.echo-bar-text {
+  flex: 1; white-space: nowrap; overflow: hidden;
+  padding: 0 14px; min-width: 0;
+}
+.echo-bar-text i {
+  font-style: normal; color: var(--gold); letter-spacing: 1px; margin-right: 8px;
+}
+.echo-bar-text span.eb-body {
+  display: inline-block; white-space: nowrap;
+  color: #e8dfc8; font-size: 12.5px; letter-spacing: 0.5px;
+  animation: echoMarquee 24s linear infinite;
+  padding-left: 100%;
+}
+@keyframes echoMarquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+.echo-bar-x {
+  flex: 0 0 34px; height: 30px; line-height: 30px; text-align: center;
+  color: var(--ink-dim); cursor: pointer; font-size: 16px;
+  border-left: 1px solid rgba(212, 175, 55, 0.2); user-select: none;
+}
+.echo-bar-x:hover { color: var(--gold); background: rgba(212, 175, 55, 0.08); }
