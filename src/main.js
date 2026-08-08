@@ -1,24 +1,24 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v42";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v42";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v43";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v43";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v42";
+} from "./state.js?v=v43";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeiluChat, genDuel,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeiluChat, genDuel, genJianghuEnter,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v42";
-import { chatContext } from "./prompt.js?v=v42";
+} from "./ai.js?v=v43";
+import { chatContext } from "./prompt.js?v=v43";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, openWeiluChat, initMobileDrawers,
-} from "./ui.js?v=v42";
+} from "./ui.js?v=v43";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -118,6 +118,7 @@ async function guestArrives() {
   setMood(1);
   renderAll(st, handlers); // 这才是真正露脸的时候，不带 hideGuest，左栏正常显示客人卡
   await narr(`门帘一掀，${g.name}（${g.ident}）走了进来，找个灶边位子坐下。`);
+  const isJianghu = JIANGHU_ROSTER.some(c => c.id === g.id);
   if (g.ryuwei) {
     ryuweiIntro(g);   // 食评人余味 · 星星特效出场
     // 余味进场：苏唐右栏迎接「又来了！」/ 首次介绍 / 熟络 / 簪子期待
@@ -126,6 +127,13 @@ async function guestArrives() {
       tier: (st.ryuweiRating || {}).tier ?? 0,
     });
     if (er.ai && er.prose) await suLine(er.prose);
+  }
+  else if (isJianghu) {
+    // 江湖客进店：说书人现场编登场（贴人设），没接 AI 时模板兜底
+    const jh = await genJianghuEnter(loadCfg(), g);
+    if (jh.ai && jh.prose) await narr(jh.prose);
+    else await narr(`${g.name}在门口站定，${g.wu ? g.wu + "的架势，一眼便知不是寻常食客" : "扫了圈灶房，气度不凡"}。`);
+    await say(`「${g.order}」`);
   }
   else await say(`「${g.order}」`);
   sys(`第 ${st.served + 1} 位客人。右栏「灶台」开火，做好了「上菜」。`);

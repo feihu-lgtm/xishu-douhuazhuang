@@ -1,8 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v42";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v43";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
-import { CHECK_DIMS } from "./state.js?v=v42";
+import { CHECK_DIMS } from "./state.js?v=v43";
 
 // ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
 let nsfwOn = true;
@@ -13,7 +13,7 @@ const msgsWithMode = (system, user) =>
   nsfwOn
     ? [{ role: "system", content: system }, ...MODE_PRIMER_MESSAGES, { role: "user", content: user }]
     : [{ role: "system", content: system }, { role: "user", content: user }];
-import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v42";
+import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v43";
 export { tierOfScore, tierGuide };
 
 const CFG_KEY = "xiaochu-ai-v1";
@@ -689,6 +689,25 @@ export const POSE_INDEX = { 脸红出汗: 0, 微微翻白眼: 1, 憋气: 2, 吐�
 export function extractFace(t) {
   const m = (t || "").match(/表情[：:]\s*([^\n]+)/);
   return m ? m[1].trim() : "";
+}
+
+// ── 江湖客进店登场：点将来的江湖人物进门，说书人现场编一段登场（贴人设）──
+export async function genJianghuEnter(cfg, g) {
+  if (cfgReady(cfg)) {
+    const sys = "你是《西蜀豆花庄》的说书人。一位江湖人物进门，写 80 字上下的登场白描：动作见身份（武功/气度），带「」台词一句，贴合其性格与口癖。只输出正文。";
+    const user = [
+      `人物：${g.name}（${g.ident}）`,
+      g.wu ? `武功：${g.wu}。` : "",
+      g.lore ? `身世：${g.lore}。` : "",
+      g.koupi ? `口癖：${g.koupi}。` : "",
+    ].filter(Boolean).join("\n");
+    try {
+      const raw = await callAI(cfg, sys, user, "江湖客登场", 30000, true);
+      const t = String(raw || "").trim();
+      if (t) return { prose: t, ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { prose: "", ai: false };
 }
 
 // ── 苏唐全包·主菜：苏唐看现有库存判断做什么，扣料出菜 ───────────────
