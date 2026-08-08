@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v21";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v22";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY,
-} from "./state.js?v=v21";
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, settleSideNote,
+} from "./state.js?v=v22";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v21";
-import { chatContext } from "./prompt.js?v=v21";
+} from "./ai.js?v=v22";
+import { chatContext } from "./prompt.js?v=v22";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, initMobileDrawers,
-} from "./ui.js?v=v21";
+} from "./ui.js?v=v22";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -828,6 +828,63 @@ function note(act, text) {
   captureRoundLog(); // 这一轮的左右栏新增内容存进 st.recentLog，供读档回显
 }
 
+// ── 地点互动流水线（说话改变量）：玩家话 → AI 叙事 + SIDE_NOTE → 系统结算 ──
+// 聊天全程进 st.convos[npcId] 线程数据库；结算结果写好感/银钱/名声/心愿/广场/事件。
+function npcDescOf(id) {
+  const g = GUESTS.find(x => x.id === id);
+  if (!g) return "";
+  const aff = st.aff[id] || 0;
+  const mem = ((st.guestMemories || {})[id] || [])[0];
+  const base = `${g.name}（${g.ident}，好感${aff}${g.ryuwei ? "，食评人余味，口癖：自称「奴家」、称呼旁人「这位小哥」" : ""}）`;
+  return mem ? `${base}，记得「${fmtGuestMemory(mem)}」` : base;
+}
+// SIDE_NOTE 里 aff 的键是 NPC 名字（AI 不知道内部 id）——按名字映射成真实 id
+function mapNoteAff(note) {
+  if (!note || typeof note !== "object" || !note.aff) return note;
+  const mapped = {};
+  for (const [k, v] of Object.entries(note.aff)) {
+    const g = GUESTS.find(x => x.name === k || x.name.includes(k) || k.includes(x.name));
+    mapped[g ? g.id : k] = v;
+  }
+  return { ...note, aff: mapped };
+}
+async function doLocChat(npcId, npcName, locName, fresh, text) {
+  if (busy) return sys("说书人正忙着呢。");
+  if (!text) return sys("说点什么——「广场 想问问今天的行情」。");
+  busy = true;
+  try {
+  startTrace("地点互动");
+  st.convos = st.convos || {};
+  const thread = (st.convos[npcId] || []).slice(-4).map(c => `${c.who === "me" ? "你" : npcName}：${c.text}`).join("\n");
+  (st.convos[npcId] = st.convos[npcId] || []).push({ who: "me", text, day: st.day, ts: nowTs() });
+  const h = logStream("narr", {});
+  const r = await genLocChat(loadCfg(), {
+    npc: npcDescOf(npcId), loc: locName, fresh, thread, input: text,
+  }, c => h.append(c));
+  const main = r.main || "";
+  const note = r.note ? settleSideNote(st, mapNoteAff(r.note), { coinRange: locName === "广场" ? [-10, 30] : [-20, 50] }) : null;
+  // 反馈结算
+  if (note) {
+    const bits = [];
+    for (const [id, v] of Object.entries(note.aff)) bits.push(`${(GUESTS.find(x => x.id === id)?.name || id)}${v > 0 ? "+" : ""}${v}`);
+    if (bits.length) sys(`（好感：${bits.join("、")}）`);
+    if (note.coins) sys(`（银钱${note.coins > 0 ? "+" : ""}${note.coins} 文）`);
+    if (note.fame) sys(`（名声${note.fame > 0 ? "+" : ""}${note.fame}）`);
+    if (note.wish) { st.guestWishes = st.guestWishes || {}; st.guestWishes[npcId] = note.wish; sys(`（${npcName}念叨想吃「${note.wish}」——记下了）`); }
+    if (note.info) { st.square = st.square || []; st.square.push({ from: npcName, form: "传闻", text: note.info, day: st.day, ts: nowTs() }); sys(`（江湖消息：${note.info}——已上广场）`); }
+    if (note.event) { st.eventQueue = st.eventQueue || []; st.eventQueue.push({ ...note.event, day: st.day }); sys(`（聊出大事：${note.event.title}——已入事件簿）`); }
+    if (note.mood) setMood(moodIndex(note.mood) ?? st.mood ?? 0);
+  }
+  if (main) (st.convos[npcId] || []).push({ who: npcName, text: main, day: st.day, ts: nowTs() });
+  if (!r.ai) sys("（说书人未接线或掉线——没搭上话。设置里填 AI 密钥。）");
+  endTrace(`地点互动·${npcName}`);
+  } finally { busy = false; renderAll(st, handlers); saveGame(st); }
+}
+function nowTs() {
+  const d = new Date(); const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 // ── 世界回响：每完成一件事单独跑一个（200字叙事 + 一行AI小纸条）──
 // 200 字存 st.echoes 播放池（不注入 prompt）；AI 纸条行挂到该轮系统小纸条之后（st.notes 条目 ai 字段）。
 // 播放：新回响夺舍（立即上），之后每 15s 随机换池子一条，播 3 条自然收尾。
@@ -1190,6 +1247,18 @@ async function onCommand(text) {
   playerLine(t);
   const cmd = t.toLowerCase();
   if (["帮助", "help", "?"].includes(cmd)) return openHelp();
+  if (cmd.startsWith("广场 ")) { const rest = t.slice(3).trim(); if (!rest) return sys("广场说点什么——「广场 今天有什么新鲜事？」"); return doLocChat("square", "广场上的人", "广场", (st.square || []).slice(-2).map(x => x.text).join("；") || "今日广场尚算平静", rest); }
+  if (cmd.startsWith("聊")) {
+    const rest = t.slice(1).trim();
+    const m = rest.match(/^([^\s，,。]+)[，,\s]*(.*)$/s);
+    if (m) {
+      const who = m[1], say = (m[2] || "").trim();
+      const g = GUESTS.find(x => x.name === who || x.name.includes(who) || who.includes(x.name));
+      if (!g) return sys(`没这号人——常客：${GUESTS.filter(x => (st.aff[x.id] || 0) > 0).map(x => x.name).slice(0, 6).join("、") || "（还没熟人）"}`);
+      if (!say) return sys(`跟${g.name}说什么——「聊${g.name} 想问问余味的事」`);
+      return doLocChat(g.id, g.name, "豆花庄", "", say);
+    }
+  }
   if (["灶台", "做菜", "开灶"].includes(cmd)) return doCook();
   if (["上菜", "端菜", "佐餐"].includes(cmd)) return doZuocan();
   if (["小吃", "零食"].includes(cmd)) return doSnackPanel();

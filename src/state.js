@@ -3,7 +3,7 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
   RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS, rivalGuestAt, BREW_RECIPES,
-} from "./data.js?v=v21";
+} from "./data.js?v=v22";
 
 export const GUESTS_PER_DAY = 3;
 const SAVE_KEY = "xiaochu-save-v1";
@@ -419,6 +419,33 @@ export function saveGame(st) {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); return true; }
   catch { return false; }
 }
+// ── SIDE_NOTE 结算器：说话改变量（学 jihaitang）────
+// AI 只写叙事，数值全在这结算：好感/银钱/名声/心愿/江湖消息/事件，全部强校验钳制。
+export function settleSideNote(st, note, ctx = {}) {
+  const out = { aff: {}, coins: 0, fame: 0, wish: null, info: null, event: null, mood: null };
+  if (!note || typeof note !== "object") return out;
+  for (const [id, d] of Object.entries(note.aff || {})) {
+    const v = Math.max(-3, Math.min(3, Math.round(Number(d) || 0))); // 好感一回合最多 ±3
+    if (v) { st.aff = st.aff || {}; st.aff[id] = Math.max(0, Math.min(100, (st.aff[id] || 0) + v)); out.aff[id] = v; }
+  }
+  const [lo, hi] = ctx.coinRange || [-30, 60];
+  const cv = Math.max(lo, Math.min(hi, Math.round(Number(note.coins) || 0)));
+  if (cv) { st.coins = Math.max(0, (st.coins || 0) + cv); out.coins = cv; }
+  const f = Math.max(-2, Math.min(2, Math.round(Number(note.fame) || 0)));
+  if (f) { st.fame = Math.max(0, (st.fame || 0) + f); out.fame = f; }
+  if (typeof note.wish === "string" && note.wish.trim() && note.wish.length <= 30) out.wish = note.wish.trim();
+  if (typeof note.info === "string" && note.info.trim() && note.info.length <= 60) out.info = note.info.trim();
+  if (note.event && typeof note.event === "object" && note.event.title) {
+    out.event = {
+      kind: String(note.event.kind || "事件").slice(0, 12),
+      title: String(note.event.title).slice(0, 24),
+      desc: String(note.event.desc || "").slice(0, 60),
+    };
+  }
+  if (typeof note.mood === "string") out.mood = note.mood.slice(0, 8);
+  return out;
+}
+
 export function loadGame() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);

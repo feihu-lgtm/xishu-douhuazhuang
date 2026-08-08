@@ -1,8 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v21";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v22";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
-import { CHECK_DIMS } from "./state.js?v=v21";
+import { CHECK_DIMS } from "./state.js?v=v22";
 
 // ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
 let nsfwOn = true;
@@ -13,7 +13,7 @@ const msgsWithMode = (system, user) =>
   nsfwOn
     ? [{ role: "system", content: system }, ...MODE_PRIMER_MESSAGES, { role: "user", content: user }]
     : [{ role: "system", content: system }, { role: "user", content: user }];
-import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE } from "./prompt.js?v=v21";
+import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE } from "./prompt.js?v=v22";
 export { tierOfScore, tierGuide };
 
 const CFG_KEY = "xiaochu-ai-v1";
@@ -805,14 +805,74 @@ export async function genBrew(cfg, brew) {
   return { prose: `苏唐把${brew.base}蒸透，拌进${brew.qu}，封了坛口，在坛沿画了道记号。`, ai: false };
 }
 
+// ── 地点互动流水线（学 jihaitang）：MAIN_TEXT 叙事流式 + SIDE_NOTE 结构化旁注 ──
+// 说话改变量的骨架：AI 只写文字（MAIN_TEXT），数值全在 SIDE_NOTE JSON 里由系统结算。
+export function extractMainText(raw) {
+  if (!raw) return "";
+  const m = String(raw).match(/<MAIN_TEXT>\s*([\s\S]*?)\s*<\/MAIN_TEXT>/);
+  if (m) return m[1].trim();
+  const s = String(raw).split("<SIDE_NOTE>")[0];
+  return s.replace(/<\/?MAIN_TEXT>/g, "").trim();
+}
+export function extractSideNote(raw) {
+  if (!raw) return null;
+  const m = String(raw).match(/<SIDE_NOTE>\s*([\s\S]*?)\s*<\/SIDE_NOTE>/);
+  if (!m) return null;
+  try {
+    const o = JSON.parse(m[1]);
+    return (o && typeof o === "object") ? o : null;
+  } catch {
+    // 容错（学 jihaitang json-repair）：从末尾往前找第一个能解析的完整对象
+    const s = m[1];
+    for (let i = s.length; i > 0; i--) {
+      if (s[i - 1] === "}") {
+        try { const o = JSON.parse(s.slice(0, i)); if (o && typeof o === "object") return o; } catch { /* continue */ }
+      }
+    }
+    return null;
+  }
+}
+export async function genLocChat(cfg, ctx, onChunk) {
+  if (cfgReady(cfg)) {
+    const sys = [
+      STYLE,
+      "你是《西蜀豆花庄》这方世界的互动说书人，写一段人物互动场景。",
+      ctx.npc ? `【对方】${ctx.npc}` : "",
+      ctx.loc ? `【地点】${ctx.loc}` : "",
+      ctx.fresh ? `【今有新鲜事】${ctx.fresh}` : "",
+      "【写法】第三人称写互动，带「」对话与 *心理*，2-3 段，收尾留余味。对方说话要贴人设（余味时刻自称「奴家」、称呼旁人「这位小哥」）。",
+      "【输出格式】先输出 <MAIN_TEXT> 包裹的叙事正文；最后单独一行 <SIDE_NOTE> 包裹的 JSON：{\"aff\":{\"<对方名字>\":±1到3},\"coins\":±整数,\"fame\":±1到2,\"wish\":\"对方真说出口想吃的或null\",\"info\":\"可传遍街巷的江湖消息或null\",\"event\":{\"kind\":\"种类\",\"title\":\"事件名\",\"desc\":\"一句话\"}或null,\"mood\":\"八个心情词之一\"}。aff 的键必须用对方名字（如 余味），不是代号；数值克制：好感一回合最多±3；银钱别凭空暴富；wish 必须对方亲口说；info 要像街巷传言；event 只在聊出大事时给。",
+    ].filter(Boolean).join("\n");
+    const user = [
+      ctx.thread ? `【此前对话】\n${ctx.thread}` : "",
+      `【玩家说】${ctx.input}`,
+    ].filter(Boolean).join("\n");
+    try {
+      let raw = "";
+      let sideStarted = false;
+      const h = (chunk) => {
+        raw += chunk;
+        if (sideStarted || !onChunk) return;
+        const v = chunk.replace(/<MAIN_TEXT>/g, "").replace(/<\/MAIN_TEXT>/g, "");
+        const idx = v.indexOf("<SIDE_NOTE>");
+        if (idx >= 0) { sideStarted = true; onChunk(v.slice(0, idx)); return; }
+        onChunk(v);
+      };
+      raw = await callAIStream(cfg, sys, user, h, "地点互动");
+      const main = extractMainText(raw);
+      return { main, note: extractSideNote(raw), raw, ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { main: "", note: null, raw: "", ai: false };
+}
+
 // ── 世界回响：每件事后的市井反应（话本/邸报/传闻/戏/说书/壁画）──
 // 200 字左右，写这对侠侣（师兄+苏唐）的快意恩仇做菜故事，世界因他们而变；
 // 结尾一行「纸条：」客观小结（进小纸条，夺舍现有小纸条流）
 export async function genEcho(cfg, ctx) {
   const FORMS = ["话本", "邸报", "市井传闻", "戏文", "说书", "后世壁画"];
   const form = FORMS[Math.floor(Math.random() * FORMS.length)];
-  if (cfgReady(cfg)) {
-    const sys = `你是《西蜀豆花庄》这方世界的回响笔官。用「${form}」文体写这段事件的市井反应，正文 200 字左右（±10%）：
+  if (cfgReady(cfg)) {    const sys = `你是《西蜀豆花庄》这方世界的回响笔官。用「${form}」文体写这段事件的市井反应，正文 200 字左右（±10%）：
 文体特征——话本：「且说…」章回体，有「正是：」收尾；邸报：官府公报口吻（「西蜀豆花庄讯」），字句板正；市井传闻：街头巷尾的闲话，带人名的嚼舌根；戏文：【生】【旦】【丑】唱念做打，一句唱词一句念白；说书：醒木一拍，市井书场腔；后世壁画：百年后考据者对着壁画残片推测的记载。
 写这对侠侣（师兄+苏唐）的快意恩仇做菜小故事，体现这方世界因为他们的变化；可带 NPC 客人的心理。写得有意思，别平铺直叙。这是公开流传的市井文字，只写烟火气与名声，不写私密暧昧。
 结尾单独一行「纸条：」+ 一行客观小纸条（≤30字，供存档回看）。`;
