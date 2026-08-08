@@ -1092,8 +1092,9 @@ async function doNext() {
   // 酿造结算：到期的坛子出酒（苏唐的活计，跨周长期机制）
   const brews = settleBrewing(st);
   for (const b of brews) {
+    const gain = 9 + Math.floor(b.quality / 10);
     await suLine(`酒坛子开了——「${b.name}」${b.extraWeeks ? `（比预定多陈了 ${b.extraWeeks} 周）` : ""}出酒 5 杯，品质 ${b.quality}。`);
-    if (st.suSkills["酿酒"] <= 100) sys(`苏唐酿酒手艺见长：酿酒技能 +2（今 ${st.suSkills["酿酒"]}）。`);
+    if (st.suSkills["酿酒"] <= 100) sys(`苏唐酿酒手艺见长：酿酒技能 +${gain}（今 ${st.suSkills["酿酒"]}）。`);
     note("出酒", `「${b.name}」出坛${b.extraWeeks ? `（多陈${b.extraWeeks}周）` : ""}，品质${b.quality}，5杯。`);
   }
   applyRival(st);              // 第二客可能换成踢馆同行

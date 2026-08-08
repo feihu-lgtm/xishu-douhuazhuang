@@ -356,7 +356,8 @@ export function settleBrewing(st) {
     if (rec) rec.quality = Math.max(rec.quality, q);
     else st.wineRecipes.push({ name: b.name, base: b.base, qu: b.qu, extra: b.extra, flavor: b.flavor, quality: q, strong: !!b.strong, kind: b.kind, needsStill: !!b.needsStill });
     st.suSkills = st.suSkills || {};
-    st.suSkills["酿酒"] = Math.min(100, (st.suSkills["酿酒"] || 5) + 2); // 每次酿造锻炼
+    // 每次出酒 +9，再加品质加成（品质每 10 分 +1）：好酒练手快
+    st.suSkills["酿酒"] = Math.min(100, (st.suSkills["酿酒"] || 5) + 9 + Math.floor(q / 10));
     b.quality = q; b.extraWeeks = extraWeeks;
   }
   return done;
