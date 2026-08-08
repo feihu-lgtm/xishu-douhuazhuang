@@ -1,5 +1,5 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel } from "./data.js";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
@@ -514,6 +514,14 @@ function guestListOf(node) {
     return { name: guest.name, ident: guest.ident, aff, mem: m ? fmtGuestMemory(m) : "" };
   }).filter(Boolean);
 }
+// 英雄救美/美救英雄同行目标：据点常客里的女子优先，没有就全局女性npc兜底——任何npc都行，好感0（陌生人）也能撞上
+function pickRescueTarget(node) {
+  const isFemale = (g) => g && (g.gender === "女" || FEMALE_GUEST_IDS.has(g.id));
+  const local = (node.guests || []).map(id => GUESTS.find(g => g.id === id)).filter(isFemale);
+  const pool = local.length ? local : [...GUESTS, ...(st.customGuests || [])].filter(isFemale);
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 function openExpeditionMap() {
   if (!(st.phase === "closing" || st.served >= 3)) return sys("送完三位客人才好出门探秘。");
   if (busy) return sys("正忙着呢。");
@@ -544,11 +552,14 @@ async function doExpedition(node, intent) {
     scenario = (pool.length ? pool : catPool)[Math.floor(Math.random() * (pool.length ? pool.length : catPool.length))];
   }
   st.lastScenByNode[node.id] = scenario;
+  // 英雄救美/美救英雄：命中这5条情境之一，当场点一位同行女子（任何npc，好感0也算数）
+  const rescueTarget = RESCUE_SCENARIOS.has(scenario) ? pickRescueTarget(node) : null;
   sys(`【探秘·${node.name}】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……${intent ? `（师兄交代：${intent}）` : ""}`);
   // ① 一次调用：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special；玩家钦定主线夺舍；勾连据点常客与隔离记忆；弱关联时至少带一句当下节气
   const r = await genExpedition(loadCfg(), {
     skillAvg, suAvg, scenario, context: ctxLine(st), category: node.category, nodeName: node.name, intent, guestList: guestListOf(node),
     calendarStrong: cal.strong ? cal.text : null, calendarMention: cal.strong ? null : cal.text,
+    rescueTarget: rescueTarget ? { name: rescueTarget.name, ident: rescueTarget.ident, aff: st.aff[rescueTarget.id] || 0 } : null,
   });
   await narr(r.narrative);
   if (r.comment) await commentLine(r.comment);
@@ -571,8 +582,11 @@ async function doExpedition(node, intent) {
     check = checkDim(st, outcome.dim);
     const rank = CHECK_DIMS.includes(outcome.dim) ? rankLabel((st.checks[outcome.dim] || {}).succ || 0, !!((st.checks[outcome.dim] || {}).achieve)) : "";
     stepTrace("鉴定", check.ok ? "pass" : "fail", `「${opt.text}」·${outcome.dim}·≈${check.p}%${rank ? "·" + rank : ""}${check.achieve ? "·★成就" : ""}`);
-    // 结算走 AI：500 字收尾叙事，回扣背景
-    const stt = await genSettlement(loadCfg(), { background, prompt: ch.prompt, choice: opt.text, dim: outcome.dim, ok: check.ok, special: specialNames });
+    // 结算走 AI：500 字收尾叙事，回扣背景；命中救场情境则按成败分英雄救美/美救英雄两个方向写
+    const stt = await genSettlement(loadCfg(), {
+      background, prompt: ch.prompt, choice: opt.text, dim: outcome.dim, ok: check.ok, special: specialNames,
+      rescueName: rescueTarget ? rescueTarget.name : null,
+    });
     if (stt.text) await narr(stt.text);
     else await sys(check.ok ? `【检定】「${opt.text}」这一手成了（≈${check.p}%）${CHECK_DIMS.includes(outcome.dim) ? `，愈发老练（${rank}）` : ""}。` : `【检定】「${opt.text}」这一手没成（≈${check.p}%），白折腾半日。`);
     if (check.ok) {
@@ -581,6 +595,14 @@ async function doExpedition(node, intent) {
     } else {
       special = special.map(s => ({ ...s, stars: Math.min(1, s.stars) }));     // 失手：只落普通料，白拿带星说不过去
       note("探秘", `${node.name}·${scenario}·「${opt.text}」${outcome.dim}检定落空，收成潦草。`);
+    }
+    // 英雄救美（成）/美救英雄（不成）：不管哪个方向都是加分的相处，好感不倒扣，只是成了多涨一点
+    if (rescueTarget) {
+      st.aff = st.aff || {};
+      const gain = check.ok ? 4 : 2;
+      const before = st.aff[rescueTarget.id] || 0;
+      st.aff[rescueTarget.id] = Math.min(100, before + gain);
+      sys(`${check.ok ? "英雄救美" : "美救英雄"}——「好感」${rescueTarget.name} +${gain}（今 ${st.aff[rescueTarget.id]} · ${affName(st.aff[rescueTarget.id])}）`);
     }
   } else {
     stepTrace("鉴定", "skip", "收手不掺和");
@@ -847,6 +869,11 @@ async function showPendingGifts() {
 
 async function doNext() {
   if (!(st.phase === "closing" || st.served >= 3)) { sys("还有客人没送完呢。"); return; }
+  // 之前没有重入锁：手快连点两下「下一日」，第二次调用会把第一次还没等到点击的送礼弹层顶掉，
+  // 顶掉的那个 Promise 永远等不到 res()，第一次调用卡在 await 上再也不往下走——补上跟别处一致的 busy 锁。
+  if (busy) return sys("正忙着呢，别连点。");
+  busy = true;
+  try {
   await doReview();            // 收工总评在翻篇时做
   nextDay(st);
   applyRival(st);              // 第二客可能换成踢馆同行
@@ -862,6 +889,7 @@ async function doNext() {
   if (Math.random() < 0.3) await maybeNewGuest(); // 三成机会，溪边又来了新面孔
   await guestArrives();
   saveGame(st); // 门帘一掀之后这段（含 recentLog 这一轮）再落一次盘，不等玩家下一步动作才存
+  } finally { busy = false; }
 }
 
 // ── 招新客：AI 生成一位新顾客入册（日后可能被抽到）──────────────────

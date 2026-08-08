@@ -530,6 +530,9 @@ export async function genExpedition(cfg, ctx) {
         ? `【时节】${ctx.calendarMention}。可在细节里带一两笔应景描写（天气、吃食、村人闲谈），不必展开，不可喧宾夺主，主体仍按今次情境走。`
         : "",
       `今次的情境是：${ctx.scenario}。情境只是背景底色，玩家钦定主线存在时以玩家主线为准。`,
+      ctx.rescueTarget
+        ? `【同行】${ctx.rescueTarget.name}（${ctx.rescueTarget.ident}，与师兄好感${ctx.rescueTarget.aff}${ctx.rescueTarget.aff <= 5 ? "，几乎是陌生人，别写成老相识那样熟络" : ""}）这趟一起在场。关卡的题干与选项要围绕她可能身陷的风险来设计——是"师兄这一手要护住她"还是"她自己反手救场"，成败留在结算那步再定，题干只写悬念，别提前剧透谁救谁。`
+        : "",
       ctx.guestList && ctx.guestList.length
         ? `【此地常客】${ctx.guestList.map(g => `${g.name}（好感${g.aff}${g.mem ? `，记得「${g.mem}」` : "，还不熟"}）`).join("；")}。好感≥40 的常客愿意搭把手（带路/递料/保料），好感≥60 的肯把压箱底的好料让给你；剧情里自然地勾连他们，别生硬。`
         : "",
@@ -625,6 +628,11 @@ export async function genSettlement(cfg, ctx) {
       `师兄选了「${ctx.choice}」，以${ctx.dim}化解。`,
       `结果：${ctx.ok ? "成了" : "没成"}。`,
       ctx.special ? `此行收成：${ctx.special}。` : "",
+      ctx.rescueName
+        ? (ctx.ok
+            ? `这一手是护住了同行的${ctx.rescueName}——写出英雄救美的高光，但别落公主抱那种俗套，给点新意与分寸感。`
+            : `这一手没成，反倒是${ctx.rescueName}眼疾手快救场/扶住了师兄——美救英雄，她的干练果决要写出来，师兄可以嘴上讨饶或事后打趣，别写得太狼狈失了体面。`)
+        : "",
       `写约 500 字（±10%）、2-4 段的第三人称收尾叙事：交代这一手如何奏效/如何落空，务必回扣【来龙去脉】里的具体细节（雾、石、摊、人言等），自然带出收成——${ctx.ok ? "此次手到擒来，收成丰硕" : "此番失手，收成潦草"}。用「」对话与 *心理*。`,
       `只输出正文本身，不要旁白总结，不要「心情：」「苏唐批：」。`,
     ].filter(Boolean).join("\n");

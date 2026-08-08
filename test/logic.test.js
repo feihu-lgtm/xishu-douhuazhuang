@@ -10,6 +10,7 @@ import {
 import {
   RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS, rivalGuestAt, FEMALE_GUEST_IDS,
   WEEK_CALENDAR, EXPEDITION_MAP, weekCalOf, weekLabel, currentJieqiName, calendarContextFor,
+  EXP_SCEN_BY_CAT, RESCUE_SCENARIOS,
 } from "../src/data.js";
 import {
   normalizeEndpoint, parseJSONRescue, fallbackDishName,
@@ -486,6 +487,22 @@ test("calendarContextFor：撞上据点分类=强夺舍，没撞上=弱提示当
   const noneAtAll = calendarContextFor(11, "探洞地宫"); // week11 无节气无节庆，纯回溯
   assert.equal(noneAtAll.strong, false);
   assert.ok(noneAtAll.text.includes("节气"));
+});
+
+test("英雄救美/美救英雄：RESCUE_SCENARIOS 五条都真实存在于情境池，没有手误打错字", () => {
+  const all = Object.values(EXP_SCEN_BY_CAT).flat();
+  assert.equal(RESCUE_SCENARIOS.size, 5);
+  for (const s of RESCUE_SCENARIOS) assert.ok(all.includes(s), `「${s}」不在 EXP_SCEN_BY_CAT 任何一类里`);
+});
+
+test("英雄救美/美救英雄：不管撞上哪个据点，女性npc兜底池都不会是空的", () => {
+  const isFemale = (g) => g && (g.gender === "女" || FEMALE_GUEST_IDS.has(g.id));
+  const globalPool = GUESTS.filter(isFemale);
+  assert.ok(globalPool.length > 0, "全局女性兜底池不能为空，否则没有本地女客的据点会抽不到目标");
+  for (const node of EXPEDITION_MAP) {
+    const local = (node.guests || []).map(id => GUESTS.find(g => g.id === id)).filter(isFemale);
+    assert.ok(local.length > 0 || globalPool.length > 0, `${node.name} 本地无女客时，全局兜底也该有得选`);
+  }
 });
 
 test("NSFW表情按情节匹配：extractFace/POSE_INDEX", () => {
