@@ -609,13 +609,14 @@ export const HOURS = ["卯时·开门", "午时·客来", "未时·客来", "酉
 // ── 探秘地图：十个据点，一据点对一类情境，点开地图选地方去 ──────────
 // top/left 是相对底图（assets/map_bg.png）宽高的百分比坐标，不是视口。
 // 江湖大地图（古风信息台）：家/广场/瓦舍/擂台/红白堂/土司府——每周新鲜事 + 可进可聊
+// pin 位置按 map_bg_world.webp 实际建筑对齐（gemini 视觉校准：左上圆形擂台/左下红阁楼/中央集市/右中白墙宅院/右下暖黄草房/右上石塔）
 export const WORLD_LOCATIONS = [
-  { id: "home",    name: "豆花庄", icon: "🏠", top: 82, left: 14, desc: "家——账本、黄历、灶台", vibe: "灶火暖" },
-  { id: "square",  name: "广场",   icon: "🏮", top: 56, left: 30, desc: "聊天、买卖、邸报", vibe: "人声杂" },
-  { id: "washe",   name: "瓦舍",   icon: "🎭", top: 36, left: 58, desc: "说书、戏台、喝酒", vibe: "锣鼓响" },
-  { id: "leitai",  name: "擂台",   icon: "⚔", top: 70, left: 84, desc: "比武挑战", vibe: "杀气凝" },
-  { id: "hongbai", name: "红白堂", icon: "🎎", top: 22, left: 28, desc: "红事白事宴席", vibe: "人情重" },
-  { id: "tusi",    name: "土司府", icon: "🏯", top: 15, left: 82, desc: "土司宴席、差事", vibe: "府门深" },
+  { id: "home",    name: "豆花庄", icon: "🏠", top: 75, left: 68, desc: "家——账本、黄历、灶台", vibe: "灶火暖" },
+  { id: "square",  name: "广场",   icon: "🏮", top: 55, left: 45, desc: "聊天、买卖、邸报", vibe: "人声杂" },
+  { id: "washe",   name: "瓦舍",   icon: "🎭", top: 55, left: 18, desc: "说书、戏台、喝酒", vibe: "锣鼓响" },
+  { id: "leitai",  name: "擂台",   icon: "⚔", top: 39, left: 19, desc: "比武挑战", vibe: "杀气凝" },
+  { id: "hongbai", name: "红白堂", icon: "🎎", top: 52, left: 76, desc: "红事白事宴席", vibe: "人情重" },
+  { id: "tusi",    name: "土司府", icon: "🏯", top: 15, left: 80, desc: "土司宴席、差事", vibe: "府门深" },
 ];
 
 export const EXPEDITION_MAP = [  { id: "xuedong",   name: "雪山派", category: "雪山派", top: 32, left: 15, guests: ["huyanxue", "heyuxie", "qingxu"] },

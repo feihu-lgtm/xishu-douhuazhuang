@@ -1,7 +1,8 @@
 // ── Prompt 编排（学 ji-haitang：分块、标号、不冗余；数据与拼接分离）──────
 // 每个调用 = 一个 system（身份+文风+格式）+ 一个 user（【标号】分块的事实与约束）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel, GUESTS } from "./data.js?v=v30";
-import { currentGuest } from "./state.js?v=v30";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel, GUESTS } from "./data.js?v=v31";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v31";
+import { currentGuest } from "./state.js?v=v31";
 
 // 标号块：空内容则整块省略，避免冗余空段
 export const sec = (t, b) => (b ? `【${t}】\n${b}\n` : "");
@@ -54,7 +55,7 @@ export const ryuweiSec = (g, st) => {
 export function chatContext(st) {
   const stars = (st?.ryuweiRating || {}).tier ?? 0;
   const g = currentGuest(st);
-  const inv = st?.invitedGuest ? GUESTS.find(x => x.id === st.invitedGuest) || (st.customGuests || []).find(x => x.id === st.invitedGuest) : null;
+  const inv = st?.invitedGuest ? GUESTS.find(x => x.id === st.invitedGuest) || (st.customGuests || []).find(x => x.id === st.invitedGuest) || JIANGHU_ROSTER.find(x => x.id === st.invitedGuest) : null;
   const dayLogTxt = (st?.dayLog || []).slice(-3).map(d => `给${d.name}上了「${d.dish}」${d.score}分`).join("；");
   const snacks = (st?.todaySnacks || []).slice(-2).map(s => `备了「${s.name}」`).join("、");
   const notes = (st?.notes || []).slice(-4).map(n => `${n.act}·${n.text}${n.ai ? `｜${n.ai}` : ""}`).join("；");

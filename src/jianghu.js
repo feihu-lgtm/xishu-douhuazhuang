@@ -126,7 +126,7 @@ export const JIANGHU_ROSTER = [
   { id: "xuziqi", name: "徐子骐", ident: "百晓生之弟", gender: "男", spend: 40, flavor: "xianxiang", tech: "炖", fav: "狼曲冷水鱼", order: "再来一碟，我俩对饮。", wu: "说书功夫", lore: "兄唱弟随", koupi: "哥哥，该你说了" },
   { id: "jiangtianxiong", name: "江天雄", ident: "天意城主·江府老爷", gender: "男", spend: 80, flavor: "jiachang", tech: "炖", fav: "牦牛腱子肉", order: "家常便饭，越是简单越见功夫。", wu: "天意城武学·心计", lore: "江湖最大黑手，翻云覆雨", koupi: "天意，如此" },
   { id: "jiangyu", name: "江瑜", ident: "天意城·江府公子", gender: "男", spend: 40, flavor: "qingdan", tech: "蒸", fav: "雅江嫩豆腐", order: "豆腐蒸品，读书人的清淡。", wu: "家传武学·才学", lore: "表面温文，一肚子算计", koupi: "父亲教诲，不敢忘" },
-  { id: "du", name: "毒", ident: "天意城杀手·毒", gender: "男", spend: 40, flavor: "suanla", tech: "炖", fav: "见手青", order: "菌子要毒，菜要鲜。", wu: "毒功·毒掌", lore: "杀人无形", koupi: "毒，最是无声" },
+  { id: "dudu", name: "毒", ident: "天意城杀手·毒", gender: "男", spend: 40, flavor: "suanla", tech: "炖", fav: "见手青", order: "菌子要毒，菜要鲜。", wu: "毒功·毒掌", lore: "杀人无形", koupi: "毒，最是无声" },
   { id: "lang", name: "浪", ident: "天意城杀手·浪", gender: "男", spend: 40, flavor: "xianxiang", tech: "炖", fav: "狼曲冷水鱼", order: "江鱼炖汤，浪子的日子。", wu: "浪子刀", lore: "玩世不恭", koupi: "人生得意须尽欢" },
   { id: "kuang", name: "狂", ident: "天意城杀手·狂", gender: "男", spend: 40, flavor: "mala", tech: "烤", fav: "藏香猪五花", order: "大块肉大碗酒，狂人吃法！", wu: "狂刀", lore: "疯魔", koupi: "哈哈哈哈，痛快！" },
   { id: "shi", name: "侍", ident: "天意城·侍", gender: "女", spend: 30, flavor: "qingdan", tech: "蒸", fav: "雅江嫩豆腐", order: "清淡即可，伺人者不挑。", wu: "暗卫术", lore: "忠诚的影子", koupi: "（无声）" },

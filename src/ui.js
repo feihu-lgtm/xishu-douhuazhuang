@@ -3,10 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v30";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v30";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v30";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v30";
+} from "./data.js?v=v31";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v31";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v31";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v31";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v31";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -782,10 +783,12 @@ export function openWorldMap(st, { onEnter, onExplore }) {
   modal.querySelector("[data-leave]").onclick = () => closeModal(cleanup);
 }
 
-// ── 地点页：新鲜事 + 在场人 + 功能台 + 聊天（说话改变量）────
-export function openLocView(st, loc, { onChat, onAction, onBack }) {
+// ── 地点页：新鲜事 + 在场江湖客 + 功能台 + 聊天（说话改变量）────
+export function openLocView(st, loc, { onChat, onAction, onBack, onJianghu }) {
   const ls = (st.locs || {})[loc.id] || {};
   const fresh = (ls.fresh && ls.fresh.week === st.day) ? ls.fresh : null;
+  const jhHere = (st.jianghu?.batch || []).filter(b => b.locId === loc.id)
+    .map(b => JIANGHU_ROSTER.find(c => c.id === b.id)).filter(Boolean);
   const modal = openModal(`
     <div class="map-head">
       <span class="map-title">${loc.icon} ${loc.name} · ${loc.vibe || ""}</span>
@@ -800,6 +803,10 @@ export function openLocView(st, loc, { onChat, onAction, onBack }) {
           ${fresh.npc ? `<i>${fresh.npc}</i>` : ""}
         </div>` : `<div class="loc-fresh none">这周${loc.name}没什么大事——但热闹还在，进去聊聊。</div>`}
       <div class="loc-acts" data-acts></div>
+      <div class="ck-label">在场江湖客 · 点人交谈相识</div>
+      <div class="jh-here">
+        ${jhHere.map(c => `<span class="ck-chip ${st.jianghu?.known?.[c.id] ? "on" : ""}" data-jh="${c.id}">${c.name}<i>${c.ident}</i></span>`).join("") || `<span class="ck-mat zero">本周此地没有江湖客。</span>`}
+      </div>
       <div class="ck-label">搭话（说话会改变这方世界）</div>
       <div class="loc-chat">
         <input id="loc-inp" placeholder="想跟${loc.name}的人说点什么……" />
@@ -811,6 +818,10 @@ export function openLocView(st, loc, { onChat, onAction, onBack }) {
   q("[data-acts]").innerHTML = (onAction.acts || []).map(a =>
     `<span class="ck-chip ${a.on ? "on" : ""}" data-act="${a.id}">${a.label}</span>`).join("") || `<span class="ck-chip">此处将启</span>`;
   modal.querySelectorAll("[data-act]").forEach(el => el.onclick = () => onAction.run(el.dataset.act, modal));
+  modal.querySelectorAll("[data-jh]").forEach(el => el.onclick = () => {
+    const c = JIANGHU_ROSTER.find(x => x.id === el.dataset.jh);
+    if (c && onJianghu) onJianghu(c);
+  });
   q("[data-send]").onclick = () => {
     const v = q("#loc-inp").value.trim();
     if (!v) return;
@@ -819,6 +830,36 @@ export function openLocView(st, loc, { onChat, onAction, onBack }) {
   };
   q("#loc-inp").addEventListener("keydown", (e) => { if (e.key === "Enter") q("[data-send]").click(); });
   q("[data-back]").onclick = () => { closeModal(); onBack(); };
+  return modal;
+}
+
+// ── 江湖客交谈：人物卡（身世/武功/口癖）+ 聊天框，交谈后相识可邀 ──
+export function openJianghuChat(st, char, loc, { onSend, onBack }) {
+  const known = !!(st.jianghu?.known?.[char.id]);
+  const aff = st.aff[char.id] || 0;
+  const modal = openModal(`
+    <div class="map-head">
+      <span class="map-title">${char.name} · ${char.ident}</span>
+      <span class="return" data-back style="margin-left:auto">返回</span>
+    </div>
+    <div class="loc-body">
+      <div class="loc-fresh">${char.lore ? `${char.name}${char.lore}。` : ""}${char.wu ? `武功：${char.wu}。` : ""}${char.koupi ? `口癖：${char.koupi}。` : ""}</div>
+      <div class="set-note">${known ? `已相识 · 好感 ${aff} —— 收功后可在「请客坐坐·江湖」邀 TA 留坐。` : "素不相识——聊过便相识。"}</div>
+      <div class="loc-chat">
+        <input id="jh-inp" placeholder="跟${char.name}说点什么……" />
+        <span class="ck-btn plain" data-send>说</span>
+      </div>
+    </div>
+  `, () => {});
+  const q = (s) => modal.querySelector(s);
+  q("[data-send]").onclick = () => {
+    const v = q("#jh-inp").value.trim();
+    if (!v) return;
+    q("#jh-inp").value = "";
+    onSend(v);
+  };
+  q("#jh-inp").addEventListener("keydown", (e) => { if (e.key === "Enter") q("[data-send]").click(); });
+  q("[data-back]").onclick = () => { closeModal(); onBack?.(); };
   return modal;
 }
 
@@ -887,8 +928,9 @@ export function openChallengePanel(st, ch, { onPick, onSkip }) {
   document.querySelector("#sulog [data-skip]").onclick = () => { restoreSulog(); onSkip?.(); };
 }
 
-// ── 邀请面板：收功后右栏底部浮层，可最小化，邀请好感>15的女客留坐 ──
+// ── 邀请面板：收功后右栏底部浮层，可最小化，常客（好感>15女客）+ 江湖客（相识即可邀）──
 let inviteCollapsed = false;
+let inviteSize = 0; // 0小 1中 2大
 // 第二天开门：移除前一天晚上的邀请面板
 export function dismissInvite() {
   const el = document.querySelector("#invite-panel");
@@ -905,26 +947,49 @@ export function renderInvite(st, { onInvite, onCancel } = {}) {
   const invited = st.invitedGuest ? findKnownGuest(st, st.invitedGuest) : null;
   const cands = inviteCandidates(st);
   const ordered = [...cands].sort((a, b) => (b.ryuwei ? 1 : 0) - (a.ryuwei ? 1 : 0)); // 食评人余味置顶
+  const jhKnown = jianghuInviteCandidates(st).sort((a, b) => (st.aff[b.id] || 0) - (st.aff[a.id] || 0));
   el.classList.toggle("collapsed", inviteCollapsed);
   el.innerHTML = `
     <div class="invite-bar" data-toggle>🪑 请客坐坐${invited ? ` · ${invited.name}` : ""}<span class="invite-min">${inviteCollapsed ? "展开" : "收起"}</span></div>
     ${inviteCollapsed ? "" : `
-    <div class="invite-body">
-      <div class="invite-note">好感 &gt; 15 的女客可留坐闲聊——苏唐和她一起陪你说话。</div>
+    <div class="invite-tools">
+      <input id="invite-search" class="invite-search" placeholder="搜索名字 / 身份……" />
+      <span class="ck-btn plain" data-size>字号${["小", "中", "大"][inviteSize]}</span>
+    </div>
+    <div class="invite-body invite-size-${inviteSize}">
+      <div class="invite-note">常客：好感 &gt; 15 的女客可留坐；江湖客：地图上交谈相识即可邀。</div>
+      <div class="invite-sec">常 客</div>
       ${ordered.length ? ordered.map(g => {
         const a = st.aff[g.id] || 0;
         const isInv = invited && invited.id === g.id;
-        return `<div class="invite-row">
+        return `<div class="invite-row" data-q="${g.name}${g.ident}">
           <span class="invite-name">${g.ryuwei ? `<span class="ryuwei-glow">${ryuweiTag(g.name)}</span>` : g.name}<i>${g.ident}</i></span>
           <span class="invite-aff">好感 ${a}</span>
           ${isInv ? `<span class="ck-btn plain" data-cancel="${g.id}">请她回去</span>` : `<span class="ck-btn plain" data-invite="${g.id}">邀请</span>`}
         </div>`;
       }).join("") : `<div class="invite-none">还没有好感够的女客。多照顾几位姑娘的好感。</div>`}
+      <div class="invite-sec">江 湖</div>
+      ${jhKnown.length ? jhKnown.map(g => {
+        const a = st.aff[g.id] || 0;
+        const isInv = invited && invited.id === g.id;
+        return `<div class="invite-row" data-q="${g.name}${g.ident}">
+          <span class="invite-name">${g.name}<i>${g.ident}</i></span>
+          <span class="invite-aff">好感 ${a}</span>
+          ${isInv ? `<span class="ck-btn plain" data-cancel="${g.id}">请回</span>` : `<span class="ck-btn plain" data-invite="${g.id}">邀请</span>`}
+        </div>`;
+      }).join("") : `<div class="invite-none">还没相识的江湖客——江湖地图上点人交谈，相识后便在此。</div>`}
     </div>`}
   `;
   el.querySelector("[data-toggle]").onclick = () => { inviteCollapsed = !inviteCollapsed; renderInvite(st, { onInvite, onCancel }); };
   el.querySelectorAll("[data-invite]").forEach(b => b.onclick = () => onInvite?.(b.dataset.invite));
   el.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => onCancel?.());
+  el.querySelector("[data-size]").onclick = () => { inviteSize = (inviteSize + 1) % 3; renderInvite(st, { onInvite, onCancel }); };
+  el.querySelector("#invite-search").oninput = (e) => {
+    const kw = e.target.value.trim();
+    el.querySelectorAll(".invite-row").forEach(r => {
+      r.style.display = !kw || r.dataset.q.includes(kw) ? "" : "none";
+    });
+  };
 }
 
 // ── 余味 CG 播放：点左上角圆圈(#spiral)，全屏夺舍播 16:9 CG ──────────

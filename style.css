@@ -451,6 +451,18 @@ body {
 .invite-aff { color: var(--ink-dim); font-size: 11px; flex-shrink: 0; }
 .invite-row .ck-btn { padding: 4px 10px; font-size: 12px; flex-shrink: 0; }
 .invite-none { color: var(--ink-dim); font-size: 11px; line-height: 1.7; }
+.invite-tools { display: flex; gap: 6px; align-items: center; padding: 0 12px 2px; }
+.invite-search { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); padding: 4px 8px; font-size: 12px; border-radius: 3px; color: var(--ink); }
+.invite-search::placeholder { color: var(--ink-dim); }
+.invite-tools .ck-btn { padding: 4px 8px; font-size: 11px; flex-shrink: 0; }
+.invite-sec { font-weight: 700; color: var(--ink-bright); letter-spacing: 3px; padding-top: 6px; border-top: 1px dashed var(--line-soft); margin-top: 2px; }
+.invite-sec:first-of-type { border-top: none; padding-top: 0; }
+.invite-size-0 .invite-row { font-size: 12px; }
+.invite-size-1 .invite-row { font-size: 14px; }
+.invite-size-2 .invite-row { font-size: 17px; }
+.jh-here { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 22px 8px; }
+.jh-here .ck-chip { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.jh-here .ck-chip i { font-style: normal; font-size: 10px; color: var(--ink-dim); }
 
 /* 探秘关卡 · 右栏选项面板（#sulog 临时夺舍，左栏 #log 继续主叙事） */
 .exp-panel { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; min-height: 100%; }

@@ -3,7 +3,8 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
   RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS, rivalGuestAt, BREW_RECIPES,
-} from "./data.js?v=v30";
+} from "./data.js?v=v31";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v31";
 
 export const GUESTS_PER_DAY = 3;
 const SAVE_KEY = "xiaochu-save-v1";
@@ -78,6 +79,7 @@ export function newState() {
     rivalStages: RIVAL_SCHOOLS.map(() => 0), // 踢馆进度：八条线各自的档位(0-4)，互不干扰
     rivalDone: false,        // 八大菜系·八线总厨全挑完
     invitedGuest: null,      // 收功后受邀留坐闲聊的女客 id（苏唐 + 女客 三人场）
+    jianghu: { week: 0, batch: [], known: {} }, // 江湖客：每周一批现身地图，交谈相识后可邀（known: {id:{aff,day}}）
     pendingGifts: null,      // 收功时后台备好的明日熟客送礼 {givers:[{name,gift}], text}
     guestMemories: {},       // 隔离记忆：{guestId:[{day,mainBy,dish,mainScore,snackName,snackScore}]} 每个客人只记得自己经历的事
     guestWishes: {},         // 问客心愿：{guestId: "客人原话"} 说了什么就是什么，做菜匹配加分
@@ -314,7 +316,12 @@ export function findKnownGuest(st, id) {
     const [, s, l] = id.match(/^rival_(\d+)_(\d+)$/);
     return rivalGuestAt(parseInt(s, 10), parseInt(l, 10));
   }
-  return GUESTS.find(g => g.id === id) || (st.customGuests || []).find(g => g.id === id) || null;
+  return GUESTS.find(g => g.id === id) || (st.customGuests || []).find(g => g.id === id) || JIANGHU_ROSTER.find(g => g.id === id) || null;
+}
+// ── 江湖客邀请候选：相识即可邀（不分性别、不看好感门槛）──
+export function jianghuInviteCandidates(st) {
+  const known = st?.jianghu?.known || {};
+  return Object.keys(known).map(id => JIANGHU_ROSTER.find(g => g.id === id)).filter(Boolean);
 }
 // ── 邀请候选：所有认识的女性（预设女客 + 女厨/女新客等动态客人），好感>15 ──
 export function inviteCandidates(st) {
