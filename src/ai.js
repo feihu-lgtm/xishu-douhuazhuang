@@ -19,11 +19,13 @@ export { tierOfScore, tierGuide };
 const CFG_KEY = "xiaochu-ai-v1";
 
 export function loadCfg() {
+  // 默认预填 DeepSeek 官方端点与模型（key 只在设置里填，绝不下发到代码/仓库）
+  const DEFAULTS = { endpoint: "https://api.deepseek.com", apiKey: "", model: "deepseek-chat", stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, suWords: 300, snackWords: 300, tolPct: 15 };
   try {
     const raw = localStorage.getItem(CFG_KEY);
-    if (raw) return { stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, suWords: 300, snackWords: 300, tolPct: 15, ...JSON.parse(raw) };
+    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
   } catch { /* noop */ }
-  return { endpoint: "", apiKey: "", model: "", stream: true, maxTokens: 200000, dishWords: 360, chatWords: 160, suWords: 300, snackWords: 300, tolPct: 15 };
+  return DEFAULTS;
 }
 export function saveCfg(cfg) {
   try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch { /* noop */ }
@@ -71,8 +73,8 @@ function pushTrace(e) {
   }
 }
 
-// ── 限流：反代 1 分钟最多 5 次，间隔 12s ───────────────────────────────
-const RATE_MAX = 5, RATE_WINDOW = 60000, RATE_GAP = 12000;
+// ── 限流：直连 DeepSeek 官方 API 时 1 分钟最多 30 次、间隔 2.5s（防连点刷爆）──
+const RATE_MAX = 30, RATE_WINDOW = 60000, RATE_GAP = 2500;
 let callTimes = [];
 export function rateState(now = Date.now()) {
   callTimes = callTimes.filter(t => now - t < RATE_WINDOW);
