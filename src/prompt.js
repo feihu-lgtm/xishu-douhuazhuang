@@ -1,7 +1,7 @@
 // ── Prompt 编排（学 ji-haitang：分块、标号、不冗余；数据与拼接分离）──────
 // 每个调用 = 一个 system（身份+文风+格式）+ 一个 user（【标号】分块的事实与约束）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel } from "./data.js?v=v7";
-import { currentGuest } from "./state.js?v=v7";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel } from "./data.js?v=v8";
+import { currentGuest } from "./state.js?v=v8";
 
 // 标号块：空内容则整块省略，避免冗余空段
 export const sec = (t, b) => (b ? `【${t}】\n${b}\n` : "");
@@ -138,6 +138,16 @@ export function snackUser(ctx) {
 
 // ── 客人品尝 user 块 ────────────────────────────────────────────────
 export function reactionUser(ctx) {
+  // 多菜兼容：dishNames/snackNames/wineName 存在时逐样列全，缺省回落单样
+  const dishNames = ctx.dishNames?.length ? ctx.dishNames : [ctx.dishName].filter(Boolean);
+  const snackNames = ctx.snackNames?.length ? ctx.snackNames : [ctx.snackName].filter(Boolean);
+  const mainList = dishNames.map((n, i) =>
+    `「${n}」（${ctx.mainBy || "师兄"}做的）：${ctx.dishDescs?.[i] || (i === 0 ? ctx.mainDesc : "") || "（无描述）"}。这道主菜评分 ${ctx.dishScores?.[i] ?? ctx.score} 分。`
+  ).join("\n");
+  const snackList = snackNames.map((n, i) =>
+    `小吃「${n}」（苏唐做的）：苏唐手作。这道小吃评分 ${ctx.snackScores?.[i] ?? "—"} 分。`
+  ).join("\n");
+  const wineLine = ctx.wineName ? `酒「${ctx.wineName}」：${ctx.winePts ?? "—"} 分。` : "";
   return (
     sec("客人", `${ctx.guest.name}（${ctx.guest.ident}），点菜时说：「${ctx.guest.order}」`) +
     sisterSec(ctx.guest) +
@@ -145,10 +155,11 @@ export function reactionUser(ctx) {
     bodySec(ctx.guest) +
     starSec(ctx.st) +
     ryuweiSec(ctx.guest, ctx.st) +
-    sec("主菜", `「${ctx.dishName}」（${ctx.mainBy || "师兄"}做的）：${ctx.mainDesc || "（无描述）"}。这道主菜评分 ${ctx.score} 分。`) +
-    sec("佐餐", ctx.snackName ? `小吃「${ctx.snackName}」（苏唐做的）：${ctx.snackDesc || "苏唐手作。"}。这道小吃评分 ${ctx.snackScore ?? "—"} 分。` : "（这顿没有佐餐小吃）") +
+    sec("主菜", mainList || "（这顿没有主菜）") +
+    sec("佐餐", snackList || "（这顿没有佐餐小吃）") +
+    (wineLine ? sec("酒", wineLine) : "") +
     sec("裁决", `${ctx.tierDesc}（${ctx.score}分）。客人对师兄的好感为 ${ctx.aff ?? 0}（${ctx.affName || "面生"}）。`) +
-    sec("写法", `写 2-4 段出餐品尝场景：主菜是${ctx.mainBy || "师兄"}做的、小吃是苏唐做的，客人两道都尝、分别评价——主菜怎么、小吃怎么，要有客人说出口的「」对话，动作带人设，按裁决档位不越档夸、不越档骂。`) +
+    sec("写法", `写 2-5 段出餐品尝场景：主菜是${ctx.mainBy || "师兄"}做的、小吃是苏唐做的。客人逐样都尝、每样都要有评价——${dishNames.length ? `主菜${dishNames.length > 1 ? "（每道都评）" : ""}怎么` : ""}、${snackNames.length ? `每道小吃怎么、` : ""}${wineLine ? "酒怎么样" : ""}，要有客人说出口的「」对话，动作带人设，按裁决档位不越档夸、不越档骂。`) +
     sec("吃美", ctx.tier === 0 ? "客人吃美了——真心实意夸师兄手艺，夸得具体；好感越高夸得越亲。" : "") +
     sec("输出格式", `写完场景后，另起一行「纸条：」≤50字客观小结（给谁上了什么、客人反应、满意度）；最后一行单独输出「心情：」一个词（苏唐在一旁旁观的心情，八个里选）。`)
   );
