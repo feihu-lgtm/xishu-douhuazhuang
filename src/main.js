@@ -1,24 +1,24 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v43";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v43";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v44";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v44";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v43";
+} from "./state.js?v=v44";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeiluChat, genDuel, genJianghuEnter,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v43";
-import { chatContext } from "./prompt.js?v=v43";
+} from "./ai.js?v=v44";
+import { chatContext } from "./prompt.js?v=v44";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, openWeiluChat, initMobileDrawers,
-} from "./ui.js?v=v43";
+} from "./ui.js?v=v44";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -81,7 +81,7 @@ const handlers = {
 // ── 开场 ───────────────────────────────────────────────────────────────
 async function startNew() {
   st = newState();
-  const jhBatch = jianghuRoll(st); // 新档第一天就有江湖客在野
+  const jhBatch = jianghuRoll(st, false); // 新档第一天就有江湖客在野
   $("#start").style.display = "none";
   setMood(0);
   renderAll(st, handlers);
@@ -96,7 +96,7 @@ async function startNew() {
 async function continueGame() {
   st = loadGame();
   if (!st) return startNew();
-  const jhBatch = jianghuRoll(st); // 刷新页面 = 系统刷新：未相识的原地换新，相识的留在原地
+  const jhBatch = jianghuRoll(st, true); // 刷新页面 = 系统刷新：未相识的原地换新，相识的留在原地
   $("#start").style.display = "none";
   renderAll(st, handlers);
   restoreRecentLog();  // 把存档里最近5轮的左右栏内容铺回来，接着上次的往下看
@@ -780,10 +780,18 @@ async function doExpedition(node, intent) {
   st.stars = st.stars || {};
   st.starLore = st.starLore || {};
   for (const s of special) {
-    st.inv[s.name] = (st.inv[s.name] || 0) + 1;
-    st.stars[s.name] = s.stars;
-    if (s.desc) st.starLore[s.name] = s.desc;   // 记下简短描述，做菜时才不会变味
-    await narr(`【收获】「${s.name}」${"★".repeat(s.stars)} —— ${s.desc}`);
+    if (s.label === "酒") {
+      // 酒类收获：进酒库，一坛=5杯；可佐餐可入菜（米酒配甜点）
+      st.wines = st.wines || {};
+      st.wines[s.name] = (st.wines[s.name] || 0) + 5;
+      if (s.desc) st.starLore[s.name] = s.desc;
+      await narr(`【收获】「${s.name}」${"★".repeat(s.stars)} 一坛（5 杯）—— ${s.desc}`);
+    } else {
+      st.inv[s.name] = (st.inv[s.name] || 0) + 1;
+      st.stars[s.name] = s.stars;
+      if (s.desc) st.starLore[s.name] = s.desc;   // 记下简短描述，做菜时才不会变味
+      await narr(`【收获】「${s.name}」${"★".repeat(s.stars)} —— ${s.desc}`);
+    }
   }
   note("探秘", `${node.name}(${scenario})寻得 ${special.map(s => s.name).join("、")}。`);
   endTrace(`探秘·${node.name}·${scenario}·得${special.map(s => s.name).join("、")}`);
@@ -987,14 +995,15 @@ async function rollFreshEvents(st) {
   st.squareFolks = folks.map(f => ({ ...f, week: st.day }));
   if (folks.length) sys(`（广场来了 ${folks.length} 位熟人：${folks.map(f => f.name).join("、")}——去广场聊聊。）`);
   // 江湖客：每周翻篇原地随机换新（纯系统随机，不调 AI；相识的留在原地）
-  const batch = jianghuRoll(st);
+  const batch = jianghuRoll(st, false);
   if (batch.length) { const ns = jianghuNames(batch); sys(`（江湖客在野：${ns.slice(0, 6).join("、")}——地图各处可寻，交谈后便相识；刷新页面也会换新。）`); }
   saveGame(st);
 }
 // ── 江湖客批次（系统随机，无 AI）──
-// 已相识的留在原地可继续聊；未相识的原地换新（地点不动），保证与当前批次不同。
-// 触发：刷新页面（每次读档/开新档）与每周翻篇。
-function jianghuRoll(st) {
+// keepKnown=true（刷新页面）：已相识的留在原地可继续聊，未相识的原地换新；
+// keepKnown=false（每周翻篇）：整体换一批新面孔（相识的也在换之列——TA 们都在邀请面板里，不丢），
+// 抽选时未相识优先，相识的也可能随机回到地图。地点固定不动。
+function jianghuRoll(st, keepKnown) {
   const jh = st.jianghu = st.jianghu || { week: 0, batch: [], known: {} };
   jh.week = st.day;
   const cur = new Map((jh.batch || []).map(b => [b.locId, b.id]));
@@ -1002,7 +1011,7 @@ function jianghuRoll(st) {
   const batch = [];
   for (const loc of WORLD_LOCATIONS) {
     const oldId = cur.get(loc.id);
-    if (oldId && jh.known[oldId]) { batch.push({ id: oldId, locId: loc.id }); inBatch.add(oldId); continue; }
+    if (keepKnown && oldId && jh.known[oldId]) { batch.push({ id: oldId, locId: loc.id }); inBatch.add(oldId); continue; }
     const c = jianghuPickOne(st, inBatch);
     if (c) { batch.push({ id: c.id, locId: loc.id }); inBatch.add(c.id); }
   }

@@ -1,8 +1,8 @@
 // ── Prompt 编排（学 ji-haitang：分块、标号、不冗余；数据与拼接分离）──────
 // 每个调用 = 一个 system（身份+文风+格式）+ 一个 user（【标号】分块的事实与约束）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel, GUESTS } from "./data.js?v=v43";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v43";
-import { currentGuest } from "./state.js?v=v43";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel, GUESTS } from "./data.js?v=v44";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v44";
+import { currentGuest } from "./state.js?v=v44";
 
 // 标号块：空内容则整块省略，避免冗余空段
 export const sec = (t, b) => (b ? `【${t}】\n${b}\n` : "");
