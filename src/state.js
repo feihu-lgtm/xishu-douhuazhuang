@@ -3,7 +3,7 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
   RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS, rivalGuestAt, BREW_RECIPES,
-} from "./data.js?v=v27";
+} from "./data.js?v=v28";
 
 export const GUESTS_PER_DAY = 3;
 const SAVE_KEY = "xiaochu-save-v1";
@@ -49,7 +49,7 @@ export function newState() {
     totalServed: 0,
     earned: 0,
     aff: {},                 // 好感度 {guestId: 0-100}
-    skills: { 刀法: 10, 剑法: 10, 拳掌: 10, 枪法: 10, 投掷: 10, 轻功: 10, 内功: 10 },
+    skills: { 刀法: 10, 剑法: 10, 拳掌: 10, 枪法: 10, 棍法: 10, 斧法: 10, 腿法: 10, 指爪: 10, 投掷: 10, 轻功: 10, 内功: 10 },
     suSkills: { 刀法: 20, 剑法: 10, 拳掌: 15, 枪法: 10, 投掷: 15, 轻功: 15, 内功: 15, 酿酒: 5 }, // 苏唐的（酿酒 0-100，每次酿造锻炼）
     suAff: 0,                // 苏唐好感（对话/备菜就加）
     snacks: {},              // 备好的小吃 {name: 份数}
@@ -205,8 +205,8 @@ export function wishMatchScore(wish, dish) {
 }
 
 // ── 武学七艺 · 做菜即练功 ─────────────────────────────────────────────
-export const SKILLS = ["刀法", "剑法", "拳掌", "枪法", "投掷", "轻功", "内功"];
-export const EXT_SKILLS = ["刀法", "剑法", "拳掌", "枪法", "投掷", "轻功"];
+export const SKILLS = ["刀法", "剑法", "拳掌", "枪法", "棍法", "斧法", "腿法", "指爪", "投掷", "轻功", "内功"];
+export const EXT_SKILLS = ["刀法", "剑法", "拳掌", "枪法", "棍法", "斧法", "腿法", "指爪", "投掷", "轻功"];
 const TECH_BASE = { 炖: 40, 炒: 55, 烤: 55, 腌: 50, 蒸: 70 };
 
 export function applyMartialExp(st, external, internal, gain = 3) {
@@ -551,7 +551,7 @@ export function ryuweiGain(st, totalScore) {
 // 武艺取刀/剑/拳/枪最高者；胆识取七艺均值兜底；其余直接查 st.skills
 export function skillValueOf(st, dim) {
   const sk = st.skills || {};
-  if (dim === "武艺") return Math.max(sk["刀法"] || 0, sk["剑法"] || 0, sk["拳掌"] || 0, sk["枪法"] || 0);
+  if (dim === "武艺") return Math.max(sk["刀法"] || 0, sk["剑法"] || 0, sk["拳掌"] || 0, sk["枪法"] || 0, sk["棍法"] || 0, sk["斧法"] || 0, sk["腿法"] || 0, sk["指爪"] || 0);
   if (dim === "胆识") { const v = Object.values(sk); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 30; }
   return sk[dim] || 30;
 }

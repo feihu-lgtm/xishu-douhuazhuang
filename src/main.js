@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v27";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v28";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v27";
+} from "./state.js?v=v28";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeilu,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeilu, genDuel,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v27";
-import { chatContext } from "./prompt.js?v=v27";
+} from "./ai.js?v=v28";
+import { chatContext } from "./prompt.js?v=v28";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, initMobileDrawers,
-} from "./ui.js?v=v27";
+} from "./ui.js?v=v28";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -1154,42 +1154,45 @@ function sellFolkWant(folk) {
   saveGame(st); renderAll(st, handlers);
 }
 
-// ── 擂台：比武检定（武艺/胆识）→ 赢彩头/输赔钱，名声 ± ──
-function doLeitai() {
+// ── 擂台：两轮比武抉择（复用探秘出题/检定/结算链），选项全是武功招式 ──
+async function doLeitai() {
+  if (busy) return sys("正忙着呢。");
   const ls = locOf("leitai");
   const fresh = (ls.fresh && ls.fresh.week === st.day) ? ls.fresh : null;
   const foe = fresh?.npc || "关中刀客";
-  const pot = fresh?.kind === "比武" ? 60 + Math.floor(Math.random() * 40) : 50;
-  openModal(`
-    <h2>擂 台 · ${esc(foe)}挑场</h2>
-    <div class="loc-fresh">${fresh ? `${esc(fresh.title)}——${esc(fresh.desc)}` : "擂台上本周没人挑场——但台子空着也立得住规矩，可以叫阵。"} 彩头 ${pot} 文。</div>
-    <div class="ck-btns"><span class="ck-btn plain" data-go>上台（武艺检定）</span><span class="ck-btn plain" data-guess>巧劲周旋（胆识检定）</span></div>
-    <span class="return" data-back>Return · 返回</span>
-  `, () => {});
-  const q = (s) => document.querySelector(`#modal-root ${s}`);
-  const fight = (dim) => {
-    closeModal();
-    const chk = checkDim(st, dim);
-    if (chk.ok) {
-      st.coins += pot;
-      st.fame = (st.fame || 0) + 2;
-      ledger(`擂台胜·${foe}`, pot);
-      narr(`师兄跃上擂台，${dim === "武艺" ? "掌风如雷" : "以虚招引他力打力"}，${foe}踉跄败下阵来——彩头 ${pot} 文到手，街坊喝彩声一片。`);
-      sys(`（擂台胜 ${dim} ≈${chk.p}% 成功——+${pot} 文 · 名声+2）`);
-    } else {
-      st.coins = Math.max(0, st.coins - 20);
-      st.fame = Math.max(0, (st.fame || 0) - 1);
-      ledger("擂台输", -20);
-      narr(`师兄上台与${foe}过了三招，被一记扫堂腿绊了个趔趄——赔了 20 文彩头，街坊一片哄笑。`);
-      sys(`（擂台败 ${dim} ≈${chk.p}% 失败——-20 文 · 名声-1）`);
-    }
-    if (ls.fresh && ls.fresh.week === st.day) ls.fresh.done = true;
-    renderAll(st, handlers);
-    saveGame(st);
-  };
-  q("[data-go]").onclick = () => fight("武艺");
-  q("[data-guess]").onclick = () => fight("胆识");
-  q("[data-back]").onclick = () => closeModal();
+  const pot = (fresh?.kind === "比武" ? 60 : 50) + Math.floor(Math.random() * 40);
+  busy = true;
+  try {
+  startTrace("擂台比武");
+  const background = `${fresh ? fresh.title + "：" + fresh.desc : "擂台空着，师兄登台叫阵。"}对手是${foe}，彩头 ${pot} 文。`;
+  let wins = 0;
+  for (let round = 1; round <= 2; round++) {
+    const d = await genDuel(loadCfg(), { foe, round, stance: round === 2 ? (wins ? "上一轮你占了上风" : "上一轮你吃了亏，这轮得扳回来") : "", background });
+    const choice = await new Promise((resolve) => {
+      openChallengePanel(st, d, { onPick: (dim) => resolve(dim), onSkip: () => resolve(null) });
+    });
+    if (!choice) { sys("（怯场下台——擂台下哄笑一阵。）"); endTrace("擂台·怯场"); return; }
+    const opt = d.options.find(o => o.dim === choice) || { text: choice, dim: choice };
+    const chk = checkDim(st, choice);
+    wins += chk.ok ? 1 : 0;
+    if (chk.ok) applyMartialExp(st, [choice], null, 3); // 比武得手：这门功夫 +3（新维度照练）
+    const stt = await genSettlement(loadCfg(), { background, prompt: d.prompt, choice: opt.text, dim: choice, ok: chk.ok, special: `擂台彩头 ${pot} 文`, rescueName: null });
+    if (stt.text) await narr(stt.text);
+    else await narr(`${foe}${chk.ok ? "被师兄这一手逼退两步" : "反手一记，师兄险险架住"}（${choice}·≈${chk.p}%${chk.ok ? "成" : "败"}）。`);
+  }
+  // 两轮结算：2胜大胜 / 1胜平手 / 0胜落败
+  let total, fameD, text;
+  if (wins === 2) { total = pot; fameD = 3; text = `${foe}彻底服气，抱拳下台——彩头 ${pot} 文双手奉上，街坊喝彩震天。`; }
+  else if (wins === 1) { total = Math.floor(pot / 2); fameD = 1; text = `${foe}与师兄打了个平手，各自收了半份彩头（${total} 文），约定改日再战。`; }
+  else { total = -20; fameD = -1; text = `${foe}连胜两场，师兄赔了 20 文彩头，灰溜溜下台。`; }
+  st.coins = Math.max(0, (st.coins || 0) + total);
+  st.fame = Math.max(0, (st.fame || 0) + fameD);
+  ledger(`擂台·vs ${foe}`, total);
+  await narr(text);
+  sys(`（擂台 ${wins}/2 胜 → ${total > 0 ? "+" : ""}${total} 文 · 名声${fameD > 0 ? "+" : ""}${fameD}）`);
+  if (fresh && fresh.week === st.day) fresh.done = true;
+  endTrace(`擂台·${foe}·${wins}胜`);
+  } finally { busy = false; renderAll(st, handlers); saveGame(st); }
 }
 // ── 红白堂/土司府：宴席差事——配 3 菜 1 酒 → 评分 → 银钱/名声/人情 ──
 function doYanxi(locName) {

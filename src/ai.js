@@ -1,8 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v27";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v28";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
-import { CHECK_DIMS } from "./state.js?v=v27";
+import { CHECK_DIMS } from "./state.js?v=v28";
 
 // ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
 let nsfwOn = true;
@@ -13,7 +13,7 @@ const msgsWithMode = (system, user) =>
   nsfwOn
     ? [{ role: "system", content: system }, ...MODE_PRIMER_MESSAGES, { role: "user", content: user }]
     : [{ role: "system", content: system }, { role: "user", content: user }];
-import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v27";
+import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v28";
 export { tierOfScore, tierGuide };
 
 const CFG_KEY = "xiaochu-ai-v1";
@@ -322,7 +322,7 @@ export async function genMartial(cfg, ctx) {
       `小厨开火做菜。食材：${ctx.materials.join("、")}`,
       `技法：${ctx.technique}。炊具：${ctx.cookware.name}。`,
       `小厨打算做：${ctx.intended || "（没说，自己看着办）"}`,
-      `请判断这套动作真正练到哪几门外功（从 刀法/剑法/拳掌/枪法/投掷/轻功 里选 1-3 个，贴合切配、翻锅、火候、身法），`,
+      `请判断这套动作真正练到哪几门外功（从 刀法/剑法/拳掌/枪法/棍法/斧法/腿法/指爪/投掷/轻功 里选 1-3 个，贴合切配、翻锅、火候、身法），`,
       `internal 判断要不要运内功（true/false），synergy 给这组食材搭配做这道菜的合理度 0-100。`,
       `只输出 JSON：{"external":[...],"internal":bool,"synergy":n}`,
     ].join("\n");
@@ -804,6 +804,34 @@ export async function genBrew(cfg, brew) {
     } catch { /* 降级 */ }
   }
   return { prose: `苏唐把${brew.base}蒸透，拌进${brew.qu}，封了坛口，在坛沿画了道记号。`, ai: false };
+}
+
+// ── 擂台比武出题（两轮抉择，选项用武功维度，复用探秘的检定/结算链）──
+export async function genDuel(cfg, ctx, onChunk) {
+  if (cfgReady(cfg)) {
+    const sys = "你是擂台判官，出比武关。只输出 JSON，不写多余文字。";
+    const user = [
+      `【对手】${ctx.foe}。${ctx.round === 2 ? "这是第二回合" : "第一回合"}。${ctx.stance || ""}`,
+      ctx.background ? `【擂台】${ctx.background}` : "",
+      `可用武功维度：刀法 / 剑法 / 拳掌 / 枪法 / 棍法 / 斧法 / 腿法 / 指爪 / 投掷 / 轻功 / 内功；智谋维度：见识 / 口才 / 胆识。`,
+      `只输出一个 JSON：{"prompt":"50-90字文学化比武情景，写对手的招式与擂台局势，只写悬念不写解法","options":[{"text":"文学化动作，8-16字，点出用的武功（如：掣刀如电，劈开他刀势 / 双掌灌劲，硬撼其锋 / 弹指如爪，锁他腕脉 / 横扫一棍，荡开刀网）","dim":"从可用维度里选"}...]}`,
+      `options 给 3-4 个：至少两个武功维度（刀法/剑法/拳掌/枪法/棍法/斧法/腿法/指爪/投掷/轻功/内功），可以有一个智谋维度（见识/口才/胆识）。写成小说正文，让玩家自己猜要考什么。`,
+    ].filter(Boolean).join("\n");
+    try {
+      const raw = await callAI(cfg, sys, user, "擂台出题", 45000, true);
+      const o = parseJSONRescue(raw);
+      const DIMS = ["刀法", "剑法", "拳掌", "枪法", "棍法", "斧法", "腿法", "指爪", "投掷", "轻功", "内功", "见识", "口才", "胆识"];
+      let opts = Array.isArray(o?.options) ? o.options : [];
+      opts = opts.filter(x => x && x.text && DIMS.includes(x.dim)).slice(0, 4);
+      const prompt = (o?.prompt || "").trim();
+      if (prompt && opts.length) return { prompt, options: opts, ai: true };
+    } catch { /* 降级 */ }
+  }
+  const FALLBACKS = [
+    { prompt: `${ctx.foe}刀光一卷，擂台上的尘土都扬了起来，这一刀是虚是实？`, options: [{ text: "掣刀如电，劈开他刀势", dim: "刀法" }, { text: "惊鸿掠影，绕背一击", dim: "轻功" }, { text: "观其刀路，寻隙而入", dim: "见识" }] },
+    { prompt: `${ctx.foe}拳风虎虎，步步紧逼，擂台角落的旗杆被震得嗡嗡作响。`, options: [{ text: "金刚坐桩，以静制动", dim: "内功" }, { text: "双掌灌劲，硬撼其锋", dim: "拳掌" }, { text: "声东击西，诈败诱敌", dim: "胆识" }] },
+  ];
+  return { ...(FALLBACKS[(ctx.round || 1) - 1] || FALLBACKS[0]), ai: false };
 }
 
 // ── 瓦舍 · 说书/戏台：演出文本（AI 现场编，可点单）──
