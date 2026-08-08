@@ -1,5 +1,5 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES } from "./data.js";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
@@ -845,6 +845,63 @@ async function doFeastServe() {
   saveGame(st);
 }
 
+// ── 米酒配甜：扣 1 杯米酒 + 甜料 → 苏唐做甜点小吃（酒入馔）────
+function doWineDessert(name) {
+  const d = WINE_DESSERTS.find(x => x.name === name);
+  if (!d) return;
+  const riceWines = Object.keys(st.wines || {}).filter(n => (st.wines[n] || 0) > 0
+    && ((st.wineRecipes || []).find(r => r.name === n)?.kind === "米酒" || SHOP_WINES.some(w => w.name === n)));
+  if (!riceWines.length) return sys("没有米酒——先酿坛米酒（或商店买锦官米酒）。");
+  if ((st.inv[d.sweet] || 0) <= 0) return sys(`缺「${d.sweet}」。`);
+  if (busy) return sys("说书人正忙着呢。");
+  const wineName = riceWines[0];
+  st.wines[wineName] -= 1;
+  if (st.wines[wineName] <= 0) delete st.wines[wineName];
+  st.inv[d.sweet] -= 1;
+  if (st.inv[d.sweet] <= 0) delete st.inv[d.sweet];
+  st.snacks = st.snacks || {};
+  st.snacks[d.name] = (st.snacks[d.name] || 0) + 3;
+  const wq = (st.wineRecipes || []).find(r => r.name === wineName)?.quality ?? 60;
+  const q = Math.min(100, Math.round(55 + wq / 4));
+  st.snackRecipes = st.snackRecipes || [];
+  const rec = st.snackRecipes.find(x => x.name === d.name);
+  if (rec) rec.quality = Math.max(rec.quality, q);
+  else st.snackRecipes.push({ name: d.name, cat: d.cat, tag: d.cat, used: [wineName, d.sweet], quality: q, desc: d.desc, flavor: "tian" });
+  suLine(`「${d.name}」成了——${wineName}配${d.sweet}，${d.desc}`);
+  sys(`【甜点】${d.name} 3 份（用 ${wineName} · 品质 ${q}）`);
+  note("甜点", `苏唐用${wineName}做了「${d.name}」3份，品质${q}。`);
+  renderAll(st, handlers);
+  saveGame(st);
+}
+
+// ── 白酒/黄酒入药：酒泡药材 → 药酒（品质=酒×0.6+药材星×12）────
+function doMedicate(wineName, herbName) {
+  const herb = MEDICINE_HERBS.find(h => h.name === herbName);
+  if (!herb) return;
+  if ((st.wines[wineName] || 0) <= 0) return sys(`没有「${wineName}」。`);
+  if ((st.inv[herbName] || 0) <= 0) return sys(`缺药材「${herbName}」。`);
+  const wq = (st.wineRecipes || []).find(r => r.name === wineName)?.quality
+    || SHOP_WINES.find(w => w.name === wineName)?.quality || 60;
+  const hStar = (st.stars || {})[herbName] || 0;
+  st.wines[wineName] -= 1;
+  if (st.wines[wineName] <= 0) delete st.wines[wineName];
+  st.inv[herbName] -= 1;
+  if (st.inv[herbName] <= 0) delete st.inv[herbName];
+  const med = `${herbName}药酒`;
+  const q = Math.min(100, Math.round(wq * 0.6 + hStar * 12));
+  st.wines = st.wines || {};
+  st.wines[med] = (st.wines[med] || 0) + 1;
+  st.wineRecipes = st.wineRecipes || [];
+  const rec = st.wineRecipes.find(r => r.name === med);
+  if (rec) rec.quality = Math.max(rec.quality, q);
+  else st.wineRecipes.push({ name: med, base: wineName, qu: "", extra: [herbName], flavor: herb.flavor, quality: q, kind: "药酒" });
+  suLine(`「${med}」入坛——${wineName}泡${herbName}，酒色转沉，药气入酒。`);
+  sys(`【药酒】${med} 1 瓶（品质 ${q}）——药铺收，懂行的客人也认。`);
+  note("药酒", `${wineName}泡${herbName}成「${med}」，品质${q}。`);
+  renderAll(st, handlers);
+  saveGame(st);
+}
+
 // ── 买基酒（应急：商店现成的品质固定，自己酿的更高）────────────
 function doBuyWine(name) {
   const w = SHOP_WINES.find(x => x.name === name);
@@ -1083,7 +1140,7 @@ async function onCommand(text) {
   if (["灶台", "做菜", "开灶"].includes(cmd)) return doCook();
   if (["上菜", "端菜", "佐餐"].includes(cmd)) return doZuocan();
   if (["小吃", "零食"].includes(cmd)) return doSnackPanel();
-  if (["酿造", "酿酒", "brew", "酒"].includes(cmd)) return openBrew(st, { onBrew: doBrew, onBuy: doBuyWine });
+  if (["酿造", "酿酒", "brew", "酒"].includes(cmd)) return openBrew(st, { onBrew: doBrew, onBuy: doBuyWine, onDessert: doWineDessert, onMedicate: doMedicate });
   if (["商店", "买", "逛街"].includes(cmd)) return doShop();
   if (["探秘", "副本", "exp"].includes(cmd)) return openExpeditionMap();
   if (["新客", "招客", "newguest"].includes(cmd)) return doNewGuest();

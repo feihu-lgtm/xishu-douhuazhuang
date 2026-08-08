@@ -337,6 +337,22 @@ export const BREW_RECIPES = [
   { id: "suanmaijiu", name: "酸麦酒", base: "麦芽", qu: "麦曲", extra: ["酸木瓜"], flavor: "suanla", kind: "麦酒", weeks: 3, desc: "麦酸爽口，配油腻正合适。" },
 ];
 
+// ── 米酒配甜 = 甜点（酒入馔：米酒当醪糟用，苏唐做甜点小吃）─────────
+// 扣 1 杯任意米酒（kind=米酒）+ 甜料 → 小吃 3 份
+export const WINE_DESSERTS = [
+  { name: "醪糟红糖羹", cat: "点心", sweet: "内江红糖", desc: "米酒煮沸下红糖，蛋花一甩，甜糯暖胃。" },
+  { name: "醪糟蛋花", cat: "点心", sweet: "鸡蛋", desc: "米酒冲蛋花，嫩滑的酒酿蛋，夜里垫肚子。" },
+  { name: "玫瑰酒酿羹", cat: "点心", sweet: "玫瑰花酱", desc: "玫瑰酱化进米酒，花香酒香叠着甜。" },
+  { name: "醪糟圆子", cat: "饭", sweet: "蜀南大米", desc: "米酒煮小圆子，酒酿的甜沁进糯香里。" },
+];
+// ── 白酒/黄酒入药：酒泡药材 → 药酒（品质更高，药铺都收）────────────
+export const MEDICINE_HERBS = [
+  { name: "喇嘛庙藏红花", flavor: "yaoxiang", desc: "活血暖身，药酒入琥珀色。" },
+  { name: "雪山雪莲瓣", flavor: "yaoxiang", desc: "清苦回甘，泡酒最养人。" },
+  { name: "熊山松茸", flavor: "chun", desc: "菌香沉酒，鲜醇的药引。" },
+  { name: "熊山铁棍山药", flavor: "chun", desc: "山药泡酒，绵厚的补。" },
+];
+
 // ── 配方（10 道）· 料槽组合×技法，命中=固定菜名 ────────────────────────
 export const RECIPES = [
   { name: "牦牛骨汤", technique: "炖", materials: ["牦牛腱子肉", "贡措海盐"],

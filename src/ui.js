@@ -2,7 +2,7 @@
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
-  BREW_RECIPES, SHOP_WINES,
+  BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
 } from "./data.js";
 import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, brewWeeks, GUESTS_PER_DAY } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
@@ -885,13 +885,17 @@ export function openSet(st, { onSet, feast = false }) {
   draw();
 }
 
-// ── 酿造面板：配方下坛 / 商店基酒 / 在酿坛子一览 ────────────────
-export function openBrew(st, { onBrew, onBuy }) {
+// ── 酿造面板：配方下坛 / 商店基酒 / 米酒甜点 / 入药 / 在酿一览 ──
+export function openBrew(st, { onBrew, onBuy, onDessert, onMedicate }) {
   const wineStr = Object.entries(st.wines || {}).map(([n, c]) => `${n}×${c}`).join("、") || "空";
   const brewing = (st.brewing || []).map(b => {
     const wait = Math.max(0, b.dueDay - st.day);
     return `「${b.name}」${wait === 0 ? "今周可取" : `再等 ${wait} 周`}`;
   }).join("；") || "坛子都空着";
+  const hasRiceWine = Object.keys(st.wines || {}).some(n => (st.wines[n] || 0) > 0
+    && ((st.wineRecipes || []).find(r => r.name === n)?.kind === "米酒" || SHOP_WINES.some(w => w.name === n)));
+  const medWines = Object.keys(st.wines || {}).filter(n => (st.wines[n] || 0) > 0
+    && ((st.wineRecipes || []).find(r => r.name === n)?.kind === "白酒" || (st.wineRecipes || []).find(r => r.name === n)?.kind === "黄酒" || SHOP_WINES.some(w => w.name === n && (w.strong || w.flavor === "chun"))));
   const modal = openModal(`
     <h2>酿 造 · 苏唐的活计</h2>
     <div class="set-note">酿酒手艺 <b>${st.suSkills?.酿酒 ?? 5}</b> · 每次酿造 +2（封顶 100）。内功催酿：内功 ≥ 50，米酒立等可取。</div>
@@ -910,10 +914,25 @@ export function openBrew(st, { onBrew, onBuy }) {
       <b>${w.name}</b><i>品质 ${w.quality} · ${w.price}文${w.strong ? " · 烈" : ""}</i>
       <p>${w.desc}</p>
     </div>`).join("")}
+    ${hasRiceWine ? `<div class="ck-label" style="padding:0 22px">米酒配甜（扣 1 杯米酒+甜料，苏唐做甜点）</div>
+    ${WINE_DESSERTS.map(d => `<div class="brew-row" data-dessert="${d.name}">
+      <b>${d.name}</b><i>${d.cat} · 米酒 + ${d.sweet}</i>
+      <p>${d.desc}</p>
+    </div>`).join("")}` : ""}
+    ${medWines.length ? `<div class="ck-label" style="padding:0 22px">入药（白酒/黄酒泡药材 → 药酒，药铺也收）</div>
+    ${medWines.map(w => MEDICINE_HERBS.map(h => `<div class="brew-row" data-med="${w}|${h.name}">
+      <b>${h.name}药酒</b><i>${w} + ${h.name}</i>
+      <p>${h.desc}</p>
+    </div>`).join("")).join("")}` : ""}
     <span class="return" data-back>Return · 返回</span>
   `, () => {});
   modal.querySelectorAll("[data-brew]").forEach(el => el.onclick = () => onBrew(el.dataset.brew));
   modal.querySelectorAll("[data-buy]").forEach(el => el.onclick = () => onBuy(el.dataset.buy));
+  modal.querySelectorAll("[data-dessert]").forEach(el => el.onclick = () => onDessert(el.dataset.dessert));
+  modal.querySelectorAll("[data-med]").forEach(el => {
+    const [w, h] = el.dataset.med.split("|");
+    el.onclick = () => onMedicate(w, h);
+  });
   modal.querySelector("[data-back]").onclick = () => closeModal();
 }
 
