@@ -5,7 +5,7 @@ import {
   shopStock, buyItem, nextDay, currentGuest, GUESTS_PER_DAY,
   applyMartialExp, computeBaseScore, refreshShop, shopIngOf, applySuExp,
   checkChance, rollCheck, rankLabel, checkDim, skillValueOf, ACHIEVE_DEFS, ACHIEVE_N, ATTR_DIMS, CHECK_DIMS,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalLineDone, rivalGuestForSchool, inviteCandidates, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalLineDone, rivalGuestForSchool, inviteCandidates, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, pickNarrativeRescue,
 } from "../src/state.js";
 import {
   RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS, rivalGuestAt, FEMALE_GUEST_IDS,
@@ -516,4 +516,34 @@ test("NSFW表情按情节匹配：extractFace/POSE_INDEX", () => {
   assert.equal(extractFace("正文……"), "");
   assert.equal(Number.isInteger(POSE_INDEX[extractFace("表情：平常")]), false, "「平常」不触发 NSFW 表情");
   assert.equal(Number.isInteger(POSE_INDEX[extractFace("表情：wink")]), true, "「wink」触发");
+});
+
+test("pickNarrativeRescue：主叙事出场的女子常客转正为同行（本次塌陷逃生实况）", () => {
+  const st = newState();
+  const text = "夏至已至，师兄与苏唐入地宫寻奇珍，却见平日里孤傲毒舌的食评人余味竟独自倚在石壁旁，面若桃花。";
+  const hit = pickNarrativeRescue(st, ["ryuwei", "huyanxue", "qingxu"], text);
+  assert.equal(hit.id, "ryuwei");
+});
+
+test("pickNarrativeRescue：男客现身也转正（清虚道长）", () => {
+  const st = newState();
+  const hit = pickNarrativeRescue(st, ["qingxu"], "师兄与苏唐在溪边采得野果，路上碰见清虚道长讨了碗水。");
+  assert.equal(hit.id, "qingxu");
+});
+
+test("pickNarrativeRescue：没点名的常客就空手（苏唐/师兄不算，云游苦行客不转正）", () => {
+  const st = newState();
+  assert.equal(pickNarrativeRescue(st, [], "苏唐眼尖，一眼认出那丛蕨菜嫩得正好。"), null);
+  assert.equal(pickNarrativeRescue(st, [], null), null);
+  const passer = pickNarrativeRescue(st, [], "村口蜷着个乞丐，破碗里落着几枚铜钱。");
+  assert.equal(passer, null);
+});
+
+test("pickNarrativeRescue：出场多的优先；平手时同据点熟人优先", () => {
+  const st = newState();
+  const text = "梅朵策马而来，远远喊了声师兄。梅朵翻身下马，笑着递过一壶马奶酒。" + "食评人余味也在，只点了点头。";
+  assert.equal(pickNarrativeRescue(st, ["ryuwei"], text).id, "meiduo");
+  const tie = "兰姐在茶棚里招手，罗刹也在旁边擦着筷子。";
+  assert.equal(pickNarrativeRescue(st, ["luosha"], tie).id, "luosha");
+  assert.equal(pickNarrativeRescue(st, ["lanjie"], tie).id, "lanjie");
 });

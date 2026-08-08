@@ -1,8 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v23";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v24";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
-import { CHECK_DIMS } from "./state.js?v=v23";
+import { CHECK_DIMS } from "./state.js?v=v24";
 
 // ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
 let nsfwOn = true;
@@ -13,7 +13,7 @@ const msgsWithMode = (system, user) =>
   nsfwOn
     ? [{ role: "system", content: system }, ...MODE_PRIMER_MESSAGES, { role: "user", content: user }]
     : [{ role: "system", content: system }, { role: "user", content: user }];
-import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE } from "./prompt.js?v=v23";
+import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE } from "./prompt.js?v=v24";
 export { tierOfScore, tierGuide };
 
 const CFG_KEY = "xiaochu-ai-v1";
@@ -560,13 +560,14 @@ export async function genExpedition(cfg, ctx) {
 // 探秘三步走 · 第二步：出题（独立调用，叙事后单独给关卡题干+选项）
 export async function genChallenge(cfg, ctx) {
   const pool = challengeDims(ctx.category);
+  const ta = ctx.rescueTarget ? (ctx.rescueTarget.gender === "女" ? "她" : "他") : "";
   if (cfgReady(cfg)) {
     const sys = "你是探秘总编排，出关卡。只输出 JSON，不写多余文字。";
     const user = [
       `【情境】${ctx.scenario}`,
       `【背景】${ctx.background || ""}`,
       ctx.intent ? `【玩家钦定主线】${ctx.intent}——关卡要贴合这条主线。` : "",
-      ctx.rescueTarget ? `【同行】${ctx.rescueTarget.name}这趟在场，关卡可围绕她可能身陷的风险设计——是"师兄这一手要护住她"还是"她自己反手救场"，成败留到玩家选了再定，题干只写悬念，别提前剧透。${ctx.rescueTarget.name === "余味" ? RYUWEI_VOICE : ""}` : "",
+      ctx.rescueTarget ? `【同行】${ctx.rescueTarget.name}这趟在场，关卡可围绕${ta}可能身陷的风险设计——是"师兄这一手要护住${ta}"还是"${ta}自己反手救场"，成败留到玩家选了再定，题干只写悬念，别提前剧透。${ctx.rescueTarget.name === "余味" ? RYUWEI_VOICE : ""}` : "",
       `可用维度池：${pool.join(" / ")}。`,
       `只输出一个 JSON：{"prompt":"约80-120字文学化题干，只写关口与悬而未决的处境，绝不写解法/维度名/成功率","options":[{"text":"玩家可选动作，8-20字，文学化，不写维度名/成功率","dim":"从可用维度池里选"}...]}`,
       `options 给 4-6 个，尽量覆盖不同路子：硬闯硬碰、巧取身法、细看辨认、上前搭话、押一把赌注等；题干与选项像小说正文，让玩家自己猜要考什么。`,
@@ -635,8 +636,8 @@ export async function genSettlement(cfg, ctx) {
       ctx.special ? `此行收成：${ctx.special}。` : "",
       ctx.rescueName
         ? (ctx.ok
-            ? `这一手是护住了同行的${ctx.rescueName}——写出英雄救美的高光，但别落公主抱那种俗套，给点新意与分寸感。${ctx.rescueName === "余味" ? RYUWEI_VOICE : ""}`
-            : `这一手没成，反倒是${ctx.rescueName}眼疾手快救场/扶住了师兄——美救英雄，她的干练果决要写出来，师兄可以嘴上讨饶或事后打趣，别写得太狼狈失了体面。${ctx.rescueName === "余味" ? RYUWEI_VOICE : ""}`)
+            ? `这一手是护住了同行的${ctx.rescueName}——写出${ctx.rescueShe ? "英雄救美的高光，但别落公主抱那种俗套" : "侠义救场的高光，干净利落"}，给点新意与分寸感。${ctx.rescueName === "余味" ? RYUWEI_VOICE : ""}`
+            : `这一手没成，反倒是${ctx.rescueName}眼疾手快救场/扶住了师兄——${ctx.rescueShe ? "美救英雄，她的干练果决要写出来" : "他反手救场，那份利落果决要写出来"}，师兄可以嘴上讨饶或事后打趣，别写得太狼狈失了体面。${ctx.rescueName === "余味" ? RYUWEI_VOICE : ""}`)
         : "",
       `写约 500 字（±10%）、2-4 段的第三人称收尾叙事：交代这一手如何奏效/如何落空，务必回扣【来龙去脉】里的具体细节（雾、石、摊、人言等），自然带出收成——${ctx.ok ? "此次手到擒来，收成丰硕" : "此番失手，收成潦草"}。用「」对话与 *心理*。`,
       `只输出正文本身，不要旁白总结，不要「心情：」「苏唐批：」。`,
@@ -803,6 +804,81 @@ export async function genBrew(cfg, brew) {
     } catch { /* 降级 */ }
   }
   return { prose: `苏唐把${brew.base}蒸透，拌进${brew.qu}，封了坛口，在坛沿画了道记号。`, ai: false };
+}
+
+// ── 广场出现的 NPC：每周从角色池随机刷 2-4 位（有名有姓，能聊能交易）──
+// 身份固定（游戏角色），来意/带货/想买的全 AI 现场编；数值系统钳制。
+export async function genSquareFolks(cfg, npcs) {
+  if (cfgReady(cfg) && npcs.length) {
+    const sys = "你是《西蜀豆花庄》这方世界的广场布事官。这些角色本周出现在广场上——给每人编：带什么货卖（可带可不带，食材或江湖物件都行）、想从豆花庄买什么（可没有）、一句开场白。写的内容要贴人物身份。只输出 JSON 数组，不要多余文字。";
+    const user = [
+      "这些角色（id、名字、身份）：\n" + npcs.map(n => `${n.id}：${n.name}（${n.ident}）`).join("\n"),
+      "输出（顺序一致）：[{\"id\":\"对应角色id\",\"sell\":[{\"name\":\"货物名\",\"desc\":\"一句\",\"price\":\"文价\",\"star\":\"1-3或省略\"}...]或[],\"want\":{\"name\":\"想买的东西（菜/小吃/酒/食材名）\",\"offer\":\"出价\"}或null,\"line\":\"开场白一句\"}]",
+      "sell 别超 3 样；price 1-300 文；offer 1-300 文。",
+    ].join("\n");
+    try {
+      const raw = await callAI(cfg, sys, user, "广场NPC", 45000, true);
+      const o = parseJSONRescue(raw);
+      if (Array.isArray(o)) {
+        const byId = {};
+        for (const f of o) if (f && f.id) byId[f.id] = f;
+        const out = [];
+        for (const n of npcs) {
+          const f = byId[n.id] || {};
+          out.push({
+            npcId: n.id, name: n.name, ident: n.ident,
+            sell: Array.isArray(f.sell) ? f.sell.filter(s => s && s.name).slice(0, 3).map(s => ({ name: String(s.name).slice(0, 14), desc: String(s.desc || "").slice(0, 24), price: Math.max(1, Math.min(300, Math.round(Number(s.price) || 15))), star: Math.max(1, Math.min(3, parseInt(s.star, 10) || 0)) })) : [],
+            want: (f.want && f.want.name) ? { name: String(f.want.name).slice(0, 14), offer: Math.max(1, Math.min(300, Math.round(Number(f.want.offer) || 20))) } : null,
+            line: String(f.line || "……").slice(0, 30),
+          });
+        }
+        if (out.length) return out;
+      }
+    } catch { /* 降级 */ }
+  }
+  // 模板兜底（AI 挂了）：每人带 0-2 样货（随机池），want 随机
+  const sellPool = [
+    { name: "雪山野蜂蜜", desc: "崖上取的野蜜", price: 30, star: 1 },
+    { name: "熊山松茸", desc: "松林里捡的鲜货", price: 45, star: 2 },
+    { name: "怪石砚台", desc: "石纹如山水", price: 25, star: 0 },
+    { name: "会唱曲的蛐蛐", desc: "叫起来有调儿", price: 15, star: 0 },
+    { name: "旧话本一册", desc: "纸页泛黄", price: 12, star: 0 },
+    { name: "豹胎膏", desc: "跌打良药", price: 35, star: 0 },
+  ];
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  return npcs.map(n => ({
+    npcId: n.id, name: n.name, ident: n.ident,
+    sell: Math.random() < 0.7 ? [1, 2].map(() => pick(sellPool)).filter((v, j, a) => a.findIndex(x => x.name === v.name) === j).slice(0, 1 + Math.floor(Math.random() * 2)) : [],
+    want: Math.random() < 0.4 ? { name: pick(["清溪蜜酿绿豆羹", "玫瑰蜜醋煎饵块", "玉泉青稞酒", "龙须金砂糯"]), offer: 20 + Math.floor(Math.random() * 30) } : null,
+    line: "（AI 未接线——她在广场上闲逛。）",
+  }));
+}
+
+// ── 每周新鲜事生成（周初批量 roll 各地点事件卡，数值归系统）──
+export async function genFreshEvents(cfg, locs) {
+  if (cfgReady(cfg)) {
+    const sys = "你是《西蜀豆花庄》这方世界的江湖布事官。给本周每个地点出「新鲜事」：一件能让玩家想去看看/聊聊/互动的事。有的地点可以无事（null）——不是每个地方每周都有大事。事件要像真江湖：市井生计、人情往来、小冲突、小热闹，别都搞成大灾大难。只输出 JSON 数组，不要多余文字。";
+    const user = [
+      `第 ${locs[0] ? "" : ""}周。以下地点：`,
+      locs.map(l => `${l.id}：${l.name}——${l.desc}`).join("\n"),
+      "输出 JSON 数组，元素对应每个地点（顺序一致）：{\"title\":\"新鲜事名，6-12字\",\"desc\":\"一句话描述，30字内\",\"npc\":\"相关人物名（可以是常客或路人）\",\"kind\":\"小买卖/人情/热闹/险情/宴席/比武之一\"}；无事的地点给 null。",
+    ].filter(Boolean).join("\n");
+    try {
+      const raw = await callAI(cfg, sys, user, "周初新鲜事", 45000, true);
+      const o = parseJSONRescue(raw);
+      if (Array.isArray(o) && o.length === locs.length) return o;
+    } catch { /* 降级 */ }
+  }
+  // 模板兜底：随机挑 2-3 个地点给事，其余无事
+  const POOL = [
+    { title: "街口新支了个馄饨摊", desc: "汤鲜馅大，摊主说想跟豆花庄换点酱料。", npc: "馄饨摊主", kind: "小买卖" },
+    { title: "有戏班子过路", desc: "班子缺个打杂的，管一顿饭。", npc: "班主", kind: "热闹" },
+    { title: "谁家的牛走丢了", desc: "牛信儿传得满街都是，找到有赏。", npc: "老李头", kind: "人情" },
+    { title: "城西夜里闹动静", desc: "有人说是野物，有人说是贼。", npc: "更夫", kind: "险情" },
+  ];
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const chosen = [...locs].sort(() => Math.random() - 0.5).slice(0, 2 + Math.floor(Math.random() * 2));
+  return locs.map(l => chosen.includes(l) ? pick(POOL) : null);
 }
 
 // ── 地点互动流水线（学 jihaitang）：MAIN_TEXT 叙事流式 + SIDE_NOTE 结构化旁注 ──

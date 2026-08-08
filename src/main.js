@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v23";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v24";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v23";
+} from "./state.js?v=v24";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v23";
-import { chatContext } from "./prompt.js?v=v23";
+} from "./ai.js?v=v24";
+import { chatContext } from "./prompt.js?v=v24";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
-  openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
+  openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, initMobileDrawers,
-} from "./ui.js?v=v23";
+} from "./ui.js?v=v24";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -649,7 +649,7 @@ async function doExpedition(node, intent) {
     calendarStrong: cal.strong ? cal.text : null, calendarMention: cal.strong ? null : cal.text,
     rescueTarget: rescueTarget ? { name: rescueTarget.name, ident: rescueTarget.ident, aff: st.aff[rescueTarget.id] || 0 } : null,
   });
-  // 主叙事里现身的女子常客就地转正为同行：出题、结算都得有她，别出了主叙事就凭空消失；
+  // 主叙事里现身的常客就地转正为同行：出题、结算都得有他/她，别出了主叙事就凭空消失；
   // 遇险→脱困的戏走全，救出/共患难都加好感、记小纸条（情境已指定救场对象的以情境为准）
   const activeRescue = rescueTarget || pickNarrativeRescue(st, node.guests, r.narrative);
   await expNarr(r.narrative);
@@ -663,7 +663,7 @@ async function doExpedition(node, intent) {
   const ch = await genChallenge(loadCfg(), {
     scenario, category: node.category, intent,
     background,
-    rescueTarget: activeRescue ? { name: activeRescue.name } : null,
+    rescueTarget: activeRescue ? { name: activeRescue.name, gender: activeRescue.gender } : null,
   });
   stepTrace("出题", "pass", `${ch.options.length} 个选项（${ch.options.map(o => o.dim).join("/")}）`);
   await expNarr(`走到紧要处——${ch.prompt}`);
@@ -684,6 +684,7 @@ async function doExpedition(node, intent) {
     const stt = await genSettlement(loadCfg(), {
       background, prompt: ch.prompt, choice: opt.text, dim: outcome.dim, ok: check.ok, special: specialNames,
       rescueName: activeRescue ? activeRescue.name : null,
+      rescueShe: activeRescue ? activeRescue.gender === "女" : null,
     });
     if (stt.text) await expNarr(stt.text);
     else await sys(check.ok ? `【检定】「${opt.text}」这一手成了（≈${check.p}%）${CHECK_DIMS.includes(outcome.dim) ? `，愈发老练（${rank}）` : ""}。` : `【检定】「${opt.text}」这一手没成（≈${check.p}%），白折腾半日。`);
@@ -700,8 +701,10 @@ async function doExpedition(node, intent) {
       const gain = check.ok ? 4 : 2;
       const before = st.aff[activeRescue.id] || 0;
       st.aff[activeRescue.id] = Math.min(100, before + gain);
-      sys(`${check.ok ? "英雄救美" : "美救英雄"}——「好感」${activeRescue.name} +${gain}（今 ${st.aff[activeRescue.id]} · ${affName(st.aff[activeRescue.id])}）`);
-      note("救美", `${node.name}·${scenario}·${check.ok ? "救出" : "共患难"}${activeRescue.name}，好感+${gain}。`);
+      const she = activeRescue.gender === "女";
+      const arc = check.ok ? (she ? "英雄救美" : "仗义救场") : (she ? "美救英雄" : "共患难");
+      sys(`${arc}——「好感」${activeRescue.name} +${gain}（今 ${st.aff[activeRescue.id]} · ${affName(st.aff[activeRescue.id])}）`);
+      note(she ? "救美" : "救场", `${node.name}·${scenario}·${check.ok ? "救出" : "共患难"}${activeRescue.name}，好感+${gain}。`);
     }
   } else {
     stepTrace("鉴定", "skip", "收手不掺和");
@@ -891,6 +894,33 @@ function nowTs() {
   const d = new Date(); const p = (n) => String(n).padStart(2, "0");
   return `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
+// ── 周初 roll：各地点新鲜事（AI 批量出卡；每周一次；后台跑不拖翻篇）──
+async function rollFreshEvents(st) {
+  if ((st.freshWeek || 0) === st.day) return; // 本周已 roll 过
+  st.freshWeek = st.day;
+  st.locs = st.locs || {};
+  const locs = WORLD_LOCATIONS;
+  const cards = await genFreshEvents(loadCfg(), locs.map(l => ({ id: l.id, name: l.name, desc: l.desc })));
+  locs.forEach((l, i) => {
+    const c = cards[i];
+    st.locs[l.id] = st.locs[l.id] || { id: l.id, fresh: null, seen: 0 };
+    if (c && c.title) {
+      st.locs[l.id].fresh = { week: st.day, title: String(c.title).slice(0, 16), desc: String(c.desc || "").slice(0, 60), npc: String(c.npc || "").slice(0, 12), kind: String(c.kind || "热闹").slice(0, 8), done: false };
+      st.square = st.square || [];
+      st.square.push({ from: "街巷", form: "传闻", text: `${l.name}：${c.title}`, day: st.day, ts: nowTs() }); // 新鲜事也上布告墙
+    } else {
+      st.locs[l.id].fresh = null;
+    }
+  });
+  const n = locs.filter((l, i) => cards[i] && cards[i].title).length;
+  sys(`（江湖酝酿：${n} 个地方本周有新事——地图上冒红点。）`);
+  // 广场刷 NPC：随机 2-4 位角色出现在广场（有名有姓，能聊能交易）
+  const cands = GUESTS.filter(g => !g.ryuwei || Math.random() < 0.25).sort(() => Math.random() - 0.5).slice(0, 2 + Math.floor(Math.random() * 2));
+  const folks = await genSquareFolks(loadCfg(), cands.map(g => ({ id: g.id, name: g.name, ident: g.ident })));
+  st.squareFolks = folks.map(f => ({ ...f, week: st.day }));
+  if (folks.length) sys(`（广场来了 ${folks.length} 位熟人：${folks.map(f => f.name).join("、")}——去广场聊聊。）`);
+  saveGame(st);
+}
 // ── 江湖大地图编排：进地图 → 进地点页 → 搭话（走流水线）/ 功能台 ──
 function locOf(id) {
   st.locs = st.locs || {};
@@ -915,7 +945,7 @@ function locActs(loc) {
   // 各地点功能台：阶段 3 逐个点亮，先占位
   const acts = [];
   if (loc.id === "home") acts.push({ id: "ledger", label: "账房册子", on: true }, { id: "calendar", label: "黄历", on: true }, { id: "cook", label: "灶台", on: true });
-  if (loc.id === "square") acts.push({ id: "bulletin", label: "布告墙", on: true }, { id: "trade", label: "集市买卖", on: false }, { id: "dibao", label: "邸报", on: false });
+  if (loc.id === "square") acts.push({ id: "bulletin", label: "布告墙", on: true }, { id: "trade", label: "集市买卖", on: true }, { id: "dibao", label: "邸报", on: true });
   if (loc.id === "washe") acts.push({ id: "shuoshu", label: "说书", on: false }, { id: "xitai", label: "戏台", on: false }, { id: "weilu", label: "围炉喝酒", on: false });
   if (loc.id === "leitai") acts.push({ id: "tiao", label: "比武", on: false });
   if (loc.id === "hongbai") acts.push({ id: "yanxi", label: "接宴席", on: false });
@@ -927,6 +957,8 @@ function locActs(loc) {
       if (actId === "ledger") { closeModal(); return doLedger(); }
       if (actId === "calendar") { closeModal(); return doCalendar(); }
       if (actId === "bulletin") { closeModal(); return openSquareBoard(); }
+      if (actId === "trade") { closeModal(); return openSquareMarket(); } // 广场：本周在场的 NPC，能聊能买卖
+      if (actId === "dibao") { closeModal(); return doDibao(); }
       sys(`${loc.name}·${(acts.find(a => a.id === actId) || {}).label}——此处将启，先跟${loc.name}的人搭搭话。`);
     },
   };
@@ -978,13 +1010,110 @@ function doCalendar() {
   `, () => {});
   document.querySelector("#modal-root [data-back]").onclick = () => closeModal();
 }
-// ── 布告墙：广场消息流（回响/聊天消息都上墙）──
+// ── 广场 · 本周在场的 NPC：列表 → 点人 → 对话（流水线）+ 买卖 ──
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function openSquareMarket() {
+  const folks = (st.squareFolks || []).filter(f => f.week === st.day);
+  openModal(`
+    <h2>广 场 · 今日在场</h2>
+    <div class="loc-desc">本周广场上遇见的熟人——点人搭话，或看看她带没带货。</div>
+    <div class="folk-list">
+      ${folks.map(f => `<div class="folk-row" data-folk="${f.npcId}">
+        <b>${f.name}</b><i>${f.ident}</i>
+        <p>${esc(f.line)}</p>
+        <span class="folk-tags">${f.sell.length ? `带货：${f.sell.map(s => s.name).join("、")}` : "空着手逛"}${f.want ? ` · 想买「${f.want.name}」` : ""}</span>
+      </div>`).join("") || `<div class="loc-fresh none">广场空着——下周翻篇才有人来。</div>`}
+    </div>
+    <span class="return" data-back>Return · 返回</span>
+  `, () => {});
+  document.querySelectorAll("#modal-root [data-folk]").forEach(el => el.onclick = () => {
+    const folk = folks.find(f => f.npcId === el.dataset.folk);
+    if (folk) openFolkTrade(folk);
+  });
+  document.querySelector("#modal-root [data-back]").onclick = () => closeModal();
+}
+function openFolkTrade(folk) {
+  const w = folk.want;
+  openModal(`
+    <h2>${esc(folk.name)} · ${esc(folk.ident)}</h2>
+    <div class="loc-fresh">${esc(folk.line)}</div>
+    ${folk.sell.length ? `<div class="ck-label">她带着的货</div>
+      <div class="ck-mats">${folk.sell.map((s, i) => `<span class="ck-mat zero" data-buy="${i}">${esc(s.name)}${s.star ? ` ★${s.star}` : ""}<i style="opacity:.7;display:block">${esc(s.desc)} · ${s.price}文</i></span>`).join("")}</div>` : ""}
+    ${w ? `<div class="ck-label">她想买</div>
+      <div class="ck-mats"><span class="ck-mat zero" data-sell>「${esc(w.name)}」——出 ${w.offer} 文</span></div>` : ""}
+    <div class="ck-label">搭话（说话会改变这方世界）</div>
+    <div class="loc-chat">
+      <input id="folk-inp" placeholder="跟${esc(folk.name)}说点什么……" />
+      <span class="ck-btn plain" data-send>说</span>
+    </div>
+    <span class="return" data-back>Return · 返回</span>
+  `, () => {});
+  const q = (s) => document.querySelector(`#modal-root ${s}`);
+  document.querySelectorAll("#modal-root [data-buy]").forEach(el => el.onclick = () => buyFolkGood(folk, +el.dataset.buy));
+  document.querySelector("#modal-root [data-sell]")?.addEventListener?.("click", () => sellFolkWant(folk));
+  q("[data-send]").onclick = () => {
+    const v = q("#folk-inp").value.trim();
+    if (!v) return;
+    q("#folk-inp").value = "";
+    const ls = locOf("square");
+    const fresh = (ls.fresh && ls.fresh.week === st.day) ? `广场·${ls.fresh.title}` : "";
+    doLocChat(folk.npcId, folk.name, "广场", fresh, v);
+  };
+  q("#folk-inp").addEventListener("keydown", (e) => { if (e.key === "Enter") q("[data-send]").click(); });
+  q("[data-back]").onclick = () => openSquareMarket();
+}
+function buyFolkGood(folk, i) {
+  const s = folk.sell[i];
+  if (!s) return;
+  if (st.coins < s.price) return sys("文钱不够。");
+  st.coins -= s.price;
+  ledger(`广场·买「${s.name}」`, -s.price);
+  if (s.star > 0) { st.inv[s.name] = (st.inv[s.name] || 0) + 1; st.stars = st.stars || {}; st.stars[s.name] = Math.max(st.stars[s.name] || 0, s.star); sys(`买下「${s.name}」（★${s.star} 带星食材）花 ${s.price} 文——可入菜可入酒。`); }
+  else { st.junk = st.junk || []; st.junk.push({ name: s.name, desc: s.desc || "", price: s.price, day: st.day }); sys(`买下「${s.name}」（${s.desc || "杂货"}）花 ${s.price} 文——收进杂物柜。`); }
+  saveGame(st); renderAll(st, handlers);
+}
+function sellFolkWant(folk) {
+  const w = folk.want;
+  if (!w) return;
+  if ((st.inv[w.name] || 0) > 0) { st.inv[w.name] -= 1; if (st.inv[w.name] <= 0) delete st.inv[w.name]; }
+  else if ((st.snacks[w.name] || 0) > 0) { st.snacks[w.name] -= 1; if (st.snacks[w.name] <= 0) delete st.snacks[w.name]; }
+  else if ((st.wines[w.name] || 0) > 0) { st.wines[w.name] -= 1; if (st.wines[w.name] <= 0) delete st.wines[w.name]; }
+  else {
+    const di = (st.dishStore || []).findIndex(d => d.name === w.name);
+    if (di >= 0) { st.dishStore[di].qty = (st.dishStore[di].qty || 1) - 1; st.dishStore = st.dishStore.filter(d => (d.qty || 1) > 0); }
+    else return sys(`拿不出「${w.name}」——做/备/酿出来才能卖。`);
+  }
+  st.coins += w.offer;
+  ledger(`广场·卖「${w.name}」`, w.offer);
+  const g = GUESTS.find(x => x.id === folk.npcId);
+  if (g) { st.aff = st.aff || {}; st.aff[g.id] = Math.min(100, (st.aff[g.id] || 0) + 2); sys(`把「${w.name}」卖给${folk.name}，得 ${w.offer} 文（她记了你的好，好感+2）。`); }
+  else sys(`把「${w.name}」卖给${folk.name}，得 ${w.offer} 文。`);
+  folk.want = null;
+  saveGame(st); renderAll(st, handlers);
+}
+
+// ── 邸报：本周江湖大事（本地模板 + 回响/广场摘要），读报 +名声（每日一次）──
+function doDibao() {
+  const items = [];
+  for (const n of (st.notes || [])) if (n.day === st.day && (n.text || n.ai)) items.push(`${n.act || "大事"}：${n.text || n.ai}`);
+  for (const s of (st.square || [])) if (s.day === st.day) items.push(`${s.from}：${s.text}`);
+  const fameGain = (st.dibaoRead || 0) === st.day ? 0 : 1;
+  if (fameGain) { st.dibaoRead = st.day; st.fame = (st.fame || 0) + 1; }
+  openModal(`
+    <h2>邸 报 · 第 ${st.day} 周</h2>
+    <div class="loc-fresh" style="white-space:pre-wrap;line-height:1.9">${items.length ? items.slice(0, 8).map(x => `· ${esc(x)}`).join("\n") : "本周风平浪静，市面无甚大事。"}</div>
+    <div class="loc-desc">读报知天下${fameGain ? "——街坊见你关心世事，名声+1。" : ""}</div>
+    <span class="return" data-back>Return · 返回</span>
+  `, () => {});
+  document.querySelector("#modal-root [data-back]").onclick = () => closeModal();
+  if (fameGain) saveGame(st);
+}
 function openSquareBoard() {
   const items = (st.square || []).slice(-12).reverse();
   openModal(`
     <h2>布 告 墙 · 广场</h2>
     <div class="ck-mats" style="flex-direction:column;align-items:stretch">
-      ${items.length ? items.map(x => `<span class="ck-mat" style="white-space:normal;line-height:1.8">${escapeHtml(x.from)}：${escapeHtml(x.text)}<i style="display:block;opacity:.6">第${x.day}周 ${x.ts}</i></span>`).join("") : `<span class="ck-mat zero">布告墙还空着——跟广场的人聊聊天，消息会传上来。</span>`}
+      ${items.length ? items.map(x => `<span class="ck-mat" style="white-space:normal;line-height:1.8">${esc(x.from)}：${esc(x.text)}<i style="display:block;opacity:.6">第${x.day}周 ${x.ts}</i></span>`).join("") : `<span class="ck-mat zero">布告墙还空着——跟广场的人聊聊天，消息会传上来。</span>`}
     </div>
     <span class="return" data-back>Return · 返回</span>
   `, () => {});
@@ -1315,6 +1444,7 @@ async function doNext() {
     note("出酒", `「${b.name}」出坛${b.extraWeeks ? `（多陈${b.extraWeeks}周）` : ""}，品质${b.quality}，5杯。`);
   }
   if (brews.length) void fireEcho("酿酒出坛", `${brews.map(b => `「${b.name}」品质${b.quality}`).join("、")} 出坛，苏唐的手艺又精了一分。`);
+  void rollFreshEvents(st);    // 江湖酝酿：每周初各地点新鲜事（后台 roll，地图冒红点）
   applyRival(st);              // 第二客可能换成踢馆同行
   dismissInvite();             // 新一天开门：收掉昨天晚上的邀请面板
   setMood(0);

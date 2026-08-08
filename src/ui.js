@@ -3,10 +3,10 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v23";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v23";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v23";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v23";
+} from "./data.js?v=v24";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v24";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v24";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v24";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -810,7 +810,7 @@ export function openLocView(st, loc, { onChat, onAction, onBack }) {
   const q = (s) => modal.querySelector(s);
   q("[data-acts]").innerHTML = (onAction.acts || []).map(a =>
     `<span class="ck-chip ${a.on ? "on" : ""}" data-act="${a.id}">${a.label}</span>`).join("") || `<span class="ck-chip">此处将启</span>`;
-  q("[data-act]")?.forEach?.(el => el.onclick = () => onAction.run(el.dataset.act, modal));
+  modal.querySelectorAll("[data-act]").forEach(el => el.onclick = () => onAction.run(el.dataset.act, modal));
   q("[data-send]").onclick = () => {
     const v = q("#loc-inp").value.trim();
     if (!v) return;
