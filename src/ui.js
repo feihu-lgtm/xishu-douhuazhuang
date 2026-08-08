@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v39";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v39";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v39";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v39";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v39";
+} from "./data.js?v=v40";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v40";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v40";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v40";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v40";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -1342,6 +1342,8 @@ export function openInviteGuest(st, { onToggle, onDone }) {
       <div class="menu-list">${rivals.map(r => card(r.guest, picks)).join("")}</div>` : ""}
       <div class="ck-label">熟客</div>
       <div class="menu-list">${known.map(g => card(g, picks)).join("")}</div>
+      <div class="ck-label">江湖客（相识与否都能点，明日进店吃饭）</div>
+      <div class="menu-list">${JIANGHU_ROSTER.map(g => card(g, picks)).join("")}</div>
       <span class="return" data-back>Return · 返回</span>
     `, () => onDone?.());
     modal.querySelectorAll("[data-pick]").forEach(el => el.onclick = () => { onToggle(el.dataset.pick); draw(); });

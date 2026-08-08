@@ -3,8 +3,8 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
   RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS, rivalGuestAt, BREW_RECIPES,
-} from "./data.js?v=v39";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v39";
+} from "./data.js?v=v40";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v40";
 
 export const GUESTS_PER_DAY = 3;
 const SAVE_KEY = "xiaochu-save-v1";
