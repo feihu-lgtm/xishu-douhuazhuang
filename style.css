@@ -119,14 +119,22 @@ body {
 }
 /* 主叙事双栏：左=师兄/说书人，右=苏唐，按时间戳并行 */
 #logwrap { flex: 1; min-height: 0; display: flex; }
-#log, #sulog {
+#log {
   position: relative;
   flex: 1; overflow-y: auto;
   padding: 20px 24px 12px;
   scrollbar-width: thin;
   scrollbar-color: var(--line-soft) transparent;
 }
-#sulog { border-left: 1px solid var(--line-soft); }
+/* 右栏：按钮条（右上角）+ 苏唐日志 */
+#sucol { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; border-left: 1px solid var(--line-soft); }
+#sulog {
+  position: relative;
+  flex: 1; overflow-y: auto;
+  padding: 20px 24px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-soft) transparent;
+}
 /* 分段滑块：每轮 prompt 开始打点（左=主叙事，右=苏唐），滚动高亮当前轮 */
 .log-marks {
   position: absolute; top: 0; bottom: 0; right: 14px; width: 6px;
@@ -157,8 +165,9 @@ body {
 .entry.player { color: #9fb4c4; }
 .entry.player::before { content: "＞ "; color: var(--ink-dim); }
 .entry.gold { color: var(--gold); }
-/* 顶部按钮栏（右上）：主厨 副厨 酿酒 备餐 商店 探秘 下一日 */
-#toolbar { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+/* 操作按钮栏（右栏右上角）：主厨 副厨 酿酒 备餐 商店 探秘 下一日 */
+#toolbar { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; padding: 10px 12px 2px; }
+#toolbar + #sulog { padding-top: 14px; }
 .tb-btn {
   padding: 4px 11px; border: 1px solid var(--line-soft); border-radius: 6px;
   cursor: pointer; font-size: 12.5px; letter-spacing: 2px; color: var(--ink-bright);
