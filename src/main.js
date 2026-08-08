@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v13";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v14";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY,
-} from "./state.js?v=v13";
+} from "./state.js?v=v14";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v13";
-import { chatContext } from "./prompt.js?v=v13";
+} from "./ai.js?v=v14";
+import { chatContext } from "./prompt.js?v=v14";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
   commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn,
-} from "./ui.js?v=v13";
+} from "./ui.js?v=v14";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -827,6 +827,7 @@ function note(act, text) {
 // 200 字存 st.echoes 播放池（不注入 prompt）；AI 纸条行挂到该轮系统小纸条之后（st.notes 条目 ai 字段）。
 // 播放：新回响夺舍（立即上），之后每 15s 随机换池子一条，播 3 条自然收尾。
 let echoTimer = null;
+let echoChain = 0;      // 回响链代：新回响夺舍时 +1，作废旧链（防多条链打架）
 let lastEchoAt = 0; // 最近一次回响触发时间：没动静超 5 分钟，后台自动补一条日常回响（说书人自己跑）
 function worldState() {
   const tier = (st.ryuweiRating || {}).tier ?? 0;
@@ -855,11 +856,22 @@ async function fireEcho(event, result) {
 }
 function playEcho(echo) {
   stopEcho();
-  showEcho(echo);
-  echoTimer = setInterval(() => {
-    const pool = st.echoes || [];
-    if (pool.length) showEcho(pool[Math.floor(Math.random() * pool.length)]);
-  }, 15000); // 持续滚动播放：每 15s 一条（池子里随机），新回响夺舍重置；不再播 3 条就收
+  const gen = ++echoChain;
+  const pool = st.echoes || [];
+  let idx = Math.max(0, pool.findIndex(e => e === echo));
+  const next = () => {
+    if (gen !== echoChain) return;             // 已被新回响夺舍，旧链作废
+    const p = st.echoes || [];
+    if (!p.length) return;
+    idx = (idx + 1) % p.length;                // 顺序循环：播完从头再来
+    const e = p[idx];
+    let done = false;
+    const guard = setTimeout(() => {           // 双保险：动画卡住（隐藏/异常）也强制换，绝不卡
+      if (!done) { done = true; next(); }
+    }, 33000);
+    showEcho(e, () => { if (!done) { done = true; clearTimeout(guard); next(); } });
+  };
+  showEcho(echo, next);                        // 首条滚完接链
 }
 function stopEcho() {
   if (echoTimer) { clearInterval(echoTimer); echoTimer = null; }

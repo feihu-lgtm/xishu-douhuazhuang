@@ -3,10 +3,10 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
-} from "./data.js?v=v13";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v13";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v13";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v13";
+} from "./data.js?v=v14";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v14";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v14";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v14";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -893,7 +893,7 @@ const ECHO_BAR_KEY = "xiaochu-echo-bar";
 export function echoBarOn() { return localStorage.getItem(ECHO_BAR_KEY) !== "0"; }
 export function setEchoBar(v) { localStorage.setItem(ECHO_BAR_KEY, v ? "1" : "0"); }
 
-export function showEcho(echo) {
+export function showEcho(echo, onDone) {
   // 世界回响 → 底部滚动条（一条一条滚）；不再写左栏 log
   const bar = $("#echo-bar");
   if (!bar) return;
@@ -906,6 +906,7 @@ export function showEcho(echo) {
   body.style.animation = "none";
   void body.offsetWidth; // 重触发跑马灯
   body.style.animation = "";
+  body.onanimationend = () => { if (typeof onDone === "function") onDone(); }; // 滚完接下一条（循环播放）
 }
 
 // ── 上菜面板（多选）：菜库 + 小吃 + 酒，合计 ≤3 菜 + 1 酒 ──────
