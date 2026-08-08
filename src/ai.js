@@ -1,8 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v28";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v30";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
-import { CHECK_DIMS } from "./state.js?v=v28";
+import { CHECK_DIMS } from "./state.js?v=v30";
 
 // ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
 let nsfwOn = true;
@@ -13,7 +13,7 @@ const msgsWithMode = (system, user) =>
   nsfwOn
     ? [{ role: "system", content: system }, ...MODE_PRIMER_MESSAGES, { role: "user", content: user }]
     : [{ role: "system", content: system }, { role: "user", content: user }];
-import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v28";
+import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v30";
 export { tierOfScore, tierGuide };
 
 const CFG_KEY = "xiaochu-ai-v1";
@@ -524,7 +524,7 @@ export async function genExpedition(cfg, ctx) {
         ? `【同行】${ctx.rescueTarget.name}（${ctx.rescueTarget.ident}，与师兄好感${ctx.rescueTarget.aff}${ctx.rescueTarget.aff <= 5 ? "，几乎是陌生人，别写成老相识那样熟络" : ""}）这趟一起在场。${ctx.rescueTarget.name === "余味" ? RYUWEI_VOICE : ctx.rescueTarget.name === "何雨谢" ? HEYUXIE_VOICE : ""}`
         : "",
       ctx.guestList && ctx.guestList.length
-        ? `【此地常客】${ctx.guestList.map(g => `${g.name}（${g.gender === "女" ? "她" : "他"}，好感${g.aff}${g.mem ? `，记得「${g.mem}」` : "，还不熟"}${g.ryuwei ? `；余味是峨眉破戒的女侠食评人，年轻姑娘，一律用「她」，别称前辈/大哥/兄台；${RYUWEI_VOICE}` : ""}${g.heyuxie ? `；何雨谢是雪山派掌门师母、守寡的寡妇，温声细语持重体面；${HEYUXIE_VOICE}` : ""}）`).join("；")}。好感≥40 的常客愿意搭把手（带路/递料/保料），好感≥60 的肯把压箱底的好料让给你；剧情里自然地勾连他们，别生硬。`
+        ? `【此地常客】${ctx.guestList.map(g => `${g.name}（${g.gender === "女" ? "她" : "他"}，好感${g.aff}${g.mem ? `，记得「${g.mem}」` : "，还不熟"}${g.ryuwei ? `；余味是峨眉破戒的女侠食评人，年轻姑娘，一律用「她」，别称前辈/大哥/兄台；${RYUWEI_VOICE}` : ""}${g.heyuxie ? `；何雨谢是雪山派掌门师母、守寡的寡妇，温声细语持重体面；${HEYUXIE_VOICE}` : ""}${g.lore ? `；${g.lore}` : ""}${g.wu ? `，武功${g.wu}` : ""}${g.koupi ? `，口癖「${g.koupi}」` : ""}）`).join("；")}。好感≥40 的常客愿意搭把手（带路/递料/保料），好感≥60 的肯把压箱底的好料让给你；剧情里自然地勾连他们，别生硬。`
         : "",
       `师兄（武功约 ${ctx.skillAvg}、凭平日见识与智慧）与苏唐（手艺 ${ctx.suAvg}）同行，寻稀有食材。`,
       `只输出一个 JSON：{"narrative":"约500字（±10%）第三人称主叙事，3-5段，师兄化解阻碍、苏唐辨认得手，穿插「」对话与*心理*，收尾回店","comment":"苏唐批一句","mood":"八个心情词之一(开心/悠闲/兴奋/心动/得意/不满/吃惊/专注)","special":[{"name":"高级带星食材名，武侠/市井感","stars":1-3,"desc":"一句"}]}`,

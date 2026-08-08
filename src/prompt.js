@@ -1,7 +1,7 @@
 // ── Prompt 编排（学 ji-haitang：分块、标号、不冗余；数据与拼接分离）──────
 // 每个调用 = 一个 system（身份+文风+格式）+ 一个 user（【标号】分块的事实与约束）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel, GUESTS } from "./data.js?v=v28";
-import { currentGuest } from "./state.js?v=v28";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel, GUESTS } from "./data.js?v=v30";
+import { currentGuest } from "./state.js?v=v30";
 
 // 标号块：空内容则整块省略，避免冗余空段
 export const sec = (t, b) => (b ? `【${t}】\n${b}\n` : "");
@@ -18,6 +18,12 @@ export const rivalSec = (g) => g?.rival
 
 // 体貌描述：女厨等美若天仙的角色，涉及她们的叙事都要带出这份体貌
 export const bodySec = (g) => (g?.body ? sec("体貌", `${g.name}${g.body}。描述或着墨时带出这份样貌。`) : "");
+
+// 武功/身世高光/口癖（可选字段 wu/lore/koupi）：出餐与探秘都会带出
+export const briefSec = (g) => {
+  const parts = [g?.lore ? `${g.name}${g.lore}。` : "", g?.wu ? `武功：${g.wu}。` : "", g?.koupi ? `口癖：${g.koupi}。` : ""].filter(Boolean);
+  return parts.length ? sec("人设", parts.join("")) : "";
+};
 
 // 店誉：余味送的银簪（一支=一星米其林）。有星后全蜀地都知道豆花庄，NPC 态度要变：旧友熟人夸、同行忌惮
 // 余味的口癖（猫钦定）：时刻自称「奴家」，称呼旁人一律「这位小哥」（不叫师兄/姑娘/前辈）
@@ -57,7 +63,7 @@ export function chatContext(st) {
   return [
     sec("场景", `第${st?.day}周（${weekLabel(st?.day)}）· 已待客${st?.served ?? 0}位。${cur}。${dayLogTxt ? `今日来客：${dayLogTxt}。` : ""}${snacks ? `苏唐今日${snacks}。` : ""}`),
     sec("客人", g ? `${g.name}（${g.ident}）坐在灶边等菜，点菜时说「${g.order}」。师兄可以跟他搭话，聊他想吃什么。` : "店里没有客人。"),
-    sec("留坐", inv ? `${inv.name}（${inv.ident}）受师兄邀请留坐，正与苏唐一处陪师兄说话。${inv.body ? `${inv.name}${inv.body}。` : ""}${inv.ryuwei ? RYUWEI_VOICE : inv.heyuxie ? HEYUXIE_VOICE : ""}` : ""),
+    sec("留坐", inv ? `${inv.name}（${inv.ident}）受师兄邀请留坐，正与苏唐一处陪师兄说话。${inv.body ? `${inv.name}${inv.body}。` : ""}${inv.lore ? `${inv.name}${inv.lore}。` : ""}${inv.wu ? `武功：${inv.wu}。` : ""}${inv.koupi ? `口癖：${inv.koupi}。` : ""}${inv.ryuwei ? RYUWEI_VOICE : inv.heyuxie ? HEYUXIE_VOICE : ""}` : ""),
     sec("苏唐与师兄", `苏唐对师兄好感 ${st?.suAff ?? 0}。${stars > 0 ? `店里挂着余味送的${stars}支银簪（一支=一星），苏唐为这份名头得意，熟人面前会显摆两句，也怕砸了招牌。` : `还没拿到银簪，苏唐盼着余味再来——余味是峨眉破戒的任性女侠，年纪轻轻的一流高手，口味刁钻，苏唐跟她斗嘴斗得开心，也从她嘴里听见天下名馆的见闻。别叫她前辈。${RYUWEI_VOICE}`}`),
     sec("近况", notes || "平淡一日，灶上安稳。"),
     chatLog ? sec("最近对话", chatLog) : "",
@@ -107,6 +113,7 @@ export function dishUser(ctx) {
     sisterSec(ctx.guest) +
     rivalSec(ctx.guest) +
     bodySec(ctx.guest) +
+    briefSec(ctx.guest) +
     starSec(ctx.st) +
     ryuweiSec(ctx.guest, ctx.st) +
     sec("约束", `只能使用这些料：${ctx.materials.join("、")}，不得凭空添加任何其他食材。`) +
@@ -129,6 +136,7 @@ export function snackUser(ctx) {
     sisterSec(ctx.guest) +
     rivalSec(ctx.guest) +
     bodySec(ctx.guest) +
+    briefSec(ctx.guest) +
     starSec(ctx.st) +
     sec("现有食材", ctx.invStr) +
     sec("苏唐自决", "你是苏唐，自己决定做什么小吃、用什么料（最多4样）、做几份、品质如何、是什么味型，师兄管不着。你是店家，对顾客要客气热情、招呼周到；对师兄则调情撒娇、逗他嗔他带甜，绝不责备。") +
@@ -158,6 +166,7 @@ export function reactionUser(ctx) {
     sisterSec(ctx.guest) +
     rivalSec(ctx.guest) +
     bodySec(ctx.guest) +
+    briefSec(ctx.guest) +
     starSec(ctx.st) +
     ryuweiSec(ctx.guest, ctx.st) +
     sec("主菜", mainList || "（这顿没有主菜）") +

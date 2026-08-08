@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v28";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v30";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v28";
+} from "./state.js?v=v30";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeilu, genDuel,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v28";
-import { chatContext } from "./prompt.js?v=v28";
+} from "./ai.js?v=v30";
+import { chatContext } from "./prompt.js?v=v30";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, initMobileDrawers,
-} from "./ui.js?v=v28";
+} from "./ui.js?v=v30";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -137,12 +137,14 @@ function ctxLine(s) {
   const invited = s.invitedGuest ? GUESTS.find(x => x.id === s.invitedGuest) : null;
   const notes = (s.notes || []).slice(-5).map(n => `[${n.act}]${n.text}${n.ai ? `｜${n.ai}` : ""}`).join("；");
   const stars = (s.ryuweiRating || {}).tier ?? 0; // 余味送的银簪数：一支=一星米其林
+  const gExtra = [g?.body ? `${g.body}。` : "", g?.lore ? `${g.lore}。` : "", g?.wu ? `武功：${g.wu}。` : "", g?.koupi ? `口癖：${g.koupi}。` : ""].filter(Boolean).join("");
+  const invExtra = [invited?.body ? `${invited.body}。` : "", invited?.lore ? `${invited.lore}。` : "", invited?.wu ? `武功：${invited.wu}。` : "", invited?.koupi ? `口癖：${invited.koupi}。` : ""].filter(Boolean).join("");
   return [
     stars > 0 ? `（豆花庄挂着食评人余味送的${stars}支银簪，一支银簪等于一星，蜀地独一份。旧识熟客见了必夸这份荣耀，同行厨子忌惮三分，挑刺也先掂量「这家挂着星」——把这份分量自然带进言行，别喊口号。）` : "",
     `第${s.day}周（${weekLabel(s.day)}），已待客${s.served}位。`,
-    g ? `当前客人：${g.name}（${g.ident}），点菜时说「${g.order}」。${g.body ? `（${g.name}${g.body}。）` : ""}` : `当前无客人。`,
+    g ? `当前客人：${g.name}（${g.ident}），点菜时说「${g.order}」。${gExtra ? `（${g.name}${gExtra}）` : ""}` : `当前无客人。`,
     g && g.sister ? `（苏酥是苏唐的亲姐姐，在座。苏唐正吃醋掉脸，语气带酸带嗔，一边防着姐姐勾引师兄、一边防着师兄献殷勤。）` : "",
-    invited ? `（${invited.name}（${invited.ident}）受师兄邀请留坐，正与苏唐一处说话。苏唐见师兄待她热络，暗里吃味，嘴上还要大方。${invited.body ? `${invited.name}${invited.body}。` : ""}）` : "",
+    invited ? `（${invited.name}（${invited.ident}）受师兄邀请留坐，正与苏唐一处说话。苏唐见师兄待她热络，暗里吃味，嘴上还要大方。${invExtra ? `${invited.name}${invExtra}` : ""}）` : "",
     notes ? `近况小纸条：${notes}` : "",
   ].filter(Boolean).join("\n");
 }
@@ -632,7 +634,7 @@ function guestListOf(node) {
   const push = (guest) => {
     const aff = st.aff[guest.id] || 0;
     const m = ((st.guestMemories || {})[guest.id] || [])[0]; // 最近一条记忆
-    list.push({ name: guest.name, ident: guest.ident, aff, gender: guest.gender, ryuwei: !!guest.ryuwei, mem: m ? fmtGuestMemory(m) : "" });
+    list.push({ name: guest.name, ident: guest.ident, aff, gender: guest.gender, ryuwei: !!guest.ryuwei, heyuxie: !!guest.heyuxie, wu: guest.wu, lore: guest.lore, koupi: guest.koupi, mem: m ? fmtGuestMemory(m) : "" });
   };
   const ryu = GUESTS.find(x => x.ryuwei);
   if (ryu) push(ryu); // 食评人余味 · 每个据点都愿搭手，置顶
