@@ -285,6 +285,44 @@ body {
 .ryuwei-badge.t0 { color: var(--ink-dim); background: none; -webkit-background-clip: unset; animation: none; }
 @keyframes ryuwei-flow { to { background-position: 200% center; } }
 
+/* 流光炫彩 · 文字渐变特效（表示余味地位，评语通用） */
+.ryuwei-glow {
+  background: linear-gradient(90deg, #f6d6bd, #c9a19b, #e6c07a, #f0b3a0, #d4a5b5, #c9a19b, #e6c07a, #f6d6bd);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ryuwei-flow 3.5s linear infinite;
+  font-weight: 600;
+}
+
+/* 客人卡 · 余味名字流光炫彩（地位标识） */
+.pcard .gname.ryuwei-name {
+  background: linear-gradient(90deg, #f6d6bd, #c9a19b, #e6c07a, #f0b3a0, #d4a5b5, #c9a19b, #e6c07a, #f6d6bd);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ryuwei-flow 3.5s linear infinite;
+  font-weight: 700;
+}
+
+/* 余味评语流光炫彩 · 整段渐变 */
+.entry.narr.ryuwei-comment .bd,
+.entry.narr.ryuwei-comment .bd p,
+.entry.narr.ryuwei-comment .bd span,
+.entry.comment.ryuwei-comment .bd,
+.entry.comment.ryuwei-comment .bd p,
+.entry.comment.ryuwei-comment .bd span {
+  background: linear-gradient(90deg, #f6d6bd, #c9a19b, #e6c07a, #f0b3a0, #d4a5b5, #c9a19b, #e6c07a, #f6d6bd);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: ryuwei-flow 4s linear infinite;
+  font-weight: 600;
+}
+
 /* 余味出场特效 · 星星文字 + 渐变炫彩 */
 .entry.ryuwei { position: relative; }
 .entry.ryuwei .bd {

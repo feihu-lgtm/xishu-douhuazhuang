@@ -50,17 +50,17 @@ const ts = () => {
   const p = (n) => String(n).padStart(2, "0");
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 };
-const mkEntry = (target, type) => {
+const mkEntry = (target, type, extraClass = "") => {
   const div = document.createElement("div");
-  div.className = `entry ${type}`;
+  div.className = `entry ${type}${extraClass ? " " + extraClass : ""}`;
   div.innerHTML = `<span class="ts">${ts()}</span><span class="bd"></span>`;
   target.appendChild(div);
   return div.querySelector(".bd");
 };
 
-export function log(type, text, { instant = false } = {}) {
+export function log(type, text, { instant = false, extraClass = "" } = {}) {
   queue = queue.then(() => new Promise((done) => {
-    const bd = mkEntry($("#log"), type);
+    const bd = mkEntry($("#log"), type, extraClass);
     const put = (str) => { if (RICH.has(type)) bd.innerHTML = richHtml(str); else bd.textContent = str; };
     const finish = () => {
       put(text);
@@ -90,21 +90,21 @@ export function slog(type, text) {
 }
 // 流式上屏：AI 边写边长，返回句柄。
 // 走同一条日志队列排队创建 div，保证排在未打完的条目之后（不往上插）。
-export function logStream(type) {
+export function logStream(type, { extraClass = "" } = {}) {
   let entry = null, bd = null, text = "", ready = false, pendingApply = null;
   const put = (str) => { if (RICH.has(type)) bd.innerHTML = richHtml(str); else bd.textContent = str; };
   const doApply = (main, comment) => {
     put(main);
     if (comment) {
       const c = document.createElement("div");
-      c.className = "entry comment";
+      c.className = `entry comment${extraClass ? " " + extraClass : ""}`;
       c.innerHTML = `<span class="ts">${ts()}</span><span class="bd">${escapeHtml(comment)}</span>`;
       entry.after(c);
     }
     $("#log").scrollTop = $("#log").scrollHeight;
   };
   queue = queue.then(() => new Promise(done => {
-    bd = mkEntry($("#log"), type);
+    bd = mkEntry($("#log"), type, extraClass);
     entry = bd.parentElement;
     if (text) put(text);
     ready = true;
@@ -149,11 +149,13 @@ export function slogStream(type) {
 }
 
 export const narr = (t) => log("narr", t);
+export const narrGlow = (t) => log("narr", t, { extraClass: "ryuwei-comment" }); // 余味评语 · 流光炫彩
 export const say = (t) => log("say", t);
 export const sys = (t) => log("sys", t, { instant: true });
 export const gold = (t) => log("gold", t);
 export const playerLine = (t) => log("player", t, { instant: true });
 export const commentLine = (t) => log("comment", `苏唐批：${t}`);
+export const commentGlow = (t) => log("comment", `苏唐批：${t}`, { extraClass: "ryuwei-comment" }); // 余味场景评语 · 流光炫彩
 export const suLine = (t) => slog("su", t);      // 苏唐的话 → 右栏，粉色
 export const suSys = (t) => slog("susys", t);    // 苏唐的练功/用料/买卖 → 右栏
 
@@ -230,8 +232,8 @@ export function renderLeft(st, hideGuest) {
       : `<div class="portrait">${guest.name[0]}</div>`;
     html += `<div id="guestcard" class="pcard">
       ${portrait}
-      <div class="gname">${guest.name}</div>
-      <div class="gid">${guest.ident} · 消费力 ${guest.spend} 文</div>
+      <div class="gname${guest.ryuwei ? " ryuwei-name" : ""}">${guest.name}</div>
+      <div class="gid">${guest.ident}${guest.ryuwei ? ` · <span class="ryuwei-glow">顶级食评人</span>` : ""} · 消费力 ${guest.spend} 文</div>
       <div class="gid">好感 ${(st.aff || {})[guest.id] || 0} · ${affName((st.aff || {})[guest.id] || 0)}</div>
       <div class="gorder">「${guest.order}」</div>
     </div>`;
@@ -614,7 +616,7 @@ export function openExpeditionAsk(node, { onGo, guests = [] }) {
       <div class="ck-label">此地常客 · 好感 &gt; 高愿意搭手，&gt; 更高肯让压箱底好料</div>
       ${guests.length ? guests.map(g => `
         <div class="exp-guest">
-          <span class="exp-gname">${g.name}<i>${g.ident} · 好感 ${g.aff}（${affName(g.aff)}）</i></span>
+          <span class="exp-gname">${g.ryuwei ? `<span class="ryuwei-glow">${g.name}</span>` : g.name}<i>${g.ident} · 好感 ${g.aff}（${affName(g.aff)}）</i></span>
           ${g.mem ? `<span class="exp-gmem">记得：${g.mem}</span>` : `<span class="exp-gmem none">还没有来往。</span>`}
         </div>`).join("") : `<span class="ck-mat zero">此地暂无熟人。</span>`}
     </div>
@@ -684,17 +686,18 @@ export function renderInvite(st, { onInvite, onCancel } = {}) {
   }
   const invited = st.invitedGuest ? findKnownGuest(st, st.invitedGuest) : null;
   const cands = inviteCandidates(st);
+  const ordered = [...cands].sort((a, b) => (b.ryuwei ? 1 : 0) - (a.ryuwei ? 1 : 0)); // 食评人余味置顶
   el.classList.toggle("collapsed", inviteCollapsed);
   el.innerHTML = `
     <div class="invite-bar" data-toggle>🪑 请客坐坐${invited ? ` · ${invited.name}` : ""}<span class="invite-min">${inviteCollapsed ? "展开" : "收起"}</span></div>
     ${inviteCollapsed ? "" : `
     <div class="invite-body">
       <div class="invite-note">好感 &gt; 15 的女客可留坐闲聊——苏唐和她一起陪你说话。</div>
-      ${cands.length ? cands.map(g => {
+      ${ordered.length ? ordered.map(g => {
         const a = st.aff[g.id] || 0;
         const isInv = invited && invited.id === g.id;
         return `<div class="invite-row">
-          <span class="invite-name">${g.name}<i>${g.ident}</i></span>
+          <span class="invite-name">${g.ryuwei ? `<span class="ryuwei-glow">${g.name}</span>` : g.name}<i>${g.ident}</i></span>
           <span class="invite-aff">好感 ${a}</span>
           ${isInv ? `<span class="ck-btn plain" data-cancel="${g.id}">请她回去</span>` : `<span class="ck-btn plain" data-invite="${g.id}">邀请</span>`}
         </div>`;
@@ -800,11 +803,12 @@ export function openSet(st, { onSet }) {
 
 // ── 邀客·点将明日（最多 GUESTS_PER_DAY 位，任何人，含踢馆八线当前挑战者，点/取消即改）──
 export function openInviteGuest(st, { onToggle, onDone }) {
-  const known = [...GUESTS, ...(st.customGuests || [])];
+  const ryu = GUESTS.find(g => g.ryuwei);
+  const known = [ryu, ...GUESTS.filter(g => !g.ryuwei), ...(st.customGuests || [])].filter(Boolean); // 食评人余味置顶
   const rivals = RIVAL_SCHOOLS.map((s, i) => ({ school: s, guest: rivalGuestForSchool(st, i) })).filter(x => x.guest);
   const card = (g, picks) => `
       <div class="menu-item-card pick ${picks.includes(g.id) ? "on" : ""}" data-pick="${g.id}">
-        <b>${g.name}</b><i>${g.ident}${g.ryuwei ? " · 顶级食评人" : ""}</i>
+        <b>${g.ryuwei ? `<span class="ryuwei-glow">${g.name}</span>` : g.name}</b><i>${g.ident}${g.ryuwei ? " · 顶级食评人" : ""}</i>
         <p>${g.order || ""}</p>
       </div>`;
   function draw() {

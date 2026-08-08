@@ -15,7 +15,7 @@ import {
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow,
 } from "./ui.js";
 
 let st = null;
@@ -109,7 +109,7 @@ async function guestArrives() {
   setMood(1);
   renderAll(st, handlers); // 这才是真正露脸的时候，不带 hideGuest，左栏正常显示客人卡
   await narr(`门帘一掀，${g.name}（${g.ident}）走了进来，找个灶边位子坐下。`);
-  if (g.ryuwei) ryuweiIntro(g);   // 食评人余味 · 星星特效出场，紧跟在"走进来"之后，不抢在前面
+  if (g.ryuwei) { ryuweiIntro(g); }   // 食评人余味 · 星星特效出场
   else await say(`「${g.order}」`);
   sys(`第 ${st.served + 1} 位客人。右栏「灶台」开火，做好了「上菜」。`);
   note("迎客", `第${st.served + 1}位客人 ${g.name} 进门，说「${g.order}」。`);
@@ -272,7 +272,8 @@ async function cookNarrate(j) {
   stepTrace("武学裁决", "pass", `练${got.join("、")} · 配合${martial.synergy} · 基础分${baseScore}`);
   // 第二轮·出菜叙事（带上任务：做给谁、TA 爱什么味）
   const g = currentGuest(st);
-  const h = logStream("narr");
+  const glowCook = !!g.ryuwei; // 食评人余味的菜 · 评语整段流光炫彩
+  const h = logStream("narr", glowCook ? { extraClass: "ryuwei-comment" } : {});
   const res = await genDish(cfg, {
     materials: j.materials,
     lore,
@@ -291,8 +292,14 @@ async function cookNarrate(j) {
     h.apply(ex.main, ex.comment ? `苏唐批：${ex.comment}` : "");
     setMood(moodIndex(ex.mood) ?? 0);
   } else {
-    h.remove(); await narr(res.prose);
-    if (res.comment) await commentLine(res.comment);
+    h.remove();
+    if (glowCook) {
+      if (res.prose) await narrGlow(res.prose);
+      if (res.comment) await commentGlow(res.comment);
+    } else {
+      await narr(res.prose);
+      if (res.comment) await commentLine(res.comment);
+    }
     setMood(res.mood ?? 0);
   }
   st.dish.name = res.name || st.dish.name;
@@ -364,13 +371,15 @@ async function doServe() {
   const pay = payOf(g, score, affNow) + (setName ? 2 : 0);
   const mainDesc = dish.menuDesc || "";
   const snackDesc = setName ? ((st.snackRecipes || []).find(x => x.name === setName)?.desc || "") : "";
-  await narr(`师兄把「${dish.name}」端上桌，往 ${g.name} 面前一放。`);
-  if (mainDesc) await narr(`【菜牌】${mainDesc}`);
+  const glowServe = !!g.ryuwei; // 食评人余味的菜 · 端菜与品尝全部流光炫彩
+  const sv = (t) => (glowServe ? narrGlow(t) : narr(t));
+  await sv(`师兄把「${dish.name}」端上桌，往 ${g.name} 面前一放。`);
+  if (mainDesc) await sv(`【菜牌】${mainDesc}`);
   if (setName) {
     await suLine(`【苏唐】顺手给 ${g.name} 搭了份「${setName}」，算我请的边角。`);
-    if (snackDesc) await narr(`【菜牌】${snackDesc}`);
+    if (snackDesc) await sv(`【菜牌】${snackDesc}`);
   }
-  const h = logStream("narr"); // 品尝场景进左栏
+  const h = logStream("narr", glowServe ? { extraClass: "ryuwei-comment" } : {}); // 品尝场景进左栏
   const r = await genReaction(loadCfg(), {
     guest: g, dishName: dish.name, score, tier, mainBy,
     snackScore, snackName: setName, snackDesc,
@@ -382,7 +391,7 @@ async function doServe() {
     reactNote = extractComment(h.text).note || "";
     setMood(r.mood ?? [2, 0, 5, 6][tier]);
   } else {
-    h.remove(); await narr(r.scene || "");
+    h.remove(); await sv(r.scene || "");
     setMood(r.mood ?? [2, 0, 5, 6][tier]);
   }
   // 好感结算：满意度+口味匹配+配set 勾连
@@ -403,10 +412,10 @@ async function doServe() {
     const newTier = ryuweiGain(st, score);
     if (newTier) {
       const nm = ryuweiTierName(st);
-      await narr(`「${g.name}」掸掸裙摆，搁下一句：「${nm}——${newTier === 1 ? "收尾干净，可堪一记。" : newTier === 2 ? "全天下只有锦官城两家、拉萨一家、打箭炉一家，如今多了鱼定村这一家。" : "三尾鱼？小鱼儿头一回在册子上落这三笔。"}」`);
+      await narrGlow(`「${g.name}」掸掸裙摆，搁下一句：「${nm}——${newTier === 1 ? "收尾干净，可堪一记。" : newTier === 2 ? "全天下只有锦官城两家、拉萨一家、打箭炉一家，如今多了鱼定村这一家。" : "三尾鱼？小鱼儿头一回在册子上落这三笔。"}」`);
       renderAll(st, handlers);
     } else {
-      await narr(`「${g.name}」筷子一放，微微摇头：「尾巴没压住，再练练。」`);
+      await narrGlow(`「${g.name}」筷子一放，微微摇头：「尾巴没压住，再练练。」`);
     }
   }
   // 踢馆同行：按档位阈值（req）判定——达标把他赶走，必爆 ★食材 + 大额钱，并推进梯度
@@ -505,14 +514,20 @@ function fmtGuestMemory(m) {
     (m.snackName ? `，苏唐小吃「${m.snackName}」${m.snackScore}分` : "") + "。";
 }
 function guestListOf(node) {
-  if (!node.guests || !node.guests.length) return [];
-  return node.guests.map(id => {
+  const list = [];
+  const push = (guest) => {
+    const aff = st.aff[guest.id] || 0;
+    const m = ((st.guestMemories || {})[guest.id] || [])[0]; // 最近一条记忆
+    list.push({ name: guest.name, ident: guest.ident, aff, ryuwei: !!guest.ryuwei, mem: m ? fmtGuestMemory(m) : "" });
+  };
+  const ryu = GUESTS.find(x => x.ryuwei);
+  if (ryu) push(ryu); // 食评人余味 · 每个据点都愿搭手，置顶
+  for (const id of (node.guests || [])) {
     const guest = GUESTS.find(x => x.id === id);
-    if (!guest) return null;
-    const aff = st.aff[id] || 0;
-    const m = ((st.guestMemories || {})[id] || [])[0]; // 最近一条记忆
-    return { name: guest.name, ident: guest.ident, aff, mem: m ? fmtGuestMemory(m) : "" };
-  }).filter(Boolean);
+    if (!guest || guest.id === ryu?.id) continue;
+    push(guest);
+  }
+  return list;
 }
 // 英雄救美/美救英雄同行目标：据点常客里的女子优先，没有就全局女性npc兜底——任何npc都行，好感0（陌生人）也能撞上
 function pickRescueTarget(node) {
@@ -554,6 +569,10 @@ async function doExpedition(node, intent) {
   st.lastScenByNode[node.id] = scenario;
   // 英雄救美/美救英雄：命中这5条情境之一，当场点一位同行女子（任何npc，好感0也算数）
   const rescueTarget = RESCUE_SCENARIOS.has(scenario) ? pickRescueTarget(node) : null;
+  // 食评人余味同行（据点常客或救美目标）· 本次探秘对话全部流光炫彩
+  const withRyu = guestListOf(node).some(x => x.ryuwei) || !!rescueTarget?.ryuwei;
+  const expNarr = (t) => (withRyu ? narrGlow(t) : narr(t));
+  const expComment = (t) => (withRyu ? commentGlow(t) : commentLine(t));
   sys(`【探秘·${node.name}】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……${intent ? `（师兄交代：${intent}）` : ""}`);
   // ① 一次调用：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special；玩家钦定主线夺舍；勾连据点常客与隔离记忆；弱关联时至少带一句当下节气
   const r = await genExpedition(loadCfg(), {
@@ -561,13 +580,13 @@ async function doExpedition(node, intent) {
     calendarStrong: cal.strong ? cal.text : null, calendarMention: cal.strong ? null : cal.text,
     rescueTarget: rescueTarget ? { name: rescueTarget.name, ident: rescueTarget.ident, aff: st.aff[rescueTarget.id] || 0 } : null,
   });
-  await narr(r.narrative);
-  if (r.comment) await commentLine(r.comment);
+  await expNarr(r.narrative);
+  if (r.comment) await expComment(r.comment);
   setMood(r.mood ?? 0);
   let special = (r.special && r.special.length) ? r.special : fallbackSpecial();
   const ch = r.challenge || { prompt: "", options: [] };
   stepTrace("出题", "pass", `${ch.options.length} 个选项（${ch.options.map(o => o.dim).join("/")}）`);
-  await narr(`走到紧要处——${ch.prompt}`);
+  await expNarr(`走到紧要处——${ch.prompt}`);
   const background = `${scenario}。${(r.narrative || "").slice(0, 220)}`;
   const specialNames = special.map(s => `${s.name}${"★".repeat(s.stars)}`).join("、");
   const outcome = await new Promise((resolve) => {
@@ -587,7 +606,7 @@ async function doExpedition(node, intent) {
       background, prompt: ch.prompt, choice: opt.text, dim: outcome.dim, ok: check.ok, special: specialNames,
       rescueName: rescueTarget ? rescueTarget.name : null,
     });
-    if (stt.text) await narr(stt.text);
+    if (stt.text) await expNarr(stt.text);
     else await sys(check.ok ? `【检定】「${opt.text}」这一手成了（≈${check.p}%）${CHECK_DIMS.includes(outcome.dim) ? `，愈发老练（${rank}）` : ""}。` : `【检定】「${opt.text}」这一手没成（≈${check.p}%），白折腾半日。`);
     if (check.ok) {
       special = special.map(s => ({ ...s, stars: Math.min(3, s.stars + 1) })); // 看得准，收获更佳
@@ -849,7 +868,7 @@ async function collectGifts() {
     st.stars = st.stars || {}; st.starLore = st.starLore || {};
     st.stars[sp.name] = sp.stars;
     if (sp.desc) st.starLore[sp.name] = sp.desc;
-    gifts.push({ name: g.name, ident: g.ident, gift: sp });
+    gifts.push({ name: g.name, ident: g.ident, ryuwei: !!g.ryuwei, gift: sp });
   }
   const r = await genGifts(loadCfg(), { givers: gifts });
   st.pendingGifts = { givers: gifts, text: r.text || "" };
@@ -862,9 +881,12 @@ async function showPendingGifts() {
   if (!pg || !pg.givers || !pg.givers.length) { st.pendingGifts = null; return; }
   st.pendingGifts = null;
   if (pg.text) await narr(pg.text);
-  const lines = pg.givers.map(g =>
-    `　· 「${g.gift.name}」${"★".repeat(g.gift.stars)}（${g.gift.desc}）——${g.name}托人送来`);
-  await narr(["【收到】", ...lines].join("\n\n"));
+  const row = (g) => `　· 「${g.gift.name}」${"★".repeat(g.gift.stars)}（${g.gift.desc}）——${g.name}托人送来`;
+  const plain = pg.givers.filter(g => !g.ryuwei).map(row);
+  const glow = pg.givers.filter(g => g.ryuwei).map(row); // 食评人余味的礼单 · 顶级流光炫彩
+  if (plain.length) await narr(["【收到】", ...plain].join("\n\n"));
+  else if (glow.length) await narr("【收到】");
+  for (const line of glow) await narrGlow(line);
 }
 
 async function doNext() {
