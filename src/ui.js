@@ -5,7 +5,7 @@ import {
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
 } from "./data.js";
 import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -365,6 +365,7 @@ export function renderSide(st, h) {
     `<div class="sucard" aria-hidden="true">
        <div id="sutang" class="sutang" style="background-position:${moodPos(currentMood)}"></div>
        <div class="suname">苏唐</div>
+       <div class="sumood">心情：${MOOD_WORDS[currentMood] ?? "专注"}</div>
      </div>`;
   $("#side").querySelectorAll(".menu-item:not(.disabled)").forEach(el => {
     el.onclick = () => h[el.dataset.act]?.();

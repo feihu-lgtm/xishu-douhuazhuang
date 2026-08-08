@@ -592,6 +592,7 @@ body {
   pointer-events: none;
 }
 .suname { color: var(--ink-bright); font-size: 12px; letter-spacing: 4px; }
+.sumood { color: #f2a6c0; font-size: 11px; letter-spacing: 2px; margin-top: 3px; }
 .sutang.pop { animation: stpop .35s cubic-bezier(.34, 1.56, .64, 1); }
 @keyframes stpop { 0% { transform: scale(.94) translateY(3px); } 100% { transform: none; } }
 
