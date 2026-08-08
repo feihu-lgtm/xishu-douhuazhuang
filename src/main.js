@@ -5,7 +5,7 @@ import {
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, GUESTS_PER_DAY,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY,
 } from "./state.js";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho,
@@ -57,6 +57,8 @@ function restoreRecentLog() {
 
 const handlers = {
   cook: () => doCook(),
+  suCook: () => doSuAll(),   // 副厨：苏唐全包（好感够时）
+  brew: () => openBrew(st, { onBrew: doBrew, onBuy: doBuyWine, onDessert: doWineDessert, onMedicate: doMedicate }),
   snack: () => doSnackPanel(),
   serve: () => doZuocan(),
 
@@ -819,19 +821,18 @@ function stopEcho() {
   if (echoTimer) { clearInterval(echoTimer); echoTimer = null; }
 }
 
-// ── 酿造：苏唐下坛（一次投料 → 入在酿清单 → AI 叙事；内功催酿）──
-async function doBrew(recipeId) {
-  const rec = BREW_RECIPES.find(r => r.id === recipeId);
-  if (!rec) return sys("没有这个酒方。");
-  const need = [rec.base, rec.qu, ...(rec.extra || [])];
+// ── 酿造：苏唐下坛（4格自由选料 → 判定 → 入在酿清单 → AI 叙事；内功催酿）──
+async function doBrew({ base, qu, extras, distill }) {
+  const need = [base, qu, ...(extras || [])];
   const miss = need.filter(n => (st.inv[n] || 0) <= 0);
-  if (miss.length) return sys(`缺料：${miss.join("、")}——酿不了「${rec.name}」。`);
-  if (rec.needsStill && !(st.inv["蒸馏器"] || 0)) return sys("烧酒要上甑蒸馏——先弄台蒸馏器（打箭炉铁匠铺的货）。");
+  if (miss.length) return sys(`缺料：${miss.join("、")}——酿不了。`);
+  if (distill && !(st.inv["蒸馏器"] || 0)) return sys("上甑蒸馏要甑锅——先弄台蒸馏器（打箭炉铁匠铺的货）。");
   if ((st.brewing || []).length >= 3) return sys("坛子都用完了——等酿好的出坛再说。");
   if (busy) return sys("说书人正忙着呢。");
   busy = true;
   try {
   for (const n of need) { st.inv[n] -= 1; if (st.inv[n] <= 0) delete st.inv[n]; }
+  const rec = matchBrew(base, qu, extras || [], !!distill);
   const weeks = brewWeeks(rec, st);
   const b = {
     recipeId: rec.id, name: rec.name, base: rec.base, qu: rec.qu, extra: rec.extra || [],
@@ -1346,7 +1347,7 @@ function bind() {
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();
-    const map = { c: "cook", x: "snack", b: "pickGuest", g: "nsfw", s: "serve", v: "set", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
+    const map = { c: "cook", x: "snack", b: "pickGuest", s: "serve", v: "set", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
     if (map[k]) handlers[map[k]]();
   });
   $("#btn-new").onclick = () => startNew();

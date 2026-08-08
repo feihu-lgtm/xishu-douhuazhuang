@@ -157,6 +157,15 @@ body {
 .entry.player { color: #9fb4c4; }
 .entry.player::before { content: "＞ "; color: var(--ink-dim); }
 .entry.gold { color: var(--gold); }
+/* 顶部按钮栏（右上）：主厨 副厨 酿酒 备餐 商店 探秘 下一日 */
+#toolbar { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.tb-btn {
+  padding: 4px 11px; border: 1px solid var(--line-soft); border-radius: 6px;
+  cursor: pointer; font-size: 12.5px; letter-spacing: 2px; color: var(--ink-bright);
+  background: rgba(20, 30, 44, .5); transition: all .15s; white-space: nowrap;
+}
+.tb-btn:hover { border-color: var(--gold); color: var(--gold); }
+
 /* 世界回响 · 金色卷轴（等待时播放的传闻/邸报/话本…） */
 .entry.echo {
   border-left: 3px solid #c9a19b;

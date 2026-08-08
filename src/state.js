@@ -2,7 +2,7 @@
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
-  RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS, rivalGuestAt,
+  RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS, rivalGuestAt, BREW_RECIPES,
 } from "./data.js";
 
 export const GUESTS_PER_DAY = 3;
@@ -322,6 +322,23 @@ export function inviteCandidates(st) {
 }
 // 邀客·点将明日：玩家钦点（最多 GUESTS_PER_DAY 位），不管认不认得、平日在哪、是不是踢馆同行，
 // 明天准来，各占一个客位；其余客位照常随机。
+// ── 酿造判定：自由选料（基底+曲+辅料+蒸馏开关）→ 命中固定配方或按曲生成 ──
+const EXTRA_FLAVOR = [["酸木瓜", "suanla"], ["雕梅", "tiansuan"], ["内江红糖", "tian"], ["雪山野蜂蜜", "tian"], ["玫瑰花酱", "tian"], ["避雨浆果窖藏酒", "tiansuan"], ["乳扇", "tian"], ["牛奶", "tian"], ["喇嘛庙藏红花", "yaoxiang"], ["熊山松茸", "chun"]];
+export function matchBrew(base, qu, extras, distill) {
+  const ex = [...(extras || [])].sort();
+  const fixed = BREW_RECIPES.find(r => r.base === base && r.qu === qu && !!r.needsStill === !!distill
+    && [...(r.extra || [])].sort().join("|") === ex.join("|"));
+  if (fixed) return { ...fixed };
+  // 未命中固定配方：按曲+蒸馏生成（想象归 AI，工序系统定）
+  const flavor = EXTRA_FLAVOR.find(([n]) => ex.includes(n))?.[1] || "xianxiang";
+  const kind = distill ? "白酒" : qu === "甜酒曲" ? "米酒" : qu === "麦曲" ? "黄酒" : qu === "藏曲" ? "青稞" : "麦酒";
+  const weeks = distill ? 3 : qu === "麦曲" ? 6 : qu === "藏曲" ? 2 : 1;
+  const baseTag = (base || "").slice(0, 2);
+  const extraTag = ex[0] ? ex[0].slice(0, 2) : "";
+  const name = distill ? `${baseTag}烧酒` : `${extraTag ? extraTag + "·" : ""}${baseTag}酒`;
+  return { id: "custom", name, base, qu, extra: extras, flavor, kind, weeks, needsStill: !!distill, custom: true, desc: `苏唐随手配的「${base} + ${qu}${ex.length ? " + " + ex.join(" + ") : ""}」（${distill ? "上甑蒸馏" : "封坛发酵"}）。` };
+}
+
 // ── 酿造 · 苏唐的活计（内功催酿 + 酿酒技能定品质）─────────────────
 // 内功催酿：周数 = ceil(基础周数 × (1 - 内功/250))；内功≥50 时 1 周配方立等可取
 export function brewWeeks(recipe, st) {

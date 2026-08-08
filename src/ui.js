@@ -4,7 +4,7 @@ import {
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
 } from "./data.js";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, brewWeeks, GUESTS_PER_DAY } from "./state.js";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
 
 // 顶部限流五点是空心/实心 + 12s 计时
@@ -279,6 +279,15 @@ export function renderStatus(st) {
   }
 }
 
+// ── 顶部按钮栏（右上）：主厨 副厨 酿酒 备餐 商店 探秘 下一日 ──
+export function renderToolbar(st, h) {
+  const tb = document.querySelector("#toolbar");
+  if (!tb) return;
+  const items = [["主厨", "cook"], ["副厨", "suCook"], ["酿酒", "brew"], ["备餐", "snack"], ["商店", "shop"], ["探秘", "exp"], ["下一日", "next"]];
+  tb.innerHTML = items.map(([label, key]) => `<span class="tb-btn" data-tb="${key}">${label}</span>`).join("");
+  tb.querySelectorAll(".tb-btn").forEach(el => el.onclick = () => h[el.dataset.tb]?.());
+}
+
 // 余味名字 · 氪金装饰框（配流光炫彩，彰显顶级食评人的排面）
 const ryuweiTag = (name) => `꧁༺✧${name}✧༻꧂`;
 
@@ -372,6 +381,7 @@ export function renderSide(st, h) {
 
 export function renderAll(st, h, { hideGuest } = {}) {
   renderStatus(st);
+  renderToolbar(st, h);
   renderLeft(st, hideGuest);
   renderSide(st, h);
 }
@@ -892,8 +902,16 @@ export function showEcho(echo) {
   $("#log").scrollTop = $("#log").scrollHeight;
 }
 
-// ── 酿造面板：配方下坛 / 商店基酒 / 米酒甜点 / 入药 / 在酿一览 ──
+// ── 酿造面板（灶台式 4 格自由选料）· 基酒/甜点/入药/在酿一览 ──
 export function openBrew(st, { onBrew, onBuy, onDessert, onMedicate }) {
+  const BASE_OPTS = ["蜀南大米", "鱼定村青稞", "麦芽"];
+  const QU_OPTS = ["甜酒曲", "麦曲", "大曲", "藏曲"];
+  const EXTRA_OPTS = ["酸木瓜", "雕梅", "内江红糖", "雪山野蜂蜜", "玫瑰花酱", "避雨浆果窖藏酒", "乳扇", "牛奶", "喇嘛庙藏红花", "熊山松茸"];
+  let slots = [null, null, null, null]; // 基底 / 曲 / 辅料 / 辅料（水是灶房常备，不占格）
+  let distill = false;
+  const pool = (i) => i === 0 ? BASE_OPTS.filter(n => (st.inv[n] || 0) > 0)
+    : i === 1 ? QU_OPTS.filter(n => (st.inv[n] || 0) > 0)
+    : EXTRA_OPTS.filter(n => (st.inv[n] || 0) > 0 && !slots.includes(n));
   const wineStr = Object.entries(st.wines || {}).map(([n, c]) => `${n}×${c}`).join("、") || "空";
   const brewing = (st.brewing || []).map(b => {
     const wait = Math.max(0, b.dueDay - st.day);
@@ -903,44 +921,65 @@ export function openBrew(st, { onBrew, onBuy, onDessert, onMedicate }) {
     && ((st.wineRecipes || []).find(r => r.name === n)?.kind === "米酒" || SHOP_WINES.some(w => w.name === n)));
   const medWines = Object.keys(st.wines || {}).filter(n => (st.wines[n] || 0) > 0
     && ((st.wineRecipes || []).find(r => r.name === n)?.kind === "白酒" || (st.wineRecipes || []).find(r => r.name === n)?.kind === "黄酒" || SHOP_WINES.some(w => w.name === n && (w.strong || w.flavor === "chun"))));
-  const modal = openModal(`
-    <h2>酿 造 · 苏唐的活计</h2>
-    <div class="set-note">酿酒手艺 <b>${st.suSkills?.酿酒 ?? 5}</b> · 每次酿造 +2（封顶 100）。内功催酿：内功 ≥ 50，米酒立等可取。</div>
-    <div class="set-note">酒库：${wineStr}<br>在酿：${brewing}</div>
-    <div class="ck-label" style="padding:0 22px">配方（下坛扣料，跨周取酒）</div>
-    ${BREW_RECIPES.map(r => {
-      const weeks = brewWeeks(r, st);
-      const wait = weeks === 0 ? "立等可取" : `${r.weeks}周${weeks !== r.weeks ? `（内功→${weeks}周）` : ""}`;
-      return `<div class="brew-row" data-brew="${r.id}">
-        <b>${r.name}</b><i>${r.kind} · ${wait}${r.needsStill ? " · 需蒸馏器" : ""}${r.strong ? " · 烈" : ""}</i>
-        <p>${r.base} + ${r.qu}${r.extra.length ? " + " + r.extra.join(" + ") : ""} · ${r.desc}</p>
-      </div>`;
-    }).join("")}
-    <div class="ck-label" style="padding:0 22px">商店基酒（应急：品质固定，自己酿的更高）</div>
-    ${SHOP_WINES.map(w => `<div class="brew-row" data-buy="${w.name}">
-      <b>${w.name}</b><i>品质 ${w.quality} · ${w.price}文${w.strong ? " · 烈" : ""}</i>
-      <p>${w.desc}</p>
-    </div>`).join("")}
-    ${hasRiceWine ? `<div class="ck-label" style="padding:0 22px">米酒配甜（扣 1 杯米酒+甜料，苏唐做甜点）</div>
-    ${WINE_DESSERTS.map(d => `<div class="brew-row" data-dessert="${d.name}">
-      <b>${d.name}</b><i>${d.cat} · 米酒 + ${d.sweet}</i>
-      <p>${d.desc}</p>
-    </div>`).join("")}` : ""}
-    ${medWines.length ? `<div class="ck-label" style="padding:0 22px">入药（白酒/黄酒泡药材 → 药酒，药铺也收）</div>
-    ${medWines.map(w => MEDICINE_HERBS.map(h => `<div class="brew-row" data-med="${w}|${h.name}">
-      <b>${h.name}药酒</b><i>${w} + ${h.name}</i>
-      <p>${h.desc}</p>
-    </div>`).join("")).join("")}` : ""}
-    <span class="return" data-back>Return · 返回</span>
-  `, () => {});
-  modal.querySelectorAll("[data-brew]").forEach(el => el.onclick = () => onBrew(el.dataset.brew));
-  modal.querySelectorAll("[data-buy]").forEach(el => el.onclick = () => onBuy(el.dataset.buy));
-  modal.querySelectorAll("[data-dessert]").forEach(el => el.onclick = () => onDessert(el.dataset.dessert));
-  modal.querySelectorAll("[data-med]").forEach(el => {
-    const [w, h] = el.dataset.med.split("|");
-    el.onclick = () => onMedicate(w, h);
-  });
-  modal.querySelector("[data-back]").onclick = () => closeModal();
+
+  function draw() {
+    const canGo = !!slots[0] && !!slots[1] && (st.inv[slots[0]] || 0) > 0 && (st.inv[slots[1]] || 0) > 0
+      && slots.slice(2).every(s => !s || (st.inv[s] || 0) > 0);
+    const modal = openModal(`
+      <h2>酿 酒 · 苏唐的活计</h2>
+      <div class="set-note">手艺 <b>${st.suSkills?.酿酒 ?? 5}</b> · 内功催酿（≥50 米酒立等可取）。水是灶房常备，基酒 = 水 + 粮食。</div>
+      <div class="ck-label">4 格自由配（基底 / 曲 / 辅料×2，点击放入，点格取回）</div>
+      <div class="ck-slots">${slots.map((s, i) =>
+        `<div class="ck-slot ${s ? "" : "empty"}" data-slot="${i}">
+           <span class="tag">${["基底", "曲", "辅料", "辅料"][i]}</span>${s || "空"}</div>`).join("")}</div>
+      <div class="ck-label">可选料</div>
+      <div class="ck-mats">
+        ${pool(0).map(n => `<span class="ck-mat ${slots[0] === n ? "" : "zero"}" data-pick="0|${n}">${n}<i style="font-style:normal;opacity:.65"> 基底</i></span>`).join("")}
+        ${pool(1).map(n => `<span class="ck-mat ${slots[1] === n ? "" : "zero"}" data-pick="1|${n}">${n}<i style="font-style:normal;opacity:.65"> 曲</i></span>`).join("")}
+        ${pool(2).map(n => `<span class="ck-mat zero" data-pick="2|${n}">${n}</span>`).join("")}
+        ${!pool(0).length && !pool(1).length && !pool(2).length ? `<span class="ck-mat zero">囊中无料——商店买基底/曲，或探秘寻料。</span>` : ""}
+      </div>
+      <div class="ck-label">工序</div>
+      <div class="ck-chips">
+        <span class="ck-chip ${!distill ? "on" : ""}" data-distill="0">封坛发酵</span>
+        <span class="ck-chip ${distill ? "on" : ""}" data-distill="1">上甑蒸馏${(st.inv["蒸馏器"] || 0) ? "" : "（需蒸馏器）"}</span>
+      </div>
+      <div class="ck-btns"><span class="ck-btn ${canGo ? "" : "off"}" data-go>下 坛</span></div>
+      <div class="set-note">酒库：${wineStr} ｜ 在酿：${brewing}</div>
+      <div class="ck-label">商店基酒（应急）</div>
+      ${SHOP_WINES.map(w => `<div class="brew-row" data-buy="${w.name}">
+        <b>${w.name}</b><i>品质 ${w.quality} · ${w.price}文${w.strong ? " · 烈" : ""}</i><p>${w.desc}</p>
+      </div>`).join("")}
+      ${hasRiceWine ? `<div class="ck-label">米酒配甜（苏唐做甜点）</div>
+      ${WINE_DESSERTS.map(d => `<div class="brew-row" data-dessert="${d.name}">
+        <b>${d.name}</b><i>${d.cat} · 米酒 + ${d.sweet}</i><p>${d.desc}</p>
+      </div>`).join("")}` : ""}
+      ${medWines.length ? `<div class="ck-label">入药（白酒/黄酒泡药材 → 药酒）</div>
+      ${medWines.map(w => MEDICINE_HERBS.map(h => `<div class="brew-row" data-med="${w}|${h.name}">
+        <b>${h.name}药酒</b><i>${w} + ${h.name}</i><p>${h.desc}</p>
+      </div>`).join("")).join("")}` : ""}
+      <span class="return" data-back>Return · 返回</span>
+    `, () => {});
+    modal.querySelectorAll("[data-slot]").forEach(el => el.onclick = () => { slots[+el.dataset.slot] = null; draw(); });
+    modal.querySelectorAll("[data-pick]").forEach(el => el.onclick = () => {
+      const [i, n] = el.dataset.pick.split("|");
+      slots[+i] = n; draw();
+    });
+    modal.querySelectorAll("[data-distill]").forEach(el => el.onclick = () => { distill = el.dataset.distill === "1"; draw(); });
+    modal.querySelector("[data-go]").onclick = () => {
+      if (!canGo) return;
+      closeModal();
+      onBrew({ base: slots[0], qu: slots[1], extras: slots.slice(2).filter(Boolean), distill });
+    };
+    modal.querySelectorAll("[data-buy]").forEach(el => el.onclick = () => onBuy(el.dataset.buy));
+    modal.querySelectorAll("[data-dessert]").forEach(el => el.onclick = () => onDessert(el.dataset.dessert));
+    modal.querySelectorAll("[data-med]").forEach(el => {
+      const [w, h] = el.dataset.med.split("|");
+      el.onclick = () => onMedicate(w, h);
+    });
+    modal.querySelector("[data-back]").onclick = () => closeModal();
+  }
+  draw();
 }
 
 // ── 邀客·点将明日（最多 GUESTS_PER_DAY 位，任何人，含踢馆八线当前挑战者，点/取消即改）──
@@ -1021,6 +1060,7 @@ export function openSettings() {
     <div class="set-row"><label>模型</label><input id="set-model" placeholder="如 deepseek-chat" value="${cfg.model || ""}"><span class="ck-btn plain" data-fetch>检索</span></div>
     <div class="set-row" id="set-list-row" style="display:none"><label>可选模型</label><select id="set-list"></select></div>
     <div class="set-row"><label>流式</label><input id="set-stream" type="checkbox" ${cfg.stream !== false ? "checked" : ""}></div>
+    <div class="set-row"><label>■ 方块模式</label><input id="set-nsfw" type="checkbox" ${getNsfw() ? "checked" : ""}><span class="set-hint">亲密/做爱情节的写作规则注入</span></div>
     <div class="set-row"><label>长度上限</label><input id="set-max" type="number" min="1" step="1" value="${cfg.maxTokens ?? 200000}"></div>
     <div class="set-row"><label>出菜字数</label><input id="set-dish" type="number" min="40" step="10" value="${cfg.dishWords ?? 360}"></div>
     <div class="set-row"><label>闲聊字数</label><input id="set-chat" type="number" min="20" step="10" value="${cfg.chatWords ?? 160}"></div>
@@ -1052,6 +1092,7 @@ export function openSettings() {
     }
   };
   q("[data-save]").onclick = () => {
+    setNsfw(q("#set-nsfw")?.checked ?? getNsfw()); // ■ 方块模式（从顶部移到设置）
     const mt = parseInt(q("#set-max").value, 10);
     const dw = parseInt(q("#set-dish").value, 10);
     const cw = parseInt(q("#set-chat").value, 10);
