@@ -1,8 +1,8 @@
 // ── Prompt 编排（学 ji-haitang：分块、标号、不冗余；数据与拼接分离）──────
 // 每个调用 = 一个 system（身份+文风+格式）+ 一个 user（【标号】分块的事实与约束）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel, GUESTS } from "./data.js?v=v45";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v45";
-import { currentGuest } from "./state.js?v=v45";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel, GUESTS } from "./data.js?v=v46";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v46";
+import { currentGuest } from "./state.js?v=v46";
 
 // 标号块：空内容则整块省略，避免冗余空段
 export const sec = (t, b) => (b ? `【${t}】\n${b}\n` : "");
@@ -68,6 +68,7 @@ export function chatContext(st) {
     sec("苏唐与师兄", `苏唐对师兄好感 ${st?.suAff ?? 0}。${stars > 0 ? `店里挂着余味送的${stars}支银簪（一支=一星），苏唐为这份名头得意，熟人面前会显摆两句，也怕砸了招牌。` : `还没拿到银簪，苏唐盼着余味再来——余味是峨眉破戒的任性女侠，年纪轻轻的一流高手，口味刁钻，苏唐跟她斗嘴斗得开心，也从她嘴里听见天下名馆的见闻。别叫她前辈。${RYUWEI_VOICE}`}`),
     sec("近况", notes || "平淡一日，灶上安稳。"),
     chatLog ? sec("最近对话", chatLog) : "",
+    "【分寸】食评人余味除非师兄主动提起，不得出场、进门或搭话——银簪与名声可以聊，人别写进来。",
   ].filter(Boolean).join("\n");
 }
 

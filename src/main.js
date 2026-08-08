@@ -1,24 +1,24 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v45";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v45";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v46";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v46";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v45";
+} from "./state.js?v=v46";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeiluChat, genDuel, genJianghuEnter,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v45";
-import { chatContext } from "./prompt.js?v=v45";
+} from "./ai.js?v=v46";
+import { chatContext } from "./prompt.js?v=v46";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, openWeiluChat, initMobileDrawers,
-} from "./ui.js?v=v45";
+} from "./ui.js?v=v46";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -60,6 +60,7 @@ const handlers = {
   cook: () => doCook(),
   snack: () => doSnackPanel(),   // 副厨：小吃面板（苏唐做小吃）
   invite: () => doPickGuest(),   // 邀请客人：钦点明日来吃的客人（点将明日）
+  sit: () => showInvite(),       // 邀请闲坐：请客坐坐（常客/江湖 留坐闲聊）
   brew: () => openBrew(st, { onBrew: doBrew, onBuy: doBuyWine, onDessert: doWineDessert, onMedicate: doMedicate }),
   serve: () => doZuocan(),       // 备餐：准备上菜（选 3 菜 + 1 酒）
 
@@ -2019,7 +2020,7 @@ function bind() {
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();
-    const map = { c: "cook", u: "snack", w: "brew", x: "serve", y: "world", t: "shop", m: "exp", n: "next", j: "invite", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
+    const map = { c: "cook", u: "snack", w: "brew", x: "serve", y: "world", t: "shop", m: "exp", n: "next", j: "invite", k: "sit", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
     if (map[k]) handlers[map[k]]();
   });
   $("#btn-new").onclick = () => startNew();

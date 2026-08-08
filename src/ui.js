@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v45";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v45";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v45";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v45";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v45";
+} from "./data.js?v=v46";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v46";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v46";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v46";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v46";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -361,6 +361,7 @@ export function renderSide(st, h) {
     item("探秘", "M", can.exp, "exp") +
     item("下一日", "N", can.next, "next") +
     item("邀请客人", "J", true, "invite") +
+    item("邀请闲坐", "K", true, "sit") +
     `<div class="sep"></div>` +
     item("仓库", "I", true, "bag") +
     item("设置", "F", true, "settings") +
@@ -389,6 +390,7 @@ export function renderSide(st, h) {
         item("探秘", "M", can.exp, "exp") +
         item("下一日", "N", can.next, "next") +
         item("邀请", "J", true, "invite") +
+        item("闲坐", "K", true, "sit") +
         item("更多", "≡", true, "moredrawer");
       tabs.querySelectorAll(".menu-item:not(.disabled)").forEach(el => {
         if (el.dataset.act === "moredrawer") {
