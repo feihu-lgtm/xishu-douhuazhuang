@@ -615,10 +615,10 @@ async function doExpedition(node, intent) {
   st.lastScenByNode[node.id] = scenario;
   // 英雄救美/美救英雄：命中这5条情境之一，当场点一位同行女子（任何npc，好感0也算数）
   const rescueTarget = RESCUE_SCENARIOS.has(scenario) ? pickRescueTarget(node) : null;
-  // 食评人余味同行（据点常客或救美目标）· 本次探秘对话全部流光炫彩
-  const withRyu = guestListOf(node).some(x => x.ryuwei) || !!rescueTarget?.ryuwei;
-  const expNarr = (t) => (withRyu ? narrGlow(t) : narr(t));
-  const expComment = (t, face) => (withRyu ? commentGlow(t, face) : commentLine(t, face));
+  // 余味相关才炫彩：正文里出现余味（她出场/被提及）才流光，不因她是据点常客就整篇泛化
+  const withRyu = (t) => (t || "").includes("余味");
+  const expNarr = (t) => (withRyu(t) ? narrGlow(t) : narr(t));
+  const expComment = (t, face) => (withRyu(t) ? commentGlow(t, face) : commentLine(t, face));
   sys(`【探秘·${node.name}】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……${intent ? `（师兄交代：${intent}）` : ""}`);
   // ① 一次调用：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special；玩家钦定主线夺舍；勾连据点常客与隔离记忆；弱关联时至少带一句当下节气
   const r = await genExpedition(loadCfg(), {
