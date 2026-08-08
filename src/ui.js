@@ -3,10 +3,10 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
-} from "./data.js?v=v16";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v16";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v16";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v16";
+} from "./data.js?v=v17";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v17";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v17";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v17";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -1021,11 +1021,13 @@ export function openBrew(st, { onBrew, onBuy, onDessert, onMedicate }) {
   const BASE_OPTS = ["蜀南大米", "鱼定村青稞", "麦芽"];
   const QU_OPTS = ["甜酒曲", "麦曲", "大曲", "藏曲"];
   const EXTRA_OPTS = ["酸木瓜", "雕梅", "内江红糖", "雪山野蜂蜜", "玫瑰花酱", "避雨浆果窖藏酒", "乳扇", "牛奶", "喇嘛庙藏红花", "熊山松茸"];
+  // 星级食材全部可入酒（探秘寻来的稀有料，品质按星数加成）：星库 + 库存里有的
+  const starExtras = Object.keys(st.stars || {}).filter(n => (st.inv[n] || 0) > 0);
   let slots = [null, null, null, null]; // 基底 / 曲 / 辅料 / 辅料（水是灶房常备，不占格）
   let distill = false;
   const pool = (i) => i === 0 ? BASE_OPTS.filter(n => (st.inv[n] || 0) > 0)
     : i === 1 ? QU_OPTS.filter(n => (st.inv[n] || 0) > 0)
-    : EXTRA_OPTS.filter(n => (st.inv[n] || 0) > 0 && !slots.includes(n));
+    : [...EXTRA_OPTS, ...starExtras].filter(n => (st.inv[n] || 0) > 0 && !slots.includes(n));
   const wineStr = Object.entries(st.wines || {}).map(([n, c]) => `${n}×${c}`).join("、") || "空";
   const brewing = (st.brewing || []).map(b => {
     const wait = Math.max(0, b.dueDay - st.day);
@@ -1050,8 +1052,9 @@ export function openBrew(st, { onBrew, onBuy, onDessert, onMedicate }) {
       <div class="ck-mats">
         ${pool(0).map(n => `<span class="ck-mat ${slots[0] === n ? "" : "zero"}" data-pick="0|${n}">${n}<i style="font-style:normal;opacity:.65"> 基底</i></span>`).join("")}
         ${pool(1).map(n => `<span class="ck-mat ${slots[1] === n ? "" : "zero"}" data-pick="1|${n}">${n}<i style="font-style:normal;opacity:.65"> 曲</i></span>`).join("")}
-        ${pool(2).map(n => `<span class="ck-mat zero" data-pick="2|${n}">${n}</span>`).join("")}
-        ${!pool(0).length && !pool(1).length && !pool(2).length ? `<span class="ck-mat zero">囊中无料——商店买基底/曲，或探秘寻料。</span>` : ""}
+        ${pool(2).map(n => `<span class="ck-mat zero" data-pick="2|${n}">${n}${(st.stars?.[n] || 0) > 0 ? ` ${"★".repeat(st.stars[n])}` : ""}</span>`).join("")}
+        ${pool(3).map(n => `<span class="ck-mat zero" data-pick="3|${n}">${n}${(st.stars?.[n] || 0) > 0 ? ` ${"★".repeat(st.stars[n])}` : ""}</span>`).join("")}
+        ${!pool(0).length && !pool(1).length && !pool(2).length && !pool(3).length ? `<span class="ck-mat zero">囊中无料——商店买基底/曲，或探秘寻料。</span>` : ""}
       </div>
       <div class="ck-label">工序</div>
       <div class="ck-chips">
