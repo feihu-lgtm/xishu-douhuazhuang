@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v40";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v40";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v40";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v40";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v40";
+} from "./data.js?v=v41";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v41";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v41";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v41";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v41";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -1328,6 +1328,7 @@ export function openInviteGuest(st, { onToggle, onDone }) {
   const ryu = GUESTS.find(g => g.ryuwei);
   const known = [ryu, ...GUESTS.filter(g => !g.ryuwei), ...(st.customGuests || [])].filter(Boolean); // 食评人余味置顶
   const rivals = RIVAL_SCHOOLS.map((s, i) => ({ school: s, guest: rivalGuestForSchool(st, i) })).filter(x => x.guest);
+  const jhKnown = JIANGHU_ROSTER.filter(g => st?.jianghu?.known?.[g.id]); // 只可点将已相识的江湖客
   const card = (g, picks) => `
       <div class="menu-item-card pick ${picks.includes(g.id) ? "on" : ""}" data-pick="${g.id}">
         <b>${g.ryuwei ? `<span class="ryuwei-glow">${g.name}</span>` : g.name}</b><i>${g.ident}${g.ryuwei ? " · 顶级食评人" : ""}</i>
@@ -1342,8 +1343,8 @@ export function openInviteGuest(st, { onToggle, onDone }) {
       <div class="menu-list">${rivals.map(r => card(r.guest, picks)).join("")}</div>` : ""}
       <div class="ck-label">熟客</div>
       <div class="menu-list">${known.map(g => card(g, picks)).join("")}</div>
-      <div class="ck-label">江湖客（相识与否都能点，明日进店吃饭）</div>
-      <div class="menu-list">${JIANGHU_ROSTER.map(g => card(g, picks)).join("")}</div>
+      <div class="ck-label">江湖客 · 已相识（地图上交谈相识后才能点将）</div>
+      <div class="menu-list">${jhKnown.length ? jhKnown.map(g => card(g, picks)).join("") : `<span class="ck-mat zero">还没相识的江湖客——江湖地图上点人交谈，相识后可钦点明日进店。</span>`}</div>
       <span class="return" data-back>Return · 返回</span>
     `, () => onDone?.());
     modal.querySelectorAll("[data-pick]").forEach(el => el.onclick = () => { onToggle(el.dataset.pick); draw(); });
