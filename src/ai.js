@@ -780,6 +780,27 @@ export async function genBrew(cfg, brew) {
   return { prose: `苏唐把${brew.base}蒸透，拌进${brew.qu}，封了坛口，在坛沿画了道记号。`, ai: false };
 }
 
+// ── 世界回响：每件事后的市井反应（话本/邸报/传闻/戏/说书/壁画）──
+// 200 字左右，写这对侠侣（师兄+苏唐）的快意恩仇做菜故事，世界因他们而变；
+// 结尾一行「纸条：」客观小结（进小纸条，夺舍现有小纸条流）
+export async function genEcho(cfg, ctx) {
+  const FORMS = ["话本", "邸报", "市井传闻", "戏文", "说书", "后世壁画"];
+  const form = FORMS[Math.floor(Math.random() * FORMS.length)];
+  if (cfgReady(cfg)) {
+    const sys = `你是《西蜀豆花庄》这方世界的回响笔官。用「${form}」文体写这段事件的市井反应，正文 200 字左右（±10%）：
+文体特征——话本：「且说…」章回体，有「正是：」收尾；邸报：官府公报口吻（「西蜀豆花庄讯」），字句板正；市井传闻：街头巷尾的闲话，带人名的嚼舌根；戏文：【生】【旦】【丑】唱念做打，一句唱词一句念白；说书：醒木一拍，市井书场腔；后世壁画：百年后考据者对着壁画残片推测的记载。
+写这对侠侣（师兄+苏唐）的快意恩仇做菜小故事，体现这方世界因为他们的变化；可带 NPC 客人的心理。写得有意思，别平铺直叙。这是公开流传的市井文字，只写烟火气与名声，不写私密暧昧。
+结尾单独一行「纸条：」+ 一行客观小纸条（≤30字，供存档回看）。`;
+    const user = `【事件】${ctx.event}\n【结果】${ctx.result}\n【世界】${ctx.world}`;
+    try {
+      const raw = await callAI(cfg, sys, user, "世界回响", undefined, true); // skipMode：回响是公开传闻，不注入 ■NSFW
+      const { main, note } = extractComment(raw || "");
+      return { prose: (main || (raw || "").trim()), note, form, ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { prose: `市井里有人说，${ctx.result}。`, note: (ctx.result || "").slice(0, 30), form, ai: false };
+}
+
 // ── 余味进场：苏唐迎接「又来了！」+ 状态（首次介绍/熟络/簪子期待）──
 export async function genRyuweiEnter(cfg, ctx) {
   if (cfgReady(cfg)) {

@@ -44,7 +44,7 @@ export function chatContext(st) {
   const g = currentGuest(st);
   const dayLogTxt = (st?.dayLog || []).slice(-3).map(d => `给${d.name}上了「${d.dish}」${d.score}分`).join("；");
   const snacks = (st?.todaySnacks || []).slice(-2).map(s => `备了「${s.name}」`).join("、");
-  const notes = (st?.notes || []).slice(-4).map(n => `${n.act}·${n.text}`).join("；");
+  const notes = (st?.notes || []).slice(-4).map(n => `${n.act}·${n.text}${n.ai ? `｜${n.ai}` : ""}`).join("；");
   const chatLog = (st?.chatLog || []).slice(-4).map(c => `师兄说「${c.u.slice(0, 20)}」→ 苏唐回「${c.a.slice(0, 24)}」`).join("\n");
   const cur = st?.dish ? `手上正做着「${st.dish.name}」` : "灶上还空着";
   return [

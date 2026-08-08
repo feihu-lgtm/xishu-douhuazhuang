@@ -8,7 +8,7 @@ import {
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, GUESTS_PER_DAY,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
@@ -16,7 +16,7 @@ import { chatContext } from "./prompt.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho,
 } from "./ui.js";
 
 let st = null;
@@ -133,7 +133,7 @@ async function guestArrives() {
 function ctxLine(s) {
   const g = currentGuest(s);
   const invited = s.invitedGuest ? GUESTS.find(x => x.id === s.invitedGuest) : null;
-  const notes = (s.notes || []).slice(-5).map(n => `[${n.act}]${n.text}`).join("；");
+  const notes = (s.notes || []).slice(-5).map(n => `[${n.act}]${n.text}${n.ai ? `｜${n.ai}` : ""}`).join("；");
   const stars = (s.ryuweiRating || {}).tier ?? 0; // 余味送的银簪数：一支=一星米其林
   return [
     stars > 0 ? `（豆花庄挂着食评人余味送的${stars}支银簪，一支银簪等于一星，蜀地独一份。旧识熟客见了必夸这份荣耀，同行厨子忌惮三分，挑刺也先掂量「这家挂着星」——把这份分量自然带进言行，别喊口号。）` : "",
@@ -483,6 +483,10 @@ async function doServe() {
   endTrace(`给${g.name}·满意度${score}·好感+${d}`);
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)}`);
   } finally { busy = false; }
+  // 世界回响：客人吃菜 / 踢馆（余味走大阵仗，别处触发）
+  if (!g.ryuwei) await fireEcho(g.rival ? "踢馆" : "客人吃菜", g.rival
+    ? `${g.name}（${g.ident}）上门踢馆，尝了「${dish.name}」${score}分——${score >= (g.req ?? 85) ? "认了栽，丢下看家好料走了" : "摇头冷笑，撂了句改日再来"}。`
+    : `${g.name}（${g.ident}）吃了「${dish.name}」${score}分${setName ? `，配「${setName}」${snackScore}分` : ""}，好感${d >= 0 ? "+" : ""}${d}。`);
   if (st.served >= 3) {
     await narr("最后一位客人走了。灶上还温着汤，今日不自动打烊。");
     sys("三位送完。苏唐照例要总评一句；可逛「商店」/「探秘」，或点「下一日」翻篇。");
@@ -672,6 +676,8 @@ async function doExpedition(node, intent) {
     busy = false;
     endTrace("（探秘中断）"); // 兜底：正常结束已是 no-op；异常中断则闭合 trace，不卡「进行中」
   }
+  // 世界回响：探秘全过程
+  await fireEcho("探秘", `${node.name}·${scenario}，师兄苏唐寻得 ${specialNames}。`);
   renderAll(st, handlers);
   saveGame(st);
 }
@@ -772,6 +778,47 @@ function note(act, text) {
   captureRoundLog(); // 这一轮的左右栏新增内容存进 st.recentLog，供读档回显
 }
 
+// ── 世界回响：每完成一件事单独跑一个（200字叙事 + 一行AI小纸条）──
+// 200 字存 st.echoes 播放池（不注入 prompt）；AI 纸条行挂到该轮系统小纸条之后（st.notes 条目 ai 字段）。
+// 播放：新回响夺舍（立即上），之后每 15s 随机换池子一条，播 3 条自然收尾。
+let echoTimer = null;
+function worldState() {
+  const tier = (st.ryuweiRating || {}).tier ?? 0;
+  return `西蜀豆花庄第${st.day}周${tier > 0 ? `，挂着余味送的${tier}支银簪（${ryuweiTierName(st)}）` : "，还没拿到银簪"}。苏唐好感${st.suAff ?? 0}。`;
+}
+async function fireEcho(event, result) {
+  const r = await genEcho(loadCfg(), { event, result, world: worldState() });
+  if (!r.prose) return;
+  st.echoes = st.echoes || [];
+  const noteLine = r.note || (result || "").slice(0, 30); // AI 没出纸条行时兜底
+  st.echoes.push({ form: r.form, prose: r.prose, note: noteLine, day: st.day });
+  if (st.echoes.length > 30) st.echoes.shift();
+  // AI 一行小纸条：匹配到系统小纸条之后（该轮最近一条 note 的 ai 字段，各自一行、作为一条）
+  if (noteLine) {
+    st.notes = st.notes || [];
+    const last = st.notes[st.notes.length - 1];
+    const d = new Date(); const p = (n) => String(n).padStart(2, "0");
+    const ts = `${p(d.getHours())}:${p(d.getMinutes())}`;
+    if (last && last.day === st.day && !last.ai) last.ai = noteLine;
+    else st.notes.push({ day: st.day, ts, act: `回响·${r.form}`, text: "", ai: noteLine });
+  }
+  playEcho(r);                               // 夺舍播放：新回响立即上
+}
+function playEcho(echo) {
+  stopEcho();
+  showEcho(echo);
+  let n = 0;
+  echoTimer = setInterval(() => {
+    n += 1;
+    if (n >= 3) { stopEcho(); return; }      // 播 3 条自然收尾，等下一个事件夺舍
+    const pool = st.echoes || [];
+    if (pool.length) showEcho(pool[Math.floor(Math.random() * pool.length)]);
+  }, 15000);
+}
+function stopEcho() {
+  if (echoTimer) { clearInterval(echoTimer); echoTimer = null; }
+}
+
 // ── 酿造：苏唐下坛（一次投料 → 入在酿清单 → AI 叙事；内功催酿）──
 async function doBrew(recipeId) {
   const rec = BREW_RECIPES.find(r => r.id === recipeId);
@@ -850,6 +897,8 @@ async function doFeastServe() {
   st.ryuweiVisits = (st.ryuweiVisits || 0) + 1;
   st.feast = null;
   } finally { busy = false; }
+  // 世界回响：余味大阵仗
+  await fireEcho("余味大阵仗", `四样 ${mainScore}/${soupScore}/${snackPts}/${winePts} → 总分 ${total}${newTier ? `，晋${ryuweiTierName(st)}` : ""}。`);
   renderAll(st, handlers);
   saveGame(st);
 }
@@ -1106,6 +1155,7 @@ async function doNext() {
     if (st.suSkills["酿酒"] <= 100) sys(`苏唐酿酒手艺见长：酿酒技能 +${gain}（今 ${st.suSkills["酿酒"]}）。`);
     note("出酒", `「${b.name}」出坛${b.extraWeeks ? `（多陈${b.extraWeeks}周）` : ""}，品质${b.quality}，5杯。`);
   }
+  if (brews.length) await fireEcho("酿酒出坛", `${brews.map(b => `「${b.name}」品质${b.quality}`).join("、")} 出坛，苏唐的手艺又精了一分。`);
   applyRival(st);              // 第二客可能换成踢馆同行
   dismissInvite();             // 新一天开门：收掉昨天晚上的邀请面板
   setMood(0);

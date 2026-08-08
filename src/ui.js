@@ -885,6 +885,13 @@ export function openSet(st, { onSet, feast = false }) {
   draw();
 }
 
+// ── 世界回响 · 播放（主栏金色卷轴条目，等待时轮播）─────────────
+export function showEcho(echo) {
+  const bd = mkEntry($("#log"), "echo");
+  bd.innerHTML = `<span class="echo-tag">【${escapeHtml(echo.form || "传闻")}】</span>${escapeHtml(echo.prose || "")}`;
+  $("#log").scrollTop = $("#log").scrollHeight;
+}
+
 // ── 酿造面板：配方下坛 / 商店基酒 / 米酒甜点 / 入药 / 在酿一览 ──
 export function openBrew(st, { onBrew, onBuy, onDessert, onMedicate }) {
   const wineStr = Object.entries(st.wines || {}).map(([n, c]) => `${n}×${c}`).join("、") || "空";
