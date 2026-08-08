@@ -279,15 +279,6 @@ export function renderStatus(st) {
   }
 }
 
-// ── 顶部按钮栏（右上）：主厨 副厨 酿酒 备餐 商店 探秘 下一日 ──
-export function renderToolbar(st, h) {
-  const tb = document.querySelector("#toolbar");
-  if (!tb) return;
-  const items = [["主厨", "cook"], ["副厨", "suCook"], ["酿酒", "brew"], ["备餐", "snack"], ["商店", "shop"], ["探秘", "exp"], ["下一日", "next"]];
-  tb.innerHTML = items.map(([label, key]) => `<span class="tb-btn" data-tb="${key}">${label}</span>`).join("");
-  tb.querySelectorAll(".tb-btn").forEach(el => el.onclick = () => h[el.dataset.tb]?.());
-}
-
 // 余味名字 · 氪金装饰框（配流光炫彩，彰显顶级食评人的排面）
 const ryuweiTag = (name) => `꧁༺✧${name}✧༻꧂`;
 
@@ -346,22 +337,22 @@ function currentGuestSafe(st) {
 export function renderSide(st, h) {
   const can = {
     cook: st.phase === "guest",
+    suCook: st.phase === "guest" && (st.suAff || 0) >= 40, // 副厨：苏唐全包（好感够时）
     snack: true,
-    serve: st.phase === "guest" && !!st.dish, // 佐餐（含佐餐set）
     shop: st.phase === "closing" || st.served >= 3,
+    exp: st.phase === "closing" || st.served >= 3,
     next: st.phase === "closing" || st.served >= 3,
   };
   const item = (label, key, enabled, fn) =>
     `<div class="menu-item ${enabled ? "" : "disabled"}" data-act="${fn}">
        <span>${label}</span><span class="key">${key}</span></div>`;
   $("#side").innerHTML =
-    item("灶台", "C", can.cook, "cook") +
-    item("小吃", "X", can.snack, "snack") +
-    item("邀客", "B", true, "pickGuest") +
-    item(`■ 模式·${getNsfw() ? "开" : "关"}`, "G", true, "nsfw") +
-    item("佐餐", "S", can.serve, "serve") +
+    item("主厨", "C", can.cook, "cook") +
+    item("副厨", "U", can.suCook, "suCook") +
+    item("酿酒", "W", true, "brew") +
+    item("备餐", "X", can.snack, "snack") +
     item("商店", "T", can.shop, "shop") +
-    item("探秘", "M", can.next, "exp") +
+    item("探秘", "M", can.exp, "exp") +
     item("下一日", "N", can.next, "next") +
     `<div class="sep"></div>` +
     item("仓库", "I", true, "bag") +
@@ -382,7 +373,6 @@ export function renderSide(st, h) {
 
 export function renderAll(st, h, { hideGuest } = {}) {
   renderStatus(st);
-  renderToolbar(st, h);
   renderLeft(st, hideGuest);
   renderSide(st, h);
 }
