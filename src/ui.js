@@ -204,7 +204,7 @@ export function renderStatus(st) {
   const rb = document.querySelector("#ryuwei-badge");
   if (rb) {
     const t = (st.ryuweiRating || {}).tier ?? 0;
-    rb.innerHTML = `<img src="./assets/ryuwei_fishtail.png" alt="鱼尾银簪"> <span>${ryuweiTierName(st)}</span>`;
+    rb.innerHTML = `<img src="./assets/ryuwei_fishtail.png" alt="鱼尾银簪"> <span>${ryuweiTierName(st)}${t > 0 ? ` · 银簪×${t}` : ""}</span>`;
     rb.className = "ryuwei-badge t" + t;
   }
 }

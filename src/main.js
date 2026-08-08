@@ -125,7 +125,9 @@ function ctxLine(s) {
   const g = currentGuest(s);
   const invited = s.invitedGuest ? GUESTS.find(x => x.id === s.invitedGuest) : null;
   const notes = (s.notes || []).slice(-5).map(n => `[${n.act}]${n.text}`).join("；");
+  const stars = (s.ryuweiRating || {}).tier ?? 0; // 余味送的银簪数：一支=一星米其林
   return [
+    stars > 0 ? `（豆花庄挂着食评人余味送的${stars}支银簪，一支银簪等于一星，蜀地独一份。旧识熟客见了必夸这份荣耀，同行厨子忌惮三分，挑刺也先掂量「这家挂着星」——把这份分量自然带进言行，别喊口号。）` : "",
     `第${s.day}周（${weekLabel(s.day)}），已待客${s.served}位。`,
     g ? `当前客人：${g.name}（${g.ident}），点菜时说「${g.order}」。${g.body ? `（${g.name}${g.body}。）` : ""}` : `当前无客人。`,
     g && g.sister ? `（苏酥是苏唐的亲姐姐，在座。苏唐正吃醋掉脸，语气带酸带嗔，一边防着姐姐勾引师兄、一边防着师兄献殷勤。）` : "",
@@ -193,7 +195,7 @@ async function doSuAll() {
   gold(`「${dish.name}」出锅${suRoute ? "，苏唐手笔" : "，师兄执勺、苏唐口令"}。`);
   note("苏唐全包", `${suRoute ? "苏唐掌勺" : "苏唐指挥师兄"}做「${dish.name}」（${dish.technique}）。`);
   // 小吃：苏唐看库存判断做新还是复做
-  const sr = await genSnack(cfg, { request: "（苏唐自己看着办）", inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), martialTier: 1, words: cfg.snackWords || 200, context: ctxLine(st), stars: st.stars, snackStock: st.snacks });
+  const sr = await genSnack(cfg, { request: "（苏唐自己看着办）", inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), martialTier: 1, words: cfg.snackWords || 200, context: ctxLine(st), stars: st.stars, snackStock: st.snacks, st });
   if (sr && sr.made) {
     for (const m of sr.used || []) { st.inv[m] = (st.inv[m] || 0) - 1; if (st.inv[m] <= 0) delete st.inv[m]; }
     st.snacks = st.snacks || {};
@@ -283,6 +285,7 @@ async function cookNarrate(j) {
     recipeName: j.recipe?.name || null,
     martial, baseScore,
     guest: g,
+    st,
     starOf: (n) => (st.stars && st.stars[n]) || 0,
   }, c => h.append(c));
   let noteTxt = "";
@@ -384,7 +387,7 @@ async function doServe() {
     guest: g, dishName: dish.name, score, tier, mainBy,
     snackScore, snackName: setName, snackDesc,
     aff: affNow, affName: affName(affNow),
-    mainDesc,
+    mainDesc, st,
   }, c => h.append(c));
   let reactNote = "";
   if (r.ai && h.text) {
@@ -412,14 +415,16 @@ async function doServe() {
     const newTier = ryuweiGain(st, score);
     if (newTier) {
       const nm = ryuweiTierName(st);
-      await narrGlow(`「${g.name}」掸掸裙摆，搁下一句：「${nm}——${newTier === 1 ? "收尾干净，可堪一记。" : newTier === 2 ? "全天下只有锦官城两家、拉萨一家、打箭炉一家，如今多了鱼定村这一家。" : "三尾鱼？小鱼儿头一回在册子上落这三笔。"}」`);
+      // 送银簪：一支银簪 = 一星（米其林式荣誉），档位即所持银簪数
+      await narrGlow(`「${g.name}」掸掸裙摆，从发间取下一支银簪，搁进师兄掌心：「${nm}——${newTier === 1 ? "做得很好，我的小鱼尾巴都要跳了。这支银簪，收好，算一星。" : newTier === 2 ? "全天下只有锦官城两家、拉萨一家、打箭炉一家，如今多了鱼定村这一家。两支银簪，两星。" : "三尾鱼？头一回在册子上落这三笔。三支银簪，三星——小鱼儿的尾巴都要跳断了。"}」`);
       renderAll(st, handlers);
     } else {
-      await narrGlow(`「${g.name}」筷子一放，微微摇头：「尾巴没压住，再练练。」`);
+      await narrGlow(`「${g.name}」筷子一放，微微摇头：「尾巴没压住，再练练，小鱼尾巴都耷拉下来啦。」`);
     }
   }
   // 踢馆同行：按档位阈值（req）判定——达标把他赶走，必爆 ★食材 + 大额钱，并推进梯度
   if (g.rival) {
+    const stars = (st.ryuweiRating || {}).tier ?? 0; // 银簪数=星级：挂了星的馆子，同行先忌惮三分
     const req = g.req ?? 85;
     const [bmin, bmax] = g.bonus || [60, 120];
     if (score >= req) {
@@ -445,12 +450,12 @@ async function doServe() {
         rivalStageNext(st, g.schoolIdx);
       }
       const done = st.rivalDone;
-      await narr(`「${g.name}」放下筷子，半晌无言，起身抱拳：「服了。」丢下 ${bonus} 文，${sps.length > 1 ? "又搁下两件好东西" : "又搁下一件好东西"}——${sps.map(sp => `「${sp.name}」${"★".repeat(sp.stars)}`).join("、")}。`);
+      await narr(`「${g.name}」放下筷子，半晌无言，先朝柜上那支银簪瞥了一眼，起身抱拳：「${stars > 0 ? "挂着星的馆子，名不虚传——" : ""}服了。」丢下 ${bonus} 文，${sps.length > 1 ? "又搁下两件好东西" : "又搁下一件好东西"}——${sps.map(sp => `「${sp.name}」${"★".repeat(sp.stars)}`).join("、")}。`);
       if (firstBeat) await narr(`${g.name}从此常来，${g.gender === "女" ? "眉眼带笑" : "不时踱来"}。`);
       if (done) await narr("八大菜系踢馆尽数压平。鱼定村小馆的名头，从此响彻四方。");
       note("踢馆", `${g.name} 踢馆被压下(${score}分)，爆出 ${sps.map(sp => sp.name).join("、")} + ${bonus}文${firstBeat ? "·好感+15收为常客" : "·回头客"}${done ? "·全通关" : ""}。`);
     } else {
-      await narr(`「${g.name}」尝了一口，眉头皱起，冷笑：「就这？改日再来。」拂袖而去。`);
+      await narr(`「${g.name}」尝了一口，眉头皱起${stars > 0 ? "，连那支银簪都不放在眼里" : ""}，冷笑：「${stars > 0 ? "挂了星，就这？" : "就这？"}改日再来。」拂袖而去。`);
       note("踢馆", `${g.name} 踢馆得手，嘲讽而去（满意度${score}/${req}）。`);
     }
   }
@@ -756,7 +761,7 @@ async function doSnackRequest(txt) {
   suSys(`【行动·备小吃】师兄说：${txt || "随便"}`);
   const cfg = loadCfg();
   const mv = Math.round(Object.values(st.skills).reduce((a, b) => a + b, 0) / 7);
-  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), martialTier: tierOfScore(mv), words: cfg.snackWords || 300, context: ctxLine(st), stars: st.stars });
+  const r = await genSnack(cfg, { request: txt, inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), martialTier: tierOfScore(mv), words: cfg.snackWords || 300, context: ctxLine(st), stars: st.stars, st });
   for (const m of r.used) {
     st.inv[m] = (st.inv[m] || 0) - 1;
     if (st.inv[m] <= 0) delete st.inv[m];

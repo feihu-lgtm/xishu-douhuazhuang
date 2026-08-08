@@ -18,6 +18,13 @@ export const rivalSec = (g) => g?.rival
 // 体貌描述：女厨等美若天仙的角色，涉及她们的叙事都要带出这份体貌
 export const bodySec = (g) => (g?.body ? sec("体貌", `${g.name}${g.body}。描述或着墨时带出这份样貌。`) : "");
 
+// 店誉：余味送的银簪（一支=一星米其林）。有星后全蜀地都知道豆花庄，NPC 态度要变：旧友熟人夸、同行忌惮
+export const starSec = (st) => {
+  const n = (st?.ryuweiRating || {}).tier ?? 0;
+  if (n <= 0) return "";
+  return sec("店誉", `豆花庄得了食评人余味送的 ${n} 支银簪（一支银簪等于一星，蜀地独一份，比县志里锦官城那几家名馆还金贵）。这份名声必须落进这场的言行里：旧识、熟客见面就夸，夸得真诚具体；同行（尤其上门挑刺的厨子）先忌惮三分，挑刺也先掂量「这家挂着星」。别直白喊口号，把分量写在台词与态度里。`);
+};
+
 // ── 身份 + 文风（所有说书人调用共用的 system 基座）────────────────────
 export const STYLE = [
   "你是《西蜀豆花庄》这本日记的笔。日记由师兄（小厨，玩家）与师妹苏唐合写。",
@@ -61,6 +68,7 @@ export function dishUser(ctx) {
     sisterSec(ctx.guest) +
     rivalSec(ctx.guest) +
     bodySec(ctx.guest) +
+    starSec(ctx.st) +
     sec("约束", `只能使用这些料：${ctx.materials.join("、")}，不得凭空添加任何其他食材。`) +
     sec("配方", ctx.recipeName ? `这搭配正中配方「${ctx.recipeName}」，菜名必须用它。` : "这搭配没有固定配方，请你即兴起一个贴切的菜名。") +
     sec("武学", ctx.martial ? `这一勺练到 ${ctx.martial.external.join("、") || "基本功"}${ctx.martial.internal ? "，并运了内功" : ""}；食材配合 ${ctx.martial.synergy} 分；成菜基础分 ${ctx.baseScore}。正文里把这套身手自然带出来。` : "") +
@@ -81,6 +89,7 @@ export function snackUser(ctx) {
     sisterSec(ctx.guest) +
     rivalSec(ctx.guest) +
     bodySec(ctx.guest) +
+    starSec(ctx.st) +
     sec("现有食材", ctx.invStr) +
     sec("苏唐自决", "你是苏唐，自己决定做什么小吃、用什么料（最多4样）、做几份、品质如何、是什么味型，师兄管不着。你是店家，对顾客要客气热情、招呼周到；对师兄则调情撒娇、逗他嗔他带甜，绝不责备。") +
     sec("已有小吃库存", ctx.snackStock || "（还没有备好的小吃）") +
@@ -99,6 +108,7 @@ export function reactionUser(ctx) {
     sisterSec(ctx.guest) +
     rivalSec(ctx.guest) +
     bodySec(ctx.guest) +
+    starSec(ctx.st) +
     sec("主菜", `「${ctx.dishName}」（${ctx.mainBy || "师兄"}做的）：${ctx.mainDesc || "（无描述）"}。这道主菜评分 ${ctx.score} 分。`) +
     sec("佐餐", ctx.snackName ? `小吃「${ctx.snackName}」（苏唐做的）：${ctx.snackDesc || "苏唐手作。"}。这道小吃评分 ${ctx.snackScore ?? "—"} 分。` : "（这顿没有佐餐小吃）") +
     sec("裁决", `${ctx.tierDesc}（${ctx.score}分）。客人对师兄的好感为 ${ctx.aff ?? 0}（${ctx.affName || "面生"}）。`) +
