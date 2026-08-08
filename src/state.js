@@ -59,7 +59,8 @@ export function newState() {
     chatLog: [],             // 闲聊历史：最近几轮 [{u: 师兄说, a: 苏唐回应}],供苏唐接话有据
     todaySnacks: [],         // 今日苏唐做的小吃 [{name,quality,flavor}]
     pendingSet: null,        // 上菜时配的 set
-    feast: null,             // 余味大阵仗：{main:{dish}, soup:{dish}, snack:null, wine:null} 四样凑齐开席
+    dishStore: [],           // 菜库：做完的菜存这儿，上菜时多选（最多 3 菜 + 1 酒）
+    feast: null,             // 余味大阵仗（旧流程，由通用多选替代；存档兼容保留字段）
     shopSeed: 1,
     shopIng: rollShopIng(1), // 刷新后的在架食材（种子对应 shopSeed: 1）
     buyQty: {},              // 每样固定买几份（锁定，免手动调）

@@ -322,10 +322,11 @@ export function renderLeft(st, hideGuest) {
   } else {
     html += `<div id="guestcard" class="pcard"><div class="gid">${hideGuest ? "灶房空着" : st.phase === "closing" ? "今日客已送完" : "灶房空着"}</div></div>`;
   }
-  html += `<h3>手中菜</h3>`;
-  html += st.dish
-    ? `<div id="dishcard"><div class="dname">「${st.dish.name}」</div><div>${st.dish.technique} · ${st.dish.flavorId ? FLAVOR_BY_ID[st.dish.flavorId].name : "家常"}</div></div>`
-    : `<div id="dishcard"><div class="gid">锅里还空着</div></div>`;
+  html += `<h3>菜 库</h3>`;
+  html += (st.dishStore || []).length
+    ? `<div id="dishcard">${st.dishStore.map(d =>
+        `<div class="dname">「${d.name}」</div><div class="gid">${d.technique} · ${d.flavorId ? FLAVOR_BY_ID[d.flavorId].name : "家常"}${d.suCook ? " · 苏唐做" : ""}</div>`).join("")}</div>`
+    : `<div id="dishcard"><div class="gid">菜库空着，先做菜</div></div>`;
   html += `<h3>家 什</h3>` +
     st.cookware.map(id => `<div class="row"><span>${COOKWARE_BY_ID[id].name}</span></div>`).join("");
   html += `<h3>手 艺</h3>
@@ -900,6 +901,65 @@ export function showEcho(echo) {
   const bd = mkEntry($("#log"), "echo");
   bd.innerHTML = `<span class="echo-tag">【${escapeHtml(echo.form || "传闻")}】</span>${escapeHtml(echo.prose || "")}`;
   $("#log").scrollTop = $("#log").scrollHeight;
+}
+
+// ── 上菜面板（多选）：菜库 + 小吃 + 酒，合计 ≤3 菜 + 1 酒 ──────
+// 余味开席：必须 3 道菜 + 1 道酒（各 25%）；其他客人任意组合。先校验后扣料，选错不吞菜。
+export function openServe(st, g, { onServe }) {
+  const isRyu = !!g.ryuwei;
+  let dishes = [], snacks = [], wine = null;
+  const maxFood = 3;
+  function draw() {
+    const stock = Object.entries(st.snacks || {}).filter(([, n]) => n > 0);
+    const wines = Object.entries(st.wines || {}).filter(([, n]) => n > 0);
+    const nFood = dishes.length + snacks.length;
+    const canGo = nFood > 0 && (!isRyu || (nFood === 3 && !!wine));
+    const modal = openModal(`
+      <h2>上 菜 ${isRyu ? "· 余味开席" : ""}</h2>
+      <div class="set-note">${isRyu
+        ? `余味开席要 <b>3 道菜 + 1 道酒</b>（菜库/小吃随意凑，各 25%）——凑不齐不能开席，选了的不会扣。已选 ${nFood}/3 菜${wine ? "+1酒" : ""}。`
+        : `菜 + 小吃最多 <b>3 样</b> + 1 道酒，随意搭配。已选 ${nFood}/3 样${wine ? "+1酒" : ""}。`}</div>
+      <div class="ck-label">菜库（你做的）</div>
+      <div class="ck-mats">
+        ${(st.dishStore || []).length
+          ? st.dishStore.map((d, i) => `<span class="ck-mat ${dishes.includes(i) ? "" : "zero"}" data-dish="${i}">${d.name}${d.suCook ? "(苏唐做)" : ""}</span>`).join("")
+          : `<span class="ck-mat zero">菜库空——先「主厨」做菜。</span>`}
+      </div>
+      <div class="ck-label">小吃（苏唐备）</div>
+      <div class="ck-mats">
+        ${stock.length
+          ? stock.map(([n]) => `<span class="ck-mat ${snacks.includes(n) ? "" : "zero"}" data-snack="${n}">${n}</span>`).join("")
+          : `<span class="ck-mat zero">苏唐还没备小吃。</span>`}
+      </div>
+      ${wines.length ? `<div class="ck-label">酒水</div>
+      <div class="ck-mats">
+        <span class="ck-mat ${wine === null ? "" : "zero"}" data-wine="">不配酒</span>
+        ${wines.map(([n]) => `<span class="ck-mat ${wine === n ? "" : "zero"}" data-wine="${n}">${n}</span>`).join("")}
+      </div>` : ""}
+      <div class="ck-btns"><span class="ck-btn ${canGo ? "" : "off"}" data-serve>${isRyu ? "开 席" : "上 菜"}</span></div>
+      <span class="return" data-back>Return · 返回</span>
+    `, () => {});
+    modal.querySelectorAll("[data-dish]").forEach(el => el.onclick = () => {
+      const i = +el.dataset.dish;
+      if (dishes.includes(i)) dishes = dishes.filter(x => x !== i);
+      else if (nFood < maxFood) dishes.push(i);
+      draw();
+    });
+    modal.querySelectorAll("[data-snack]").forEach(el => el.onclick = () => {
+      const n = el.dataset.snack;
+      if (snacks.includes(n)) snacks = snacks.filter(x => x !== n);
+      else if (nFood < maxFood) snacks.push(n);
+      draw();
+    });
+    modal.querySelectorAll("[data-wine]").forEach(el => el.onclick = () => { wine = el.dataset.wine || null; draw(); });
+    modal.querySelector("[data-serve]").onclick = () => {
+      if (!canGo) return;
+      closeModal();
+      onServe({ items: [...dishes.map(i => ({ kind: "dish", idx: i })), ...snacks.map(n => ({ kind: "snack", name: n }))], wine });
+    };
+    modal.querySelector("[data-back]").onclick = () => closeModal();
+  }
+  draw();
 }
 
 // ── 酿造面板（灶台式 4 格自由选料）· 基酒/甜点/入药/在酿一览 ──

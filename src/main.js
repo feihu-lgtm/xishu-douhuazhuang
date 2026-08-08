@@ -16,7 +16,7 @@ import { chatContext } from "./prompt.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho,
 } from "./ui.js";
 
 let st = null;
@@ -325,6 +325,12 @@ async function cookNarrate(j) {
   gold(`「${st.dish.name}」出锅。`);
   note("出菜", noteTxt || `做「${st.dish.name}」给${g ? g.name : "自己"}，基础分${baseScore}。`);
   endTrace(`「${st.dish.name}」基础分${baseScore}`);
+  // 入菜库：做完的菜存起来，上菜时多选（最多 3 菜 + 1 酒）
+  st.dishStore = st.dishStore || [];
+  st.dishStore.push({ name: st.dish.name, materials: st.dish.materials, technique: st.dish.technique, flavorId: st.dish.flavorId, baseScore, menuDesc: st.dish.menuDesc, suCook: !!st.dish.suCook });
+  if (st.dishStore.length > 8) st.dishStore.shift();
+  sys(`「${st.dish.name}」入菜库（现有 ${st.dishStore.length} 道）——「上菜」时可多选。`);
+  st.dish = null;
   if (res.ms != null) sys(`说书 ${fmtMs(res.ms)} · 正文 ${res.prose.length} 字`);
   if (!res.ai) sys("（说书人未接线，灶神模板白描。设置里填 AI 密钥可现写。）");
   } finally { busy = false; }
@@ -345,78 +351,71 @@ function waitBusy() {
   });
 }
 
-async function doServe() {
-  if (st.phase !== "guest" || !st.dish) return;
-  await waitBusy();
-  if (st.phase !== "guest" || !st.dish) return;
+async function doServe(sel) {
+  if (st.phase !== "guest") return;
   const g = currentGuest(st);
   if (!g) return;
-  // ── 余味大阵仗：两道菜（大菜+汤）入席，四样齐才开席评星 ──
+  const gWish = (st.guestWishes || {})[g.id]; // 客人聊出来想吃啥（说了什么就是什么）
+  const items = sel?.items || [];
+  const dishItems = items.filter(x => x.kind === "dish").map(x => st.dishStore[x.idx]).filter(Boolean);
+  const snackNames = items.filter(x => x.kind === "snack").map(x => x.name);
+  const wineName = sel?.wine || null;
+  const winfo = wineName ? ((st.wineRecipes || []).find(r => r.name === wineName) || SHOP_WINES.find(w => w.name === wineName) || { quality: 60 }) : null;
+  // ── 先校验再扣料（杜绝吞菜）：余味开席 = 3 道菜（大菜/小吃随意凑）+ 1 道酒 ──
   if (g.ryuwei) {
-    const feast = st.feast = st.feast || {};
-    if (!feast.main) {
-      feast.main = { dish: st.dish, score: scoreDish(st.dish, g, (st.guestWishes || {})[g.id]) };
-      st.dish = null;
-      sys("大菜入席。余味在等——再给她做一道汤。");
-      return;
-    }
-    if (!feast.soup) {
-      feast.soup = { dish: st.dish, score: scoreDish(st.dish, g, (st.guestWishes || {})[g.id]) };
-      st.dish = null;
-      sys("汤也入席。去「佐餐」选小吃和酒水——四样凑齐，余味才开席评星。");
-      return;
-    }
-    return sys("四样凑齐了——去「佐餐」给余味开席。");
+    const nDish = dishItems.length + snackNames.length;
+    if (nDish < 3) return sys(`余味开席要 3 道菜 + 1 道酒——还差 ${3 - nDish} 道菜${!wineName ? "、1 道酒" : ""}，凑齐再来（菜品没动）。`);
+    if (!wineName) return sys("余味开席要 3 道菜 + 1 道酒——还差 1 道酒（菜品没动）。");
   }
+  if (!dishItems.length && !snackNames.length) return sys("没选菜——先做菜入菜库，或让苏唐备小吃。");
   busy = true;
   try {
   startTrace("佐餐");
-  const dish = st.dish;
-  const flavorMatch = dish.flavorId === g.flavor;
-  const favMatch = !!(g.fav && dish.materials.includes(g.fav));
-  const gWish = (st.guestWishes || {})[g.id]; // 客人聊出来想吃啥（说了什么就是什么）
-  let score = scoreDish(dish, g, gWish);
-  const wishBonus = gWish ? wishMatchScore(gWish, dish) : 0;
-  if (wishBonus > 0) sys(`${g.name}说过想吃「${gWish}」，这菜对味，心愿+${wishBonus}分。`);
-  // 配set 彩蛋：搭一份苏唐备的小吃；小吃有独立评分（品质+味型），主菜加分仍在
-  let setName = null, snackMatch = false, snackScore = null;
-  if (st.pendingSet && (st.snacks || {})[st.pendingSet] > 0) {
-    setName = st.pendingSet;
-    st.snacks[setName] -= 1;
-    score = Math.min(100, score + 8);
-    const srec = (st.snackRecipes || []).find(x => x.name === setName);
-    snackMatch = !!srec && srec.flavor === g.flavor;
-    if (snackMatch) score = Math.min(100, score + 6);
-    snackScore = snackScoreOf(srec, g); // 小吃独立评分（品质+客人口味）
+  // 扣库存（校验已过）
+  for (const n of snackNames) { st.snacks[n] -= 1; if (st.snacks[n] <= 0) delete st.snacks[n]; }
+  if (wineName) { st.wines[wineName] -= 1; if (st.wines[wineName] <= 0) delete st.wines[wineName]; }
+  // 各评分
+  const dishScores = dishItems.map(d => scoreDish(d, g, gWish));
+  const snackScores = snackNames.map(n => snackScoreOf((st.snackRecipes || []).find(x => x.name === n), g));
+  const winePts = winfo ? wineScore({ quality: winfo.quality, flavor: winfo.flavor, strong: !!winfo.strong }, g) : null;
+  const dish = dishItems[0]; // 主菜（叙事主体）
+  const score = dishScores[0] ?? snackScores[0] ?? 0;
+  // 总分：余味 = 3菜+1酒四样各 25%；其他客人 = 选定项均分
+  let total;
+  if (g.ryuwei) {
+    total = Math.round([...dishScores, ...snackScores, winePts].reduce((a, b) => a + b, 0) / 4);
+  } else {
+    const all = [...dishScores, ...snackScores, ...(winePts != null ? [winePts] : [])];
+    total = Math.round(all.reduce((a, b) => a + b, 0) / all.length);
   }
-  const tier = tierOf(score);
-  const mainBy = dish.suCook ? "苏唐" : "你";   // 主菜是谁做的
+  const tier = tierOf(total);
+  const mainBy = dish?.suCook ? "苏唐" : "你";
+  const flavorMatch = !!dish && dish.flavorId === g.flavor;
+  const favMatch = !!dish && !!g.fav && dish.materials.includes(g.fav);
+  const wishBonus = gWish && dish ? wishMatchScore(gWish, dish) : 0;
+  if (wishBonus > 0) sys(`${g.name}说过想吃「${gWish}」，这菜对味，心愿+${wishBonus}分。`);
+  // dayLog / 隔离记忆（多菜汇总）
   (st.dayLog = st.dayLog || []).push({
-    id: g.id, name: g.name, order: g.order, dish: dish.name, tier, flavorMatch, favMatch, score,
-    mainBy, mainScore: score, snackScore, snackBy: setName ? "苏唐" : null, snackName: setName,
+    id: g.id, name: g.name, order: g.order, dishes: dishItems.map(d => d.name).join("、"), tier, flavorMatch, favMatch, score: total,
+    mainBy, mainScore: total, snackScore: snackScores[0] ?? null, snackName: snackNames[0] || null,
   });
-  // 隔离记忆：这个客人只记得自己这桌发生的事（谁做了什么、好不好吃），最近 5 条
   st.guestMemories = st.guestMemories || {};
   const memList = st.guestMemories[g.id] = st.guestMemories[g.id] || [];
-  memList.push({ day: st.day, mainBy, dish: dish.name, mainScore: score, snackName: setName, snackScore });
+  memList.push({ day: st.day, mainBy, dish: dishItems.map(d => d.name).join("、"), mainScore: total, snackName: snackNames[0] || null, snackScore: snackScores[0] ?? null });
   if (memList.length > 5) memList.shift();
   st.aff = st.aff || {};
   const affNow = st.aff[g.id] || 0;
-  const pay = payOf(g, score, affNow) + (setName ? 2 : 0);
-  const mainDesc = dish.menuDesc || "";
-  const snackDesc = setName ? ((st.snackRecipes || []).find(x => x.name === setName)?.desc || "") : "";
+  const pay = payOf(g, total, affNow) + (snackNames.length ? 2 : 0);
+  const mainDesc = dish?.menuDesc || "";
   const glowServe = !!g.ryuwei; // 食评人余味的菜 · 端菜与品尝全部流光炫彩
   const sv = (t) => (glowServe ? narrGlow(t) : narr(t));
-  await sv(`师兄把「${dish.name}」端上桌，往 ${g.name} 面前一放。`);
+  await sv(`师兄把${dishItems.map(d => `「${d.name}」`).join("、")}${snackNames.length ? `和${snackNames.map(n => `「${n}」`).join("、")}` : ""}端上桌，往 ${g.name} 面前一放。`);
   if (mainDesc) await sv(`【菜牌】${mainDesc}`);
-  if (setName) {
-    await suLine(`【苏唐】顺手给 ${g.name} 搭了份「${setName}」，算我请的边角。`);
-    if (snackDesc) await sv(`【菜牌】${snackDesc}`);
-  }
+  if (wineName) await sv(`又斟上一杯「${wineName}」。`);
   const h = logStream("narr", glowServe ? { extraClass: "ryuwei-comment" } : {}); // 品尝场景进左栏
   const r = await genReaction(loadCfg(), {
-    guest: g, dishName: dish.name, score, tier, mainBy,
-    snackScore, snackName: setName, snackDesc,
+    guest: g, dishName: dish?.name || snackNames[0] || "", score: total, tier, mainBy,
+    snackScore: snackScores[0] ?? null, snackName: snackNames[0] || null, snackDesc: "",
     aff: affNow, affName: affName(affNow),
     mainDesc, st,
   }, c => h.append(c));
@@ -429,20 +428,35 @@ async function doServe() {
     if (!r.ai) sys("（说书人未接线或掉线，品尝场景模板白描。设置里填 AI 密钥可现写。）");
     setMood(r.mood ?? [2, 0, 5, 6][tier]);
   }
-  // 好感结算：满意度+口味匹配+配set 勾连
-  const d = affDeltaFor(tier, flavorMatch || snackMatch, favMatch) + (setName ? 1 : 0);
+  // 好感结算：按总分档位
+  const snackMatch2 = snackScores[0] != null && ((st.snackRecipes || []).find(x => x.name === snackNames[0])?.flavor === g.flavor);
+  const d = affDeltaFor(tier, flavorMatch || snackMatch2, favMatch) + (snackNames.length ? 1 : 0);
   st.aff[g.id] = Math.max(0, Math.min(100, affNow + d));
   st.coins += pay;
   st.earned += pay;
   st.totalServed += 1;
   st.served += 1;
-  st.dish = null;
   st.pendingSet = null;
-  gold(`${g.name} 放下 ${pay} 文铜钱。（满意度 ${score}）`);
-  // 出餐评分：主菜(谁做)和小吃(苏唐)分别评分+星级
-  sys(`【评分】主菜「${dish.name}」(${mainBy}做) ${score} 分 ${starsOf(score)}` +
-    (snackScore != null ? ` · 小吃「${setName}」(苏唐做) ${snackScore} 分 ${starsOf(snackScore)}` : ""));
-  // 余味的评级走大阵仗开席（doFeastServe），单菜不评银簪
+  gold(`${g.name} 放下 ${pay} 文铜钱。（满意度 ${total}）`);
+  const dishList = dishItems.map((d2, i) => `「${d2.name}」${d2.suCook ? "(苏唐做)" : ""}${dishScores[i]}分`).join(" · ");
+  sys(`【评分】${dishList || "（无大菜）"}${snackScores.length ? ` · 小吃 ${snackNames.map((n, i) => `「${n}」${snackScores[i]}分`).join("、")}` : ""}${winePts != null ? ` · 酒「${wineName}」${winePts}分` : ""} → 总分 ${total} ${starsOf(total)}`);
+  // 余味评级：3菜+1酒四样各 25%，总分 75/85/95 定星（只升不降）
+  if (g.ryuwei) {
+    const newTier = ryuweiGain(st, total);
+    if (newTier) {
+      const nm = ryuweiTierName(st);
+      await narrGlow(`「${g.name}」掸掸裙摆，从发间取下一支银簪，搁进师兄掌心：「${nm}——${newTier === 1 ? "做得很好，我的小鱼尾巴都要跳了。这支银簪，收好，算一星。" : newTier === 2 ? "全天下只有锦官城两家、拉萨一家、打箭炉一家，如今多了鱼定村这一家。两支银簪，两星。" : "三尾鱼？头一回在册子上落这三笔。三支银簪，三星——小鱼儿的尾巴都要跳断了。"}」`);
+      renderAll(st, handlers);
+    } else if (total >= 75) {
+      const curTier = (st.ryuweiRating || {}).tier ?? 0;
+      const next = RYUWEI_TIERS.find(t => t.tier === curTier + 1);
+      const remain = next ? Math.max(0, next.need - total) : 0;
+      await narrGlow(`「${g.name}」放下筷子，指尖在袖口那支银簪上轻轻一按：「这席够格——就是还差 ${remain} 分，够到下一支银簪。下次，小鱼尾巴该跳了。」`);
+    } else {
+      await narrGlow(`「${g.name}」筷子一放，微微摇头：「尾巴没压住，再练练，小鱼尾巴都耷拉下来啦。」`);
+    }
+    st.ryuweiVisits = (st.ryuweiVisits || 0) + 1;
+  }
   // 踢馆同行：按档位阈值（req）判定——达标把他赶走，必爆 ★食材 + 大额钱，并推进梯度
   if (g.rival) {
     const stars = (st.ryuweiRating || {}).tier ?? 0; // 银簪数=星级：挂了星的馆子，同行先忌惮三分
@@ -484,11 +498,13 @@ async function doServe() {
   note("出餐", reactNote || `给${g.name}上「${dish.name}」${setName ? `+「${setName}」` : ""}，满意度${score}，好感+${d}。`);
   endTrace(`给${g.name}·满意度${score}·好感+${d}`);
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)}`);
-  } finally { busy = false; }
-  // 世界回响：客人吃菜 / 踢馆（余味走大阵仗，别处触发）
-  if (!g.ryuwei) await fireEcho(g.rival ? "踢馆" : "客人吃菜", g.rival
-    ? `${g.name}（${g.ident}）上门踢馆，尝了「${dish.name}」${score}分——${score >= (g.req ?? 85) ? "认了栽，丢下看家好料走了" : "摇头冷笑，撂了句改日再来"}。`
-    : `${g.name}（${g.ident}）吃了「${dish.name}」${score}分${setName ? `，配「${setName}」${snackScore}分` : ""}，好感${d >= 0 ? "+" : ""}${d}。`);
+  } finally { busy = false; saveGame(st); }  // 结算完立即落盘（回响等尾部流程不阻塞存档）
+  // 世界回响：客人吃菜 / 踢馆 / 余味大阵仗
+  void fireEcho(g.ryuwei ? "余味大阵仗" : g.rival ? "踢馆" : "客人吃菜", g.ryuwei
+    ? `余味开席：${dishItems.map(d => `「${d.name}」`).join("、")}${snackNames.length ? " + " + snackNames.join("、") : ""} + 「${wineName}」→ 总分 ${total}${(st.ryuweiRating?.tier ?? 0) > 0 ? `，已是${ryuweiTierName(st)}` : "，还差一支银簪"}。`
+    : g.rival
+    ? `${g.name}（${g.ident}）上门踢馆，尝了「${dish?.name || snackNames[0] || ""}」${score}分——${score >= (g.req ?? 85) ? "认了栽，丢下看家好料走了" : "摇头冷笑，撂了句改日再来"}。`
+    : `${g.name}（${g.ident}）吃了${dishItems.map(d => `「${d.name}」`).join("、")}${snackNames.length ? `和${snackNames.map(n => `「${n}」`).join("、")}` : ""}${wineName ? `，配「${wineName}」` : ""}，总分 ${total}，好感${d >= 0 ? "+" : ""}${d}。`);
   if (st.served >= 3) {
     await narr("最后一位客人走了。灶上还温着汤，今日不自动打烊。");
     sys("三位送完。苏唐照例要总评一句；可逛「商店」/「探秘」，或点「下一日」翻篇。");
@@ -679,7 +695,7 @@ async function doExpedition(node, intent) {
     endTrace("（探秘中断）"); // 兜底：正常结束已是 no-op；异常中断则闭合 trace，不卡「进行中」
   }
   // 世界回响：探秘全过程
-  await fireEcho("探秘", `${node.name}·${scenario}，师兄苏唐寻得 ${specialNames}。`);
+  void fireEcho("探秘", `${node.name}·${scenario}，师兄苏唐寻得 ${specialNames}。`);
   renderAll(st, handlers);
   saveGame(st);
 }
@@ -856,111 +872,6 @@ async function doBrew({ base, qu, extras, distill }) {
 }
 
 // ── 余味开席：四样（大菜/汤/小吃/酒水）各 25%，总分定星 ────────
-async function doFeastServe() {
-  const g = currentGuest(st);
-  if (!g?.ryuwei) return;
-  const feast = st.feast;
-  if (!feast?.main || !feast?.soup || !feast?.snack || !feast?.wine) return sys("四样没凑齐——还差一样，余味不开席。");
-  busy = true;
-  try {
-  startTrace("开席");
-  const mainScore = feast.main.score, soupScore = feast.soup.score;
-  const snackPts = feast.snack.score, winePts = feast.wine.score;
-  const total = Math.round((mainScore + soupScore + snackPts + winePts) / 4);
-  // 开席叙事（AI 品评四样，分数系统已定）
-  const h = logStream("narr", { extraClass: "ryuwei-comment" });
-  const r = await genFeastReview(loadCfg(), { g, feast, scores: { mainScore, soupScore, snackScore: snackPts, winePts }, total });
-  if (r.ai) h.apply(r.prose, "");
-  else { h.remove(); await narrGlow(r.prose); if (!r.ai) sys("（说书人未接线或掉线，开席先用模板。）"); }
-  // 定星：现评现定，tier 只升不降
-  const newTier = ryuweiGain(st, total);
-  if (newTier) {
-    const nm = ryuweiTierName(st);
-    await narrGlow(`「${g.name}」掸掸裙摆，从发间取下一支银簪，搁进师兄掌心：「${nm}——${newTier === 1 ? "做得很好，我的小鱼尾巴都要跳了。这支银簪，收好，算一星。" : newTier === 2 ? "全天下只有锦官城两家、拉萨一家、打箭炉一家，如今多了鱼定村这一家。两支银簪，两星。" : "三尾鱼？头一回在册子上落这三笔。三支银簪，三星——小鱼儿的尾巴都要跳断了。"}」`);
-    renderAll(st, handlers);
-  } else if (total >= 75) {
-    const curTier = (st.ryuweiRating || {}).tier ?? 0;
-    const next = RYUWEI_TIERS.find(t => t.tier === curTier + 1);
-    const remain = next ? Math.max(0, next.need - total) : 0;
-    await narrGlow(`「${g.name}」放下筷子，指尖在袖口那支银簪上轻轻一按：「这席够格——就是还差 ${remain} 分，够到下一支银簪。下次，小鱼尾巴该跳了。」`);
-  } else {
-    await narrGlow(`「${g.name}」筷子一放，微微摇头：「尾巴没压住，再练练，小鱼尾巴都耷拉下来啦。」`);
-  }
-  // 结算：好感 + 入账（四样的大阵仗，钱给足）
-  st.aff[g.id] = Math.min(100, (st.aff[g.id] || 0) + 6);
-  const pay = Math.round(888 * (0.5 + total / 200));
-  st.coins += pay; st.earned += pay;
-  st.totalServed += 1; st.served += 1;
-  gold(`${g.name} 放下 ${pay} 文铜钱。（大阵仗总分 ${total}）`);
-  sys(`【开席】大菜 ${mainScore} · 汤 ${soupScore} · 小吃 ${snackPts} · 酒水 ${winePts} → 总分 ${total}（四样各25%）`);
-  note("开席", `余味大阵仗：${mainScore}/${soupScore}/${snackPts}/${winePts} → ${total}分${newTier ? `，晋${ryuweiTierName(st)}` : ""}。`);
-  endTrace(`开席·总分${total}`);
-  st.ryuweiVisits = (st.ryuweiVisits || 0) + 1;
-  st.feast = null;
-  } finally { busy = false; }
-  // 世界回响：余味大阵仗
-  await fireEcho("余味大阵仗", `四样 ${mainScore}/${soupScore}/${snackPts}/${winePts} → 总分 ${total}${newTier ? `，晋${ryuweiTierName(st)}` : ""}。`);
-  renderAll(st, handlers);
-  saveGame(st);
-}
-
-// ── 米酒配甜：扣 1 杯米酒 + 甜料 → 苏唐做甜点小吃（酒入馔）────
-function doWineDessert(name) {
-  const d = WINE_DESSERTS.find(x => x.name === name);
-  if (!d) return;
-  const riceWines = Object.keys(st.wines || {}).filter(n => (st.wines[n] || 0) > 0
-    && ((st.wineRecipes || []).find(r => r.name === n)?.kind === "米酒" || SHOP_WINES.some(w => w.name === n)));
-  if (!riceWines.length) return sys("没有米酒——先酿坛米酒（或商店买锦官米酒）。");
-  if ((st.inv[d.sweet] || 0) <= 0) return sys(`缺「${d.sweet}」。`);
-  if (busy) return sys("说书人正忙着呢。");
-  const wineName = riceWines[0];
-  st.wines[wineName] -= 1;
-  if (st.wines[wineName] <= 0) delete st.wines[wineName];
-  st.inv[d.sweet] -= 1;
-  if (st.inv[d.sweet] <= 0) delete st.inv[d.sweet];
-  st.snacks = st.snacks || {};
-  st.snacks[d.name] = (st.snacks[d.name] || 0) + 3;
-  const wq = (st.wineRecipes || []).find(r => r.name === wineName)?.quality ?? 60;
-  const q = Math.min(100, Math.round(55 + wq / 4));
-  st.snackRecipes = st.snackRecipes || [];
-  const rec = st.snackRecipes.find(x => x.name === d.name);
-  if (rec) rec.quality = Math.max(rec.quality, q);
-  else st.snackRecipes.push({ name: d.name, cat: d.cat, tag: d.cat, used: [wineName, d.sweet], quality: q, desc: d.desc, flavor: "tian" });
-  suLine(`「${d.name}」成了——${wineName}配${d.sweet}，${d.desc}`);
-  sys(`【甜点】${d.name} 3 份（用 ${wineName} · 品质 ${q}）`);
-  note("甜点", `苏唐用${wineName}做了「${d.name}」3份，品质${q}。`);
-  renderAll(st, handlers);
-  saveGame(st);
-}
-
-// ── 白酒/黄酒入药：酒泡药材 → 药酒（品质=酒×0.6+药材星×12）────
-function doMedicate(wineName, herbName) {
-  const herb = MEDICINE_HERBS.find(h => h.name === herbName);
-  if (!herb) return;
-  if ((st.wines[wineName] || 0) <= 0) return sys(`没有「${wineName}」。`);
-  if ((st.inv[herbName] || 0) <= 0) return sys(`缺药材「${herbName}」。`);
-  const wq = (st.wineRecipes || []).find(r => r.name === wineName)?.quality
-    || SHOP_WINES.find(w => w.name === wineName)?.quality || 60;
-  const hStar = (st.stars || {})[herbName] || 0;
-  st.wines[wineName] -= 1;
-  if (st.wines[wineName] <= 0) delete st.wines[wineName];
-  st.inv[herbName] -= 1;
-  if (st.inv[herbName] <= 0) delete st.inv[herbName];
-  const med = `${herbName}药酒`;
-  const q = Math.min(100, Math.round(wq * 0.6 + hStar * 12));
-  st.wines = st.wines || {};
-  st.wines[med] = (st.wines[med] || 0) + 1;
-  st.wineRecipes = st.wineRecipes || [];
-  const rec = st.wineRecipes.find(r => r.name === med);
-  if (rec) rec.quality = Math.max(rec.quality, q);
-  else st.wineRecipes.push({ name: med, base: wineName, qu: "", extra: [herbName], flavor: herb.flavor, quality: q, kind: "药酒" });
-  suLine(`「${med}」入坛——${wineName}泡${herbName}，酒色转沉，药气入酒。`);
-  sys(`【药酒】${med} 1 瓶（品质 ${q}）——药铺收，懂行的客人也认。`);
-  note("药酒", `${wineName}泡${herbName}成「${med}」，品质${q}。`);
-  renderAll(st, handlers);
-  saveGame(st);
-}
-
 // ── 买基酒（应急：商店现成的品质固定，自己酿的更高）────────────
 function doBuyWine(name) {
   const w = SHOP_WINES.find(x => x.name === name);
@@ -1057,33 +968,11 @@ function doPickGuest() {
 
 // ── 佐餐（替代上菜+配set）──────────────────────────────────────────
 function doZuocan() {
-  if (st.phase !== "guest" || !st.dish) return;
+  if (st.phase !== "guest") return sys("现在没有客人。");
   const gSet = currentGuest(st);
-  if (gSet?.ryuwei) {
-    // 余味大阵仗：选小吃+酒水，四样齐开席
-    openSet(st, { feast: true, onSet: (sel) => {
-      const feast = st.feast = st.feast || {};
-      if (sel.snack) {
-        const srec = (st.snackRecipes || []).find(x => x.name === sel.snack);
-        feast.snack = { name: sel.snack, score: snackScoreOf(srec, gSet) };
-        st.snacks[sel.snack] -= 1;
-        if (st.snacks[sel.snack] <= 0) delete st.snacks[sel.snack];
-      }
-      if (sel.wine) {
-        const winfo = (st.wineRecipes || []).find(r => r.name === sel.wine)
-          || SHOP_WINES.find(w => w.name === sel.wine) || {};
-        const q = winfo.quality ?? 60;
-        feast.wine = { name: sel.wine, quality: q, flavor: winfo.flavor, strong: !!winfo.strong, score: wineScore({ quality: q, flavor: winfo.flavor, strong: !!winfo.strong }, gSet) };
-        st.wines[sel.wine] -= 1;
-        if (st.wines[sel.wine] <= 0) delete st.wines[sel.wine];
-      }
-      doFeastServe();
-    } });
-    return;
-  }
-  const has = Object.values(st.snacks || {}).some(n => n > 0);
-  if (!has) return doServe();
-  openSet(st, { onSet: (name) => { st.pendingSet = name; doServe(); } });
+  if (!gSet) return sys("现在没有客人。");
+  // 多选上菜：菜库 + 小吃 + 酒（合计 ≤3 菜 + 1 酒；余味须凑齐 3 菜 + 1 酒）
+  openServe(st, gSet, { onServe: (sel) => doServe(sel) });
 }
 
 // ── 踢馆梯度：第15周后，每周第二客位 50% 概率来八线里随机一位「当前该来」的同行 ──
@@ -1156,7 +1045,7 @@ async function doNext() {
     if (st.suSkills["酿酒"] <= 100) sys(`苏唐酿酒手艺见长：酿酒技能 +${gain}（今 ${st.suSkills["酿酒"]}）。`);
     note("出酒", `「${b.name}」出坛${b.extraWeeks ? `（多陈${b.extraWeeks}周）` : ""}，品质${b.quality}，5杯。`);
   }
-  if (brews.length) await fireEcho("酿酒出坛", `${brews.map(b => `「${b.name}」品质${b.quality}`).join("、")} 出坛，苏唐的手艺又精了一分。`);
+  if (brews.length) void fireEcho("酿酒出坛", `${brews.map(b => `「${b.name}」品质${b.quality}`).join("、")} 出坛，苏唐的手艺又精了一分。`);
   applyRival(st);              // 第二客可能换成踢馆同行
   dismissInvite();             // 新一天开门：收掉昨天晚上的邀请面板
   setMood(0);

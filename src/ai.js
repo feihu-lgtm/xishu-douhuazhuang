@@ -793,7 +793,7 @@ export async function genEcho(cfg, ctx) {
 结尾单独一行「纸条：」+ 一行客观小纸条（≤30字，供存档回看）。`;
     const user = `【事件】${ctx.event}\n【结果】${ctx.result}\n【世界】${ctx.world}`;
     try {
-      const raw = await callAI(cfg, sys, user, "世界回响", undefined, true); // skipMode：回响是公开传闻，不注入 ■NSFW
+      const raw = await callAI(cfg, sys, user, "世界回响", 45000, true); // 回响是装饰性的：45s 超时，别拖主流程；skipMode 不注入 ■NSFW
       const { main, note } = extractComment(raw || "");
       return { prose: (main || (raw || "").trim()), note, form, ai: true };
     } catch { /* 降级 */ }
