@@ -22,7 +22,7 @@
 | `prompt.js` | prompt 编排：STYLE 基座、出菜/品尝/小吃/探秘各块、**starSec 店誉块** |
 | `modePrimer.js` | 模式预热（少动） |
 
-AI 密钥在游戏内"设置"里填（DeepSeek，`api.deepseek.com`，模型 deepseek-chat）。没接线时全部走 fallback 模板，游戏仍可玩。
+AI 密钥在游戏内"设置"里填。常用反代：ggchan（`https://gcli.ggchan.dev`，Gemini 模型如 `gemini-3-flash-preview`）或 DeepSeek 官方（`https://api.deepseek.com`，`deepseek-chat`）。**所有调用统一走流式 SSE**（`callAI` 内部复用 `callAIStream`）——ggchan 反代对非流式支持差/慢，非流式会挂起超时→降级成模板（表现为"没走 AI、料瞎配"）。`max_tokens` 默认 65536（64k），Gemini 思考型模型别给 200000（思考会吞预算、拖到超时）。没接线时全部走 fallback 模板，游戏仍可玩。
 
 ## 余味（小鱼儿）系统 —— 最高优先级的维护对象
 
