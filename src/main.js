@@ -1,24 +1,24 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v34";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v34";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v38";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v38";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v34";
+} from "./state.js?v=v38";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeilu, genDuel,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeiluChat, genDuel,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v34";
-import { chatContext } from "./prompt.js?v=v34";
+} from "./ai.js?v=v38";
+import { chatContext } from "./prompt.js?v=v38";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
-  commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, initMobileDrawers,
-} from "./ui.js?v=v34";
+  commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, openWeiluChat, initMobileDrawers,
+} from "./ui.js?v=v38";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -59,6 +59,7 @@ function restoreRecentLog() {
 const handlers = {
   cook: () => doCook(),
   snack: () => doSnackPanel(),   // 副厨：小吃面板（苏唐做小吃）
+  invite: () => showInvite(),    // 邀请客人：请客坐坐（常客/江湖 留坐闲聊）
   brew: () => openBrew(st, { onBrew: doBrew, onBuy: doBuyWine, onDessert: doWineDessert, onMedicate: doMedicate }),
   serve: () => doZuocan(),       // 备餐：准备上菜（选 3 菜 + 1 酒）
 
@@ -1084,26 +1085,33 @@ function ledger(act, delta) {
 }
 function doLedger() {
   const books = [
-    { t: "流水账", d: (st.ledger || []).length ? st.ledger.slice(-14).reverse().map(l => `${l.day}周 ${l.ts} ${l.act} ${l.delta > 0 ? "+" : ""}${l.delta}文`).join("\n") : "（账房还没记过流水——待客、买卖、事件的收支都会记）" },
-    { t: "菜谱册", d: (st.menu || []).slice(-10).map(m => `「${m.name}」${m.used ? "· " + m.used.slice(0, 12) : ""}`).join("\n") || "（空）" },
-    { t: "星料谱", d: Object.entries(st.stars || {}).map(([n, s]) => `${n} ${"★".repeat(s)}`).join("\n") || "（还没寻到带星食材）" },
-    { t: "酒库", d: Object.entries(st.wines || {}).map(([n, c]) => `${n}×${c}`).join("、") || "（酒库空）" },
-    { t: "待客簿", d: (st.dayLog || []).slice(-10).map(l => `${l.day}周·${l.name}·${l.dish || ""}${l.score != null ? "·" + l.score + "分" : ""}`).join("\n") || "（还没待过客）" },
-    { t: "杂物柜", d: (st.junk || []).slice(-10).map(j => `${j.name}${j.desc ? "·" + j.desc : ""}${j.price ? "·" + j.price + "文" : ""}`).join("\n") || "（柜子空着——广场淘来的稀奇玩意都放这）" },
+    { t: "流水账", cols: ["周", "时间", "事项", "收支"],
+      rows: (st.ledger || []).slice(-14).reverse().map(l => [l.day + "周", l.ts, l.act, `${l.delta > 0 ? "+" : ""}${l.delta}文`]) },
+    { t: "菜谱册", cols: ["菜名", "用料"],
+      rows: (st.menu || []).slice(-10).map(m => [`「${m.name}」`, m.used ? m.used.slice(0, 16) : ""]) },
+    { t: "星料谱", cols: ["食材", "星级"],
+      rows: Object.entries(st.stars || {}).map(([n, s]) => [n, "★".repeat(s)]) },
+    { t: "酒库", cols: ["酒", "存量"],
+      rows: Object.entries(st.wines || {}).map(([n, c]) => [n, "×" + c]) },
+    { t: "待客簿", cols: ["周", "客人", "菜", "分"],
+      rows: (st.dayLog || []).slice(-10).map(l => [l.day + "周", l.name, l.dish || "", l.score != null ? l.score + "分" : ""]) },
+    { t: "杂物柜", cols: ["物件", "来历", "价"],
+      rows: (st.junk || []).slice(-10).map(j => [j.name, j.desc || "", j.price ? j.price + "文" : ""]) },
   ];
   let idx = 0;
   const draw = () => {
     const b = books[idx];
+    const empty = (b.rows && b.rows.length) ? "" : `<tr><td colspan="${(b.cols || []).length || 1}" class="empty">（空）</td></tr>`;
     openModal(`
       <h2>账 房 · ${b.t}</h2>
       <div class="ck-chips">
         ${books.map((x, i) => `<span class="ck-chip ${i === idx ? "on" : ""}" data-book="${i}">${x.t}</span>`).join("")}
       </div>
-      <div class="ck-mats"><span class="ck-mat" style="white-space:pre-wrap;line-height:1.9">${b.d.split("\n").map(x => escapeHtml(x)).join("\n")}</span></div>
+      ${b.cols ? `<table class="ledger-tbl"><thead><tr>${b.cols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${(b.rows || []).map(r => `<tr>${r.map(c => `<td>${esc(String(c ?? ""))}</td>`).join("")}</tr>`).join("")}${empty}</tbody></table>`
+        : `<div class="ck-mats"><span class="ck-mat" style="white-space:pre-wrap;line-height:1.9">${b.d.split("\n").map(x => esc(x)).join("\n")}</span></div>`}
       <div class="ck-btns"><span class="ck-btn plain" data-prev>上一册</span><span class="ck-btn plain" data-next>下一册</span></div>
       <span class="return" data-back>Return · 返回</span>
     `, () => {});
-    const q = (s) => document.querySelector("#modal-root [data-back]") ? document.querySelector(`#modal-root [data-${s.slice(1)}]`) : null;
     document.querySelectorAll("#modal-root [data-book]").forEach(el => el.onclick = () => { idx = +el.dataset.book; draw(); });
     document.querySelector("#modal-root [data-prev]").onclick = () => { idx = (idx + books.length - 1) % books.length; draw(); };
     document.querySelector("#modal-root [data-next]").onclick = () => { idx = (idx + 1) % books.length; draw(); };
@@ -1377,32 +1385,64 @@ function openTheater(kind) {
   };
   draw();
 }
-// ── 瓦舍 · 围炉喝酒：和本周在场 NPC 喝酒，酒后吐真言（情报/好感）──
+// ── 瓦舍 · 围炉夜话：群聊（多人互相接话，玩家插话），酒后吐真言（情报/好感）──
 async function doWeilu() {
   if (busy) return sys("说书人正忙着呢。");
-  const folks = (st.squareFolks || []).filter(f => f.week === st.day);
-  const npcs = folks.length ? folks.slice(0, 3) : [];
-  if (!npcs.length) return sys("广场本周没人来瓦舍——下周翻篇再来喝酒。");
+  const folks = (st.squareFolks || []).filter(f => f.week === st.day).slice(0, 2);
+  const jhHere = (st.jianghu?.batch || []).filter(b => b.locId === "washe")
+    .map(b => JIANGHU_ROSTER.find(c => c.id === b.id)).filter(Boolean).slice(0, 1);
+  const npcs = [
+    ...folks.map(f => ({ npcId: f.npcId, name: f.name, ident: f.ident })),
+    ...jhHere.map(c => ({ npcId: c.id, name: c.name, ident: c.ident })),
+  ];
+  if (!npcs.length) return sys("篝火还冷着——这周瓦舍没有江湖客，下周翻篇再来围炉。");
   busy = true;
   try {
-  startTrace("围炉喝酒");
-  const r = await genWeilu(loadCfg(), npcs.map(f => ({ name: f.name, ident: f.ident })));
-  await narr(`篝火在瓦舍后檐下烧起来，${npcs.map(f => f.name).join("、")}围着坐了。`);
-  await narr(r.prose);
-  // 酒后吐真言：情报上广场/事件簿；好感各 +1
-  for (const f of npcs) {
-    st.aff = st.aff || {};
-    st.aff[f.npcId] = Math.min(100, (st.aff[f.npcId] || 0) + 1);
-  }
-  if (r.info) {
-    st.square = st.square || [];
-    st.square.push({ from: "酒后真言", form: "传闻", text: r.info, day: st.day, ts: nowTs() });
-    sys(`（${npcs.map(f => f.name).join("、")}酒酣耳热，吐出一句真言：「${r.info}」——已上布告墙。好感各+1。）`);
-  } else {
-    sys(`（${npcs.map(f => f.name).join("、")}喝得尽兴，好感各+1。）`);
-  }
-  endTrace("围炉喝酒");
-  } finally { busy = false; renderAll(st, handlers); saveGame(st); }
+  startTrace("围炉夜话");
+  st.weilu = st.weilu || { day: 0, lines: [] };
+  if (st.weilu.day !== st.day) st.weilu = { day: st.day, lines: [] };
+  let roundNo = 0;
+  let panel = null;
+  const round = async (text) => {
+    roundNo++;
+    const thread = st.weilu.lines.slice(-6).join("\n");
+    const r = await genWeiluChat(loadCfg(), npcs.map(n => ({ name: n.name, ident: n.ident })), thread, text);
+    const out = (r.text || fallbackWeiluRound(npcs, text)).trim();
+    for (const line of out.split("\n")) {
+      const t = line.trim();
+      if (!t) continue;
+      panel.append(t);
+      st.weilu.lines.push(t);
+    }
+    const tm = out.match(/【真言】\s*([^\n]+)/);
+    if (tm) {
+      const info = tm[1].trim().slice(0, 50);
+      st.square = st.square || [];
+      st.square.push({ from: "酒后真言", form: "传闻", text: info, day: st.day, ts: nowTs() });
+      sys(`（酒后真言：「${info}」——已上布告墙。）`);
+    }
+    if (roundNo === 1) {
+      for (const n of npcs) { st.aff = st.aff || {}; if (n.npcId) st.aff[n.npcId] = Math.min(100, (st.aff[n.npcId] || 0) + 1); }
+      sys(`（围炉众人喝得尽兴，好感各+1——可随时插话，聊到尽兴再散场。）`);
+    }
+    saveGame(st);
+  };
+  panel = openWeiluChat(st, npcs.map(n => ({ name: n.name, ident: n.ident })), {
+    onSend: round,
+    onExit: () => { saveGame(st); },
+  });
+  round("");
+  endTrace("围炉夜话");
+  } catch (e) { console.error("围炉出错:", e); } finally { busy = false; renderAll(st, handlers); }
+}
+// 没接 AI 时的围炉兜底：模板互聊
+function fallbackWeiluRound(npcs, text) {
+  const a = npcs[0], b = npcs[1];
+  const lines = ["篝火噼啪，酒碗在手里转了一圈。"];
+  if (a) lines.push(`${a.name}：「好酒！这坛子够劲。」`);
+  if (b) lines.push(`${b.name}：「${a ? a.name : "你"}这话说得在理——干！」`);
+  if (text) lines.push(`${a ? a.name : npcs[0].name}：「${text.slice(0, 12)}……这话有意思，再说说。」`);
+  return lines.join("\n");
 }
 function doDibao() {
   const items = [];
@@ -1962,7 +2002,7 @@ function bind() {
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();
-    const map = { c: "cook", u: "snack", w: "brew", x: "serve", y: "world", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
+    const map = { c: "cook", u: "snack", w: "brew", x: "serve", y: "world", t: "shop", m: "exp", n: "next", j: "invite", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
     if (map[k]) handlers[map[k]]();
   });
   $("#btn-new").onclick = () => startNew();

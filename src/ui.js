@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v34";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v34";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v34";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v34";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v34";
+} from "./data.js?v=v38";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v38";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v38";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v38";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v38";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -360,6 +360,7 @@ export function renderSide(st, h) {
     item("商店", "T", can.shop, "shop") +
     item("探秘", "M", can.exp, "exp") +
     item("下一日", "N", can.next, "next") +
+    item("邀请客人", "J", true, "invite") +
     `<div class="sep"></div>` +
     item("仓库", "I", true, "bag") +
     item("设置", "F", true, "settings") +
@@ -387,6 +388,7 @@ export function renderSide(st, h) {
         item("商店", "T", can.shop, "shop") +
         item("探秘", "M", can.exp, "exp") +
         item("下一日", "N", can.next, "next") +
+        item("邀请", "J", true, "invite") +
         item("更多", "≡", true, "moredrawer");
       tabs.querySelectorAll(".menu-item:not(.disabled)").forEach(el => {
         if (el.dataset.act === "moredrawer") {
@@ -842,6 +844,60 @@ export function openLocView(st, loc, { onChat, onAction, onBack, onJianghu }) {
   return modal;
 }
 
+// ── 围炉夜话 · 群聊面板（手机群聊式气泡：多人互相接话，玩家插话）──
+export function openWeiluChat(st, group, { onSend, onExit }) {
+  const COLORS = ["#e3beb4", "#a8c4d8", "#d8b46a", "#c9a19b", "#9fc0a0"];
+  const colorOf = (name) => {
+    const i = group.findIndex(g => g.name === name);
+    return i >= 0 ? COLORS[i % COLORS.length] : "#d8b46a";
+  };
+  const modal = openModal(`
+    <div class="map-head">
+      <span class="map-title">🔥 围炉夜话 · 瓦舍后檐</span>
+      <span class="return" data-back style="margin-left:auto">散 场</span>
+    </div>
+    <div class="weilu-group">${group.map(g => `<span class="weilu-man"><i style="background:${colorOf(g.name)}"></i>${g.name}</span>`).join("")}</div>
+    <div class="weilu-msgs" data-msgs></div>
+    <div class="loc-chat">
+      <input id="weilu-inp" placeholder="插句话……" />
+      <span class="ck-btn plain" data-send>说</span>
+    </div>
+  `, () => onExit?.());
+  const q = (s) => modal.querySelector(s);
+  const msgs = q("[data-msgs]");
+  const append = (line) => {
+    const m = String(line).trim();
+    if (!m) return;
+    const el = document.createElement("div");
+    if (m.startsWith("【真言】")) {
+      el.className = "weilu-msg truth";
+      el.innerHTML = `<span class="truth-tag">酒后真言</span>${escapeHtml(m.replace(/^【真言】\s*/, ""))}`;
+    } else {
+      const p = m.match(/^([^\s「」]{1,8})[：:]\s*(.+)$/);
+      if (p) {
+        const isMe = p[1] === "师兄" || p[1] === "你";
+        el.className = `weilu-msg ${isMe ? "me" : "them"}`;
+        el.innerHTML = isMe
+          ? `<span class="bubble me">${escapeHtml(p[2])}</span>`
+          : `<span class="who" style="color:${colorOf(p[1])}">${escapeHtml(p[1])}</span><span class="bubble">${escapeHtml(p[2])}</span>`;
+      } else {
+        el.className = "weilu-msg sys";
+        el.innerHTML = escapeHtml(m);
+      }
+    }
+    msgs.appendChild(el);
+    msgs.scrollTop = msgs.scrollHeight;
+  };
+  q("[data-send]").onclick = () => {
+    const v = q("#weilu-inp").value.trim();
+    if (!v) return;
+    q("#weilu-inp").value = "";
+    onSend(v);
+  };
+  q("#weilu-inp").addEventListener("keydown", (e) => { if (e.key === "Enter") q("[data-send]").click(); });
+  q("[data-back]").onclick = () => { closeModal(); onExit?.(); };
+  return { append, modal };
+}
 // ── 江湖客交谈：人物卡（身世/武功/口癖）+ 聊天框，交谈后相识可邀 ──
 export function openJianghuChat(st, char, loc, { onSend, onBack }) {
   const known = !!(st.jianghu?.known?.[char.id]);

@@ -917,3 +917,24 @@ body {
 .map-jh { display: flex; align-items: center; gap: 10px; padding: 10px 22px 4px; flex-wrap: wrap; }
 .map-jh-title { font-weight: 700; letter-spacing: 2px; color: var(--ink-bright); font-size: 13px; white-space: nowrap; }
 .map-jh-list { color: var(--ink); font-size: 12px; line-height: 1.8; flex: 1; min-width: 0; }
+
+/* 账房 · Excel 式表格（手机记账 App 观感） */
+.ledger-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 10px 0; }
+.ledger-tbl th { text-align: left; font-weight: normal; letter-spacing: 2px; color: var(--ink-bright); background: rgba(201,161,155,.1); border-bottom: 1px solid var(--line-soft); padding: 5px 10px; }
+.ledger-tbl td { padding: 4px 10px; border-bottom: 1px solid rgba(201,161,155,.12); color: var(--ink); }
+.ledger-tbl tr:nth-child(even) td { background: rgba(201,161,155,.05); }
+.ledger-tbl td.empty { text-align: center; color: var(--ink-dim); padding: 14px 10px; }
+
+/* 围炉夜话 · 群聊气泡（手机群聊式） */
+.weilu-group { display: flex; gap: 10px; padding: 10px 22px 2px; flex-wrap: wrap; }
+.weilu-man { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-dim); }
+.weilu-man i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.weilu-msgs { overflow-y: auto; padding: 10px 18px; display: flex; flex-direction: column; gap: 8px; min-height: 220px; max-height: 46vh; }
+.weilu-msg { display: flex; align-items: flex-start; gap: 7px; font-size: 13px; line-height: 1.7; }
+.weilu-msg .who { flex-shrink: 0; font-size: 11px; padding-top: 3px; }
+.weilu-msg .bubble { background: rgba(201,161,155,.12); border: 1px solid var(--line-soft); border-radius: 10px 10px 10px 2px; padding: 5px 10px; max-width: 78%; }
+.weilu-msg.me { justify-content: flex-end; }
+.weilu-msg.me .bubble { background: rgba(216,180,106,.16); border-color: rgba(216,180,106,.4); border-radius: 10px 10px 2px 10px; }
+.weilu-msg.sys { justify-content: center; color: var(--ink-dim); font-size: 11.5px; font-style: italic; }
+.weilu-msg.truth { justify-content: center; color: var(--gold); font-size: 12px; }
+.truth-tag { color: var(--gold); border: 1px solid var(--gold); border-radius: 8px; padding: 0 6px; margin-right: 6px; font-size: 10.5px; }

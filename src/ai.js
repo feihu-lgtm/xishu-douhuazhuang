@@ -1,8 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v34";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v38";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
-import { CHECK_DIMS } from "./state.js?v=v34";
+import { CHECK_DIMS } from "./state.js?v=v38";
 
 // ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
 let nsfwOn = true;
@@ -13,7 +13,7 @@ const msgsWithMode = (system, user) =>
   nsfwOn
     ? [{ role: "system", content: system }, ...MODE_PRIMER_MESSAGES, { role: "user", content: user }]
     : [{ role: "system", content: system }, { role: "user", content: user }];
-import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v34";
+import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v38";
 export { tierOfScore, tierGuide };
 
 const CFG_KEY = "xiaochu-ai-v1";
@@ -855,18 +855,22 @@ export async function genTheater(cfg, { kind, topic, world }) {
     : `【生】提起那豆花庄，好菜飘香十里街——【旦】师兄勺下翻江海，苏唐手底起云霞——【丑】馋得我呀，口水淌了半条街！`;
   return { prose: FALLBACK, ai: false };
 }
-// ── 瓦舍 · 围炉喝酒：和在场 NPC 1-3 位喝酒闲谈，酒后吐真言 ──
-export async function genWeilu(cfg, npcs) {
+// ── 瓦舍 · 围炉夜话：篝火边多人互相接话的群聊（玩家可插话），酒后吐真言 ──
+// 输出格式：每行「名字：说的话」一行一人，可夹不带名字的白描行；【真言】在末尾
+export async function genWeiluChat(cfg, npcs, thread, input) {
   if (cfgReady(cfg) && npcs.length) {
-    const sys = "你是《西蜀豆花庄》的围炉酒席记。篝火边几位熟人喝酒闲谈，每人说一两句（贴人设），酒到酣处有人吐一句真言（真言=可传的江湖消息或可做的小事，写在【真言】里）。只输出正文。";
-    const user = `在场：${npcs.map(n => `${n.name}（${n.ident}）`).join("、")}。写 250 字上下的围炉场景，最后一行「【真言】」+ 一条消息。`;
+    const sys = "你是《西蜀豆花庄》的围炉夜话群聊。篝火边几位熟人喝酒闲谈，互相接话、抢话、抬杠、碰碗（贴各人设；余味自称「奴家」称人「这位小哥」；何雨谢温声细语称人「这位小友」）。师兄也在火边。输出格式：每行「名字：说的话」，一行一人；可夹一行不带名字的白描（火堆/酒碗/风声）；一轮最多 3 行人物话 + 1 行白描。若有人酒后吐真言，末尾加一行「【真言】」+ 一句可传的江湖消息或可做的小事。";
+    const user = [
+      `在场：${npcs.map(n => `${n.name}（${n.ident}）`).join("、")}。`,
+      thread ? `此前对话：\n${thread}` : "开场：人刚围着火坐下，酒碗还没递到第三个人。",
+      input ? `师兄插话：「${input}」——写大家接住他的话。` : "",
+    ].filter(Boolean).join("\n");
     try {
-      const raw = await callAI(cfg, sys, user, "围炉喝酒", 60000, true);
-      const m = String(raw || "").match(/【真言】\s*([^\n]+)/);
-      return { prose: String(raw || "").replace(/【真言】[\s\S]*$/, "").trim(), info: m ? m[1].trim().slice(0, 50) : null, ai: true };
+      const raw = await callAI(cfg, sys, user, "围炉夜话", 60000, true);
+      return { text: String(raw || "").trim(), ai: true };
     } catch { /* 降级 */ }
   }
-  return { prose: "篝火噼啪，酒碗传了一圈，人人话都多了。", info: null, ai: false };
+  return { text: "", ai: false };
 }
 
 // ── 广场出现的 NPC：每周从角色池随机刷 2-4 位（有名有姓，能聊能交易）──

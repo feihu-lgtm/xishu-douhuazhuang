@@ -12,7 +12,7 @@ export const JIANGHU_ROSTER = [
   { id: "wangrong", name: "王蓉", ident: "逍遥谷小师妹·苗女", gender: "女", spend: 30, flavor: "tian", tech: "蒸", fav: "雪山野蜂蜜", order: "甜的！蒸的！蜜要多！", wu: "苗疆笛音·蛊术", lore: "苗女小师妹，天真烂漫，最馋最甜", koupi: "蓉儿要吃甜的！" },
   { id: "laohu", name: "老胡", ident: "逍遥谷老厨子", gender: "男", spend: 20, flavor: "jiachang", tech: "炒", fav: "鱼定村青稞", order: "青稞饭一碗，庄里人吃惯了。", wu: "厨房十八般武艺", lore: "一锅菜喂大三代人，看逍遥谷起落", koupi: "吃好喝好，练功才有劲" },
   { id: "guyunfei", name: "谷云飞", ident: "谷月轩之父", gender: "男", spend: 70, flavor: "qingdan", tech: "炖", fav: "雅江嫩豆腐", order: "一道嫩豆腐，清淡些便好。", wu: "官场掌法", lore: "官海浮沉一身正气，教子有方", koupi: "为父问你，可曾后悔" },
-  { id: "xianyin", name: "仙音", ident: "忘忧七贤之首·琴", gender: "女", spend: 80, flavor: "qingdan", tech: "炖", fav: "雪山雪莲瓣", order: "抚琴之人吃不得重口——雪莲羹可好？", wu: "忘忧琴音·摄魂曲", lore: "一曲动江湖，夜叉线关键人物，仙姿出尘", koupi: "此曲只应天上有" },
+  { id: "xianyin", name: "仙音", ident: "忘忧七贤之首·琴", gender: "女", spend: 80, flavor: "qingdan", tech: "炖", fav: "雪山雪莲瓣", order: "抚琴之人吃不得重口——雪莲羹可好？", wu: "忘忧琴音·摄魂曲", lore: "一曲动江湖，夜叉线关键人物，仙姿出尘，却最是谦和", koupi: "谬赞了——是山水替我弹的" },
   { id: "renqingxuan", name: "任清璇", ident: "花痴·忘忧七贤/修罗宫", gender: "女", spend: 60, flavor: "tian", tech: "蒸", fav: "玫瑰花酱", order: "有玫瑰花的点心吗？花开堪折直须折~", wu: "修罗刀·花卉奇术", lore: "痴花如命，百花谷养出修罗花", koupi: "花开堪折直须折~" },
   { id: "jusou", name: "橘叟", ident: "忘忧七贤·棋", gender: "男", spend: 30, flavor: "qingdan", tech: "炖", fav: "大草甸蘑菇", order: "来碗菌汤，边下棋边喝。", wu: "以棋入武", lore: "一盘棋能下一辈子", koupi: "小友，陪老朽下一盘？" },
   { id: "shusheng", name: "书生", ident: "忘忧七贤·书", gender: "男", spend: 30, flavor: "xianxiang", tech: "炖", fav: "宣威火腿", order: "一碟火腿一壶茶，可佐文章。", wu: "笔墨功夫", lore: "酸腐又热心，满肚子圣贤书", koupi: "子曰……" },
