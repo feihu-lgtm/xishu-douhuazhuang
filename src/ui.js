@@ -3,10 +3,10 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
-} from "./data.js?v=v12";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v12";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v12";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v12";
+} from "./data.js?v=v13";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v13";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v13";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v13";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -317,7 +317,7 @@ export function renderLeft(st, hideGuest) {
   html += `<h3>菜 库</h3>`;
   html += (st.dishStore || []).length
     ? `<div id="dishcard">${st.dishStore.map(d =>
-        `<div class="dname">「${d.name}」</div><div class="gid">${d.technique} · ${d.flavorId ? FLAVOR_BY_ID[d.flavorId].name : "家常"}${d.suCook ? " · 苏唐做" : ""}</div>`).join("")}</div>`
+        `<div class="dname">「${d.name}」${(d.qty || 1) > 1 ? `<i class="qty">×${d.qty}</i>` : ""}</div><div class="gid">${d.technique} · ${d.flavorId ? FLAVOR_BY_ID[d.flavorId].name : "家常"}${d.suCook ? " · 苏唐做" : ""}</div>`).join("")}</div>`
     : `<div id="dishcard"><div class="gid">菜库空着，先做菜</div></div>`;
   html += `<h3>家 什</h3>` +
     st.cookware.map(id => `<div class="row"><span>${COOKWARE_BY_ID[id].name}</span></div>`).join("");
@@ -927,13 +927,13 @@ export function openServe(st, g, { onServe }) {
       <div class="ck-label">菜库（你做的）</div>
       <div class="ck-mats">
         ${(st.dishStore || []).length
-          ? st.dishStore.map((d, i) => `<span class="ck-mat ${dishes.includes(i) ? "" : "zero"}" data-dish="${i}">${d.name}${d.suCook ? "(苏唐做)" : ""}</span>`).join("")
+          ? st.dishStore.map((d, i) => `<span class="ck-mat ${dishes.includes(i) ? "" : "zero"}" data-dish="${i}">${d.name}${(d.qty || 1) > 1 ? ` ×${d.qty}` : ""}${d.suCook ? "(苏唐做)" : ""}</span>`).join("")
           : `<span class="ck-mat zero">菜库空——先「主厨」做菜。</span>`}
       </div>
       <div class="ck-label">小吃（苏唐备）</div>
       <div class="ck-mats">
         ${stock.length
-          ? stock.map(([n]) => `<span class="ck-mat ${snacks.includes(n) ? "" : "zero"}" data-snack="${n}">${n}</span>`).join("")
+          ? stock.map(([n, q]) => `<span class="ck-mat ${snacks.includes(n) ? "" : "zero"}" data-snack="${n}">${n}${q > 1 ? ` ×${q}` : ""}</span>`).join("")
           : `<span class="ck-mat zero">苏唐还没备小吃。</span>`}
       </div>
       ${wines.length ? `<div class="ck-label">酒水</div>

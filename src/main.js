@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v12";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v13";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY,
-} from "./state.js?v=v12";
+} from "./state.js?v=v13";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v12";
-import { chatContext } from "./prompt.js?v=v12";
+} from "./ai.js?v=v13";
+import { chatContext } from "./prompt.js?v=v13";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
   commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn,
-} from "./ui.js?v=v12";
+} from "./ui.js?v=v13";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -204,6 +204,14 @@ async function doSuAll() {
   }
   gold(`「${dish.name}」出锅${suRoute ? "，苏唐手笔" : "，师兄执勺、苏唐口令"}。`);
   note("苏唐全包", `${suRoute ? "苏唐掌勺" : "苏唐指挥师兄"}做「${dish.name}」（${dish.technique}）。`);
+  // 大菜入菜库（苏唐全包也一样：一次 1-2 个，上菜消耗）
+  st.dishStore = st.dishStore || [];
+  const made = 1 + (Math.random() < 0.5 ? 1 : 0);
+  const dup = st.dishStore.find(x => x.name === dish.name);
+  if (dup) dup.qty = (dup.qty || 1) + made;
+  else st.dishStore.push({ name: dish.name, materials: dish.materials, technique: dish.technique, flavorId: dish.flavor, baseScore: st.dish.baseScore, menuDesc: st.dish.menuDesc, suCook: true, qty: made });
+  if (st.dishStore.length > 8) st.dishStore.shift();
+  sys(`「${dish.name}」入菜库（现有 ${st.dishStore.length} 道 · 合计 ${st.dishStore.reduce((a, d) => a + (d.qty || 1), 0)} 份）。`);
   // 小吃：苏唐看库存判断做新还是复做
   const sr = await genSnack(cfg, { request: "（苏唐自己看着办）", inv: st.inv, guest: currentGuest(st), suTier: suTierOf(st), martialTier: 1, words: cfg.snackWords || 200, context: ctxLine(st), stars: st.stars, snackStock: st.snacks, st });
   if (sr && sr.made) {
@@ -324,11 +332,14 @@ async function cookNarrate(j) {
   gold(`「${st.dish.name}」出锅。`);
   note("出菜", noteTxt || `做「${st.dish.name}」给${g ? g.name : "自己"}，基础分${baseScore}。`);
   endTrace(`「${st.dish.name}」基础分${baseScore}`);
-  // 入菜库：做完的菜存起来，上菜时多选（最多 3 菜 + 1 酒）
+  // 入菜库：做完的菜存起来（大菜一次做 1-2 个，上菜时消耗），上菜时多选（最多 3 菜 + 1 酒）
   st.dishStore = st.dishStore || [];
-  st.dishStore.push({ name: st.dish.name, materials: st.dish.materials, technique: st.dish.technique, flavorId: st.dish.flavorId, baseScore, menuDesc: st.dish.menuDesc, suCook: !!st.dish.suCook });
+  const made = 1 + (Math.random() < 0.5 ? 1 : 0); // 大菜一次做 1-2 个
+  const dup = st.dishStore.find(x => x.name === st.dish.name);
+  if (dup) dup.qty = (dup.qty || 1) + made;
+  else st.dishStore.push({ name: st.dish.name, materials: st.dish.materials, technique: st.dish.technique, flavorId: st.dish.flavorId, baseScore, menuDesc: st.dish.menuDesc, suCook: !!st.dish.suCook, qty: made });
   if (st.dishStore.length > 8) st.dishStore.shift();
-  sys(`「${st.dish.name}」入菜库（现有 ${st.dishStore.length} 道）——「上菜」时可多选。`);
+  sys(`「${st.dish.name}」入菜库（现有 ${st.dishStore.length} 道 · 合计 ${st.dishStore.reduce((a, d) => a + (d.qty || 1), 0)} 份）——上菜时消耗，吃完要再做。`);
   st.dish = null;
   if (res.ms != null) sys(`说书 ${fmtMs(res.ms)} · 正文 ${res.prose.length} 字`);
   if (!res.ai) sys("（说书人未接线，灶神模板白描。设置里填 AI 密钥可现写。）");
@@ -370,9 +381,14 @@ async function doServe(sel) {
   busy = true;
   try {
   startTrace("佐餐");
-  // 扣库存（校验已过）
+  // 扣库存（校验已过）：小吃/酒按份扣，大菜扣菜库份数（吃完出库）
   for (const n of snackNames) { st.snacks[n] -= 1; if (st.snacks[n] <= 0) delete st.snacks[n]; }
   if (wineName) { st.wines[wineName] -= 1; if (st.wines[wineName] <= 0) delete st.wines[wineName]; }
+  for (const x of items.filter(i => i.kind === "dish")) {
+    const rec = st.dishStore[x.idx];
+    if (rec) rec.qty = (rec.qty || 1) - 1;
+  }
+  st.dishStore = (st.dishStore || []).filter(d => (d.qty || 1) > 0); // 吃完的菜出库
   // 各评分
   const dishScores = dishItems.map(d => scoreDish(d, g, gWish));
   const snackScores = snackNames.map(n => snackScoreOf((st.snackRecipes || []).find(x => x.name === n), g));
@@ -818,6 +834,7 @@ function worldState() {
 }
 async function fireEcho(event, result) {
   lastEchoAt = Date.now();
+  sys(`（说书人正在写市井回响：${event}……）`); // 主叙事可见：正在生成
   const r = await genEcho(loadCfg(), { event, result, world: worldState() });
   if (!r.prose) return;
   st.echoes = st.echoes || [];
@@ -833,6 +850,7 @@ async function fireEcho(event, result) {
     if (last && last.day === st.day && !last.ai) last.ai = noteLine;
     else st.notes.push({ day: st.day, ts, act: `回响·${r.form}`, text: "", ai: noteLine });
   }
+  sys(`（回响已生成：${r.form}「${noteLine}」——底部滚动播放。）`); // 主叙事可见：已生成
   playEcho(r);                               // 夺舍播放：新回响立即上
 }
 function playEcho(echo) {
