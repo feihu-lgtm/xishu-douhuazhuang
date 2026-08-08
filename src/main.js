@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v24";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v25";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v24";
+} from "./state.js?v=v25";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeilu,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v24";
-import { chatContext } from "./prompt.js?v=v24";
+} from "./ai.js?v=v25";
+import { chatContext } from "./prompt.js?v=v25";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, initMobileDrawers,
-} from "./ui.js?v=v24";
+} from "./ui.js?v=v25";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -946,7 +946,7 @@ function locActs(loc) {
   const acts = [];
   if (loc.id === "home") acts.push({ id: "ledger", label: "账房册子", on: true }, { id: "calendar", label: "黄历", on: true }, { id: "cook", label: "灶台", on: true });
   if (loc.id === "square") acts.push({ id: "bulletin", label: "布告墙", on: true }, { id: "trade", label: "集市买卖", on: true }, { id: "dibao", label: "邸报", on: true });
-  if (loc.id === "washe") acts.push({ id: "shuoshu", label: "说书", on: false }, { id: "xitai", label: "戏台", on: false }, { id: "weilu", label: "围炉喝酒", on: false });
+  if (loc.id === "washe") acts.push({ id: "shuoshu", label: "说书", on: true }, { id: "xitai", label: "戏台", on: true }, { id: "weilu", label: "围炉喝酒", on: true });
   if (loc.id === "leitai") acts.push({ id: "tiao", label: "比武", on: false });
   if (loc.id === "hongbai") acts.push({ id: "yanxi", label: "接宴席", on: false });
   if (loc.id === "tusi") acts.push({ id: "chai", label: "接差事", on: false });
@@ -959,6 +959,8 @@ function locActs(loc) {
       if (actId === "bulletin") { closeModal(); return openSquareBoard(); }
       if (actId === "trade") { closeModal(); return openSquareMarket(); } // 广场：本周在场的 NPC，能聊能买卖
       if (actId === "dibao") { closeModal(); return doDibao(); }
+      if (actId === "shuoshu" || actId === "xitai") { closeModal(); return openTheater(actId === "shuoshu" ? "说书" : "戏台"); }
+      if (actId === "weilu") { closeModal(); return doWeilu(); }
       sys(`${loc.name}·${(acts.find(a => a.id === actId) || {}).label}——此处将启，先跟${loc.name}的人搭搭话。`);
     },
   };
@@ -1092,7 +1094,83 @@ function sellFolkWant(folk) {
   saveGame(st); renderAll(st, handlers);
 }
 
-// ── 邸报：本周江湖大事（本地模板 + 回响/广场摘要），读报 +名声（每日一次）──
+// ── 瓦舍 · 说书/戏台：演出 + 打赏（赏钱→名声+流水，可点单）──
+function openTheater(kind) {
+  let topic = "";
+  const draw = () => {
+    openModal(`
+      <h2>瓦 舍 · ${kind}</h2>
+      <div class="loc-chat">
+        <input id="th-inp" placeholder="点一段？留空先生自己挑……" />
+        <span class="ck-btn plain" data-go>开演</span>
+      </div>
+      <div class="th-stage" id="th-stage">${kind === "说书" ? "醒木一响，先生正要开腔。" : "锣鼓一响，戏班子正要登台。"}</div>
+      <div class="ck-btns">
+        <span class="ck-btn plain" data-tip10>赏 10 文</span>
+        <span class="ck-btn plain" data-tip50>赏 50 文</span>
+        <span class="ck-btn plain" data-tip100>赏 100 文</span>
+      </div>
+      <div class="loc-desc">打赏越多名声越响；听高兴了再赏。</div>
+      <span class="return" data-back>Return · 返回</span>
+    `, () => {});
+    const q = (s) => document.querySelector(`#modal-root ${s}`);
+    const stage = q("#th-stage");
+    q("[data-go]").onclick = async () => {
+      topic = q("#th-inp").value.trim();
+      q("#th-inp").value = "";
+      stage.innerHTML = "（开场了……）";
+      if (busy) return;
+      busy = true;
+      try {
+        const r = await genTheater(loadCfg(), { kind, topic, world: worldState() });
+        stage.innerHTML = esc(r.prose).replace(/\n/g, "<br>");
+        if (!r.ai) sys("（说书人未接线——先生用了老段子。）");
+        st.theater = st.theater || [];
+        st.theater.push({ kind, title: topic || (kind === "说书" ? "老段子" : "拿手戏"), text: r.prose, day: st.day });
+        saveGame(st);
+      } finally { busy = false; }
+    };
+    const tip = (v) => {
+      if (st.coins < v) return sys("文钱不够。");
+      st.coins -= v; ledger(`瓦舍打赏`, -v);
+      st.fame = (st.fame || 0) + (v >= 100 ? 3 : v >= 50 ? 2 : 1);
+      sys(`打赏 ${v} 文——先生${kind === "说书" ? "拱手" : "谢了场"}，名声+${v >= 100 ? 3 : v >= 50 ? 2 : 1}。`);
+      saveGame(st);
+    };
+    q("[data-tip10]").onclick = () => tip(10);
+    q("[data-tip50]").onclick = () => tip(50);
+    q("[data-tip100]").onclick = () => tip(100);
+    q("[data-back]").onclick = () => closeModal();
+  };
+  draw();
+}
+// ── 瓦舍 · 围炉喝酒：和本周在场 NPC 喝酒，酒后吐真言（情报/好感）──
+async function doWeilu() {
+  if (busy) return sys("说书人正忙着呢。");
+  const folks = (st.squareFolks || []).filter(f => f.week === st.day);
+  const npcs = folks.length ? folks.slice(0, 3) : [];
+  if (!npcs.length) return sys("广场本周没人来瓦舍——下周翻篇再来喝酒。");
+  busy = true;
+  try {
+  startTrace("围炉喝酒");
+  const r = await genWeilu(loadCfg(), npcs.map(f => ({ name: f.name, ident: f.ident })));
+  await narr(`篝火在瓦舍后檐下烧起来，${npcs.map(f => f.name).join("、")}围着坐了。`);
+  await narr(r.prose);
+  // 酒后吐真言：情报上广场/事件簿；好感各 +1
+  for (const f of npcs) {
+    st.aff = st.aff || {};
+    st.aff[f.npcId] = Math.min(100, (st.aff[f.npcId] || 0) + 1);
+  }
+  if (r.info) {
+    st.square = st.square || [];
+    st.square.push({ from: "酒后真言", form: "传闻", text: r.info, day: st.day, ts: nowTs() });
+    sys(`（${npcs.map(f => f.name).join("、")}酒酣耳热，吐出一句真言：「${r.info}」——已上布告墙。好感各+1。）`);
+  } else {
+    sys(`（${npcs.map(f => f.name).join("、")}喝得尽兴，好感各+1。）`);
+  }
+  endTrace("围炉喝酒");
+  } finally { busy = false; renderAll(st, handlers); saveGame(st); }
+}
 function doDibao() {
   const items = [];
   for (const n of (st.notes || [])) if (n.day === st.day && (n.text || n.ai)) items.push(`${n.act || "大事"}：${n.text || n.ai}`);

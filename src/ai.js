@@ -1,8 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v24";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v25";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
-import { CHECK_DIMS } from "./state.js?v=v24";
+import { CHECK_DIMS } from "./state.js?v=v25";
 
 // ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
 let nsfwOn = true;
@@ -13,7 +13,7 @@ const msgsWithMode = (system, user) =>
   nsfwOn
     ? [{ role: "system", content: system }, ...MODE_PRIMER_MESSAGES, { role: "user", content: user }]
     : [{ role: "system", content: system }, { role: "user", content: user }];
-import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE } from "./prompt.js?v=v24";
+import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE } from "./prompt.js?v=v25";
 export { tierOfScore, tierGuide };
 
 const CFG_KEY = "xiaochu-ai-v1";
@@ -804,6 +804,41 @@ export async function genBrew(cfg, brew) {
     } catch { /* 降级 */ }
   }
   return { prose: `苏唐把${brew.base}蒸透，拌进${brew.qu}，封了坛口，在坛沿画了道记号。`, ai: false };
+}
+
+// ── 瓦舍 · 说书/戏台：演出文本（AI 现场编，可点单）──
+export async function genTheater(cfg, { kind, topic, world }) {
+  if (cfgReady(cfg)) {
+    const isStory = kind === "说书";
+    const sys = isStory
+      ? "你是西蜀豆花庄所在曲措乡的说书先生。用「话本」腔（且说…/正是：收尾）讲一段 250 字上下的江湖段子，素材要贴这方世界的人和事（豆花庄、余味、苏唐、探秘寻料、擂台比武都行）。只输出正文，不要标题旁白。"
+      : "你是瓦舍戏班的班主。把这方世界近期的事唱成一场小戏（【生】【旦】【丑】对唱 + 念白），250 字上下，喜庆热闹。只输出唱词正文，不要旁白。";
+    const user = [
+      world ? `【这方世界近况】${world}` : "",
+      topic ? `【点单】观众要听：${topic}` : "（观众没点单，你自己挑一段拿手的。）",
+    ].filter(Boolean).join("\n");
+    try {
+      const raw = await callAI(cfg, sys, user, kind === "说书" ? "说书" : "戏台", 60000, true);
+      if (raw && raw.trim()) return { prose: raw.trim(), ai: true };
+    } catch { /* 降级 */ }
+  }
+  const FALLBACK = isStory
+    ? `且说那豆花庄的师兄，一身灶上功夫比刀剑还利落，今儿又给余味女侠治了一桌好菜。正是：灶火一燃天下暖，江湖谁不识豆花。`
+    : `【生】提起那豆花庄，好菜飘香十里街——【旦】师兄勺下翻江海，苏唐手底起云霞——【丑】馋得我呀，口水淌了半条街！`;
+  return { prose: FALLBACK, ai: false };
+}
+// ── 瓦舍 · 围炉喝酒：和在场 NPC 1-3 位喝酒闲谈，酒后吐真言 ──
+export async function genWeilu(cfg, npcs) {
+  if (cfgReady(cfg) && npcs.length) {
+    const sys = "你是《西蜀豆花庄》的围炉酒席记。篝火边几位熟人喝酒闲谈，每人说一两句（贴人设），酒到酣处有人吐一句真言（真言=可传的江湖消息或可做的小事，写在【真言】里）。只输出正文。";
+    const user = `在场：${npcs.map(n => `${n.name}（${n.ident}）`).join("、")}。写 250 字上下的围炉场景，最后一行「【真言】」+ 一条消息。`;
+    try {
+      const raw = await callAI(cfg, sys, user, "围炉喝酒", 60000, true);
+      const m = String(raw || "").match(/【真言】\s*([^\n]+)/);
+      return { prose: String(raw || "").replace(/【真言】[\s\S]*$/, "").trim(), info: m ? m[1].trim().slice(0, 50) : null, ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { prose: "篝火噼啪，酒碗传了一圈，人人话都多了。", info: null, ai: false };
 }
 
 // ── 广场出现的 NPC：每周从角色池随机刷 2-4 位（有名有姓，能聊能交易）──
