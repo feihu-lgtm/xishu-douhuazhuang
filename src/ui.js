@@ -1,7 +1,7 @@
 // 西蜀豆花庄 · 界面层（DOM）
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
-  ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS,
+  ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
 } from "./data.js";
 import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
@@ -197,7 +197,7 @@ export function rollNsfwFace(poseIdx) {
 export function renderStatus(st) {
   const hour = st.phase === "closing" ? HOURS[4] : HOURS[Math.min(st.served, 3)];
   $("#status").innerHTML =
-    `第<b>${st.day}</b>天 · ${hour} · 客人 <b>${st.served}/3</b> · <b>${st.coins}</b> 文`;
+    `第<b>${st.day}</b>周 · ${weekLabel(st.day)} · ${hour} · 客人 <b>${st.served}/3</b> · <b>${st.coins}</b> 文`;
   // 左上角标题后 · 食评人余味的鱼尾银簪评级徽章
   const rb = document.querySelector("#ryuwei-badge");
   if (rb) {
@@ -220,7 +220,7 @@ export function renderLeft(st, hideGuest) {
   // 免得（尤其是余味这种带出场特效的重量级客人）左栏抢跑，把 guestArrives() 的登场都剧透没了。
   const guest = (!hideGuest && st.phase === "guest") ? currentGuestSafe(st) : null;
   let html = `<h3>灶 房</h3>
-    <div class="row"><span>日子</span><span class="v">第 ${st.day} 天</span></div>
+    <div class="row"><span>日子</span><span class="v">第 ${st.day} 周 · ${weekLabel(st.day)}</span></div>
     <div class="row"><span>文钱</span><span class="v">${st.coins}</span></div>
     <div class="row"><span>累计迎客</span><span class="v">${st.totalServed} 位</span></div>`;
   html += `<h3>客 人</h3>`;
@@ -831,7 +831,7 @@ export function openNotes(st) {
     <h2>小 纸 条</h2>
     <div class="set-note">每个动作与每轮对话的小总结，按天回看。</div>
     <div class="menu-list">${list.length ? list.map(n =>
-      `<div class="menu-item-card"><b>第${n.day}天 · ${n.ts} · ${n.act}</b><p>${n.text}</p></div>`).join("")
+      `<div class="menu-item-card"><b>第${n.day}周 · ${n.ts} · ${n.act}</b><p>${n.text}</p></div>`).join("")
       : `<span class="ck-mat zero">还没有纸条。</span>`}</div>
     <span class="return" data-back>Return · 返回</span>
   `, () => {});

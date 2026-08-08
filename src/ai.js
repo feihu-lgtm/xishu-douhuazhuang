@@ -523,6 +523,12 @@ export async function genExpedition(cfg, ctx) {
       ctx.intent
         ? `【玩家钦定主线】${ctx.intent}。这是此行唯一主线，凌驾于一切预设情节之上——情节、细节、关口、收获全部围绕它展开；不许另起剧情脉络、不许淡化、不许忽略，你只负责把玩家钦定的方向写成好故事。`
         : "",
+      ctx.calendarStrong
+        ? `【节庆背景·强关联】今日正值${ctx.calendarStrong}。这是此行的背景底色，据点性质与节庆高度相关——narrative、challenge、special 收获都要紧扣这个节庆真实展开的活动来写，不可当成无关的寻常探秘${ctx.intent ? "（玩家另有钦定主线时，节庆仍作背景铺陈，情节主干仍以玩家主线为准）" : ""}。`
+        : "",
+      ctx.calendarMention
+        ? `【时节】${ctx.calendarMention}。可在细节里带一两笔应景描写（天气、吃食、村人闲谈），不必展开，不可喧宾夺主，主体仍按今次情境走。`
+        : "",
       `今次的情境是：${ctx.scenario}。情境只是背景底色，玩家钦定主线存在时以玩家主线为准。`,
       ctx.guestList && ctx.guestList.length
         ? `【此地常客】${ctx.guestList.map(g => `${g.name}（好感${g.aff}${g.mem ? `，记得「${g.mem}」` : "，还不熟"}）`).join("；")}。好感≥40 的常客愿意搭把手（带路/递料/保料），好感≥60 的肯把压箱底的好料让给你；剧情里自然地勾连他们，别生硬。`

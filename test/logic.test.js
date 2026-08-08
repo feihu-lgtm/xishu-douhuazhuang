@@ -7,7 +7,10 @@ import {
   checkChance, rollCheck, rankLabel, checkDim, skillValueOf, ACHIEVE_DEFS, ACHIEVE_N, ATTR_DIMS, CHECK_DIMS,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalLineDone, rivalGuestForSchool, inviteCandidates, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName,
 } from "../src/state.js";
-import { RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS, rivalGuestAt, FEMALE_GUEST_IDS } from "../src/data.js";
+import {
+  RECIPES, GUESTS, FLAVOR_BY_ID, ING_BY_NAME, INGREDIENTS, TECHNIQUES, FLAVORS, rivalGuestAt, FEMALE_GUEST_IDS,
+  WEEK_CALENDAR, EXPEDITION_MAP, weekCalOf, weekLabel, currentJieqiName, calendarContextFor,
+} from "../src/data.js";
 import {
   normalizeEndpoint, parseJSONRescue, fallbackDishName,
   parseDishText, parseSayText, baseForModels, extractComment, fallbackDish,
@@ -438,6 +441,51 @@ test("newState：带星食材描述落盘字段 starLore 就位", () => {
   assert.deepEqual(st.starLore, {}, "新档 starLore 为空对象，探秘收获时写入");
   assert.equal(st.pendingGifts, null, "收功后台备好的明日送礼初始为空");
   assert.deepEqual(st.guestMemories, {}, "per-guest 隔离记忆初始为空");
+});
+
+test("周历：52周整，strong分类都是 EXPEDITION_MAP 里真实存在的据点分类", () => {
+  assert.equal(WEEK_CALENDAR.length, 52);
+  const validCats = new Set(EXPEDITION_MAP.map(n => n.category));
+  for (const [i, e] of WEEK_CALENDAR.entries()) {
+    assert.ok(e.month >= 1 && e.month <= 12, `week${i + 1} month 越界`);
+    assert.ok(["初", "上", "下", "末"].includes(e.part), `week${i + 1} part 非法`);
+    for (const f of (e.festivals || [])) {
+      assert.ok(f.name && f.custom, `week${i + 1} 节庆缺名字/习俗`);
+      for (const c of (f.strong || [])) assert.ok(validCats.has(c), `week${i + 1}「${f.name}」的 strong「${c}」不是有效据点分类`);
+    }
+  }
+});
+
+test("weekCalOf：超过52周回绕（第53周=第1周内容）", () => {
+  assert.deepEqual(weekCalOf(53), weekCalOf(1));
+  assert.deepEqual(weekCalOf(1), weekCalOf(105)); // 跨两年
+});
+
+test("currentJieqiName：当周无节气时回溯最近一次生效的", () => {
+  assert.equal(currentJieqiName(1), "小寒"); // 当周就是
+  assert.equal(currentJieqiName(9), "雨水"); // week9 无节气，回溯到week8的雨水
+  assert.equal(currentJieqiName(4), "大寒"); // week4 无节气，回溯到week3
+});
+
+test("weekLabel：X月+初上下末", () => {
+  assert.equal(weekLabel(7), "正月上"); // 春节所在周
+  assert.equal(weekLabel(1), "腊月初"); // 小寒，跨年月份
+});
+
+test("calendarContextFor：撞上据点分类=强夺舍，没撞上=弱提示当下节气", () => {
+  const strong = calendarContextFor(7, "节庆"); // 春节周·庙会集场
+  assert.equal(strong.strong, true);
+  assert.ok(strong.scenario.includes("春节"));
+  assert.ok(strong.text.includes("正月初一"));
+
+  const weak = calendarContextFor(7, "探洞地宫"); // 同一周，但雪线古洞跟春节不沾边
+  assert.equal(weak.strong, false);
+  assert.equal(weak.scenario, null);
+  assert.ok(weak.text === null || typeof weak.text === "string"); // 该周本身就是节气/节庆周，允许有回溯文本
+
+  const noneAtAll = calendarContextFor(11, "探洞地宫"); // week11 无节气无节庆，纯回溯
+  assert.equal(noneAtAll.strong, false);
+  assert.ok(noneAtAll.text.includes("节气"));
 });
 
 test("NSFW表情按情节匹配：extractFace/POSE_INDEX", () => {

@@ -1,5 +1,5 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID } from "./data.js";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
@@ -92,7 +92,7 @@ async function continueGame() {
   $("#start").style.display = "none";
   renderAll(st, handlers);
   restoreRecentLog();  // 把存档里最近5轮的左右栏内容铺回来，接着上次的往下看
-  sys(`读档完毕 · 第 ${st.day} 天，${st.coins} 文。`);
+  sys(`读档完毕 · 第 ${st.day} 周 · ${weekLabel(st.day)}，${st.coins} 文。`);
   if (st.phase === "guest") {
     const g = currentGuest(st);
     if (g) await narr(`${g.name} 还坐在灶边等菜。`);
@@ -126,7 +126,7 @@ function ctxLine(s) {
   const invited = s.invitedGuest ? GUESTS.find(x => x.id === s.invitedGuest) : null;
   const notes = (s.notes || []).slice(-5).map(n => `[${n.act}]${n.text}`).join("；");
   return [
-    `今日第${s.day}天，已送${s.served}客。`,
+    `第${s.day}周（${weekLabel(s.day)}），已待客${s.served}位。`,
     g ? `当前客人：${g.name}（${g.ident}），点菜时说「${g.order}」。${g.body ? `（${g.name}${g.body}。）` : ""}` : `当前无客人。`,
     g && g.sister ? `（苏酥是苏唐的亲姐姐，在座。苏唐正吃醋掉脸，语气带酸带嗔，一边防着姐姐勾引师兄、一边防着师兄献殷勤。）` : "",
     invited ? `（${invited.name}（${invited.ident}）受师兄邀请留坐，正与苏唐一处说话。苏唐见师兄待她热络，暗里吃味，嘴上还要大方。）` : "",
@@ -492,8 +492,8 @@ async function doReview() {
     }
   }
   if ((st.dayLog || []).some(d => d.tier <= 1)) sys("苏唐给今日顺眼的客人又添了分好感。");
-  note("收工", `第${st.day}天送${(st.dayLog || []).length}客，苏唐总评已记。`);
-  endTrace(`第${st.day}天收工`);
+  note("收工", `第${st.day}周送${(st.dayLog || []).length}客，苏唐总评已记。`);
+  endTrace(`第${st.day}周收工`);
   st.dayLog = [];
 }
 
@@ -501,7 +501,7 @@ async function doReview() {
 // 点位常客列表：该据点的熟人 + 好感 + 各自隔离记忆（谁做了什么、多好吃）
 function fmtGuestMemory(m) {
   if (!m) return "";
-  return `第${m.day}天，${m.mainBy === "苏唐" ? "苏唐" : "师兄"}做了「${m.dish}」${m.mainScore}分` +
+  return `第${m.day}周，${m.mainBy === "苏唐" ? "苏唐" : "师兄"}做了「${m.dish}」${m.mainScore}分` +
     (m.snackName ? `，苏唐小吃「${m.snackName}」${m.snackScore}分` : "") + "。";
 }
 function guestListOf(node) {
@@ -534,12 +534,22 @@ async function doExpedition(node, intent) {
   const suAvg = Math.round(avgv(st.suSkills));
   const catPool = EXP_SCEN_BY_CAT[node.category] || [];
   st.lastScenByNode = st.lastScenByNode || {};
-  const pool = catPool.filter(s => s !== st.lastScenByNode[node.id]);   // 一据点一类十条，不重复该据点上次
-  const scenario = (pool.length ? pool : catPool)[Math.floor(Math.random() * (pool.length ? pool.length : catPool.length))];
+  // 周历撞上该据点分类：强夺舍——情境直接换成节庆本身，跳过常规池与"不重复上次"轮换（同一节庆周该据点该一直是它）
+  const cal = calendarContextFor(st.day, node.category);
+  let scenario;
+  if (cal.strong) {
+    scenario = cal.scenario;
+  } else {
+    const pool = catPool.filter(s => s !== st.lastScenByNode[node.id]);   // 一据点一类十条，不重复该据点上次
+    scenario = (pool.length ? pool : catPool)[Math.floor(Math.random() * (pool.length ? pool.length : catPool.length))];
+  }
   st.lastScenByNode[node.id] = scenario;
   sys(`【探秘·${node.name}】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……${intent ? `（师兄交代：${intent}）` : ""}`);
-  // ① 一次调用：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special；玩家钦定主线夺舍；勾连据点常客与隔离记忆
-  const r = await genExpedition(loadCfg(), { skillAvg, suAvg, scenario, context: ctxLine(st), category: node.category, nodeName: node.name, intent, guestList: guestListOf(node) });
+  // ① 一次调用：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special；玩家钦定主线夺舍；勾连据点常客与隔离记忆；弱关联时至少带一句当下节气
+  const r = await genExpedition(loadCfg(), {
+    skillAvg, suAvg, scenario, context: ctxLine(st), category: node.category, nodeName: node.name, intent, guestList: guestListOf(node),
+    calendarStrong: cal.strong ? cal.text : null, calendarMention: cal.strong ? null : cal.text,
+  });
   await narr(r.narrative);
   if (r.comment) await commentLine(r.comment);
   setMood(r.mood ?? 0);
@@ -785,7 +795,7 @@ function doZuocan() {
   openSet(st, { onSet: (name) => { st.pendingSet = name; doServe(); } });
 }
 
-// ── 踢馆梯度：第15天后，每天第二客位 50% 概率来八线里随机一位「当前该来」的同行 ──
+// ── 踢馆梯度：第15周后，每周第二客位 50% 概率来八线里随机一位「当前该来」的同行 ──
 // 玩家已经钦点了第2位客位（explicitPickCount≥2）时不抢——邀客点将优先。
 function applyRival(st) {
   if (st.day < 15) return;
@@ -844,7 +854,7 @@ async function doNext() {
   setMood(0);
   renderAll(st, handlers, { hideGuest: true }); // 客人已经定好，但还没「门帘一掀」，左栏先别露底
   saveGame(st);
-  await narr(`第 ${st.day} 天，卯时。雾从溪面起来，小馆开门。`);
+  await narr(`第 ${st.day} 周，${weekLabel(st.day)}，卯时。雾从溪面起来，小馆开门。`);
   // 晨间送礼：收功后台备好的熟客送礼，仪式感领取后再展示（剧情+★清单）
   const hasGifts = !!(st.pendingGifts && st.pendingGifts.givers && st.pendingGifts.givers.length);
   if (hasGifts) await waitGiftClaim();
@@ -959,7 +969,7 @@ function exportSave() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `西蜀豆花庄-第${st.day}天-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `西蜀豆花庄-第${st.day}周-${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -984,7 +994,7 @@ function importSave() {
         renderAll(st, handlers);
         restoreRecentLog();  // 导入存档同样把最近5轮左右栏内容铺回来
         setMood(0);
-        sys(`已导入第 ${st.day} 天的存档（${st.coins} 文）。`);
+        sys(`已导入第 ${st.day} 周的存档（${st.coins} 文）。`);
       } catch (e) { sys(`导入失败：${e.message}`); }
     };
     rd.readAsText(f);

@@ -451,7 +451,7 @@ export const GUESTS = [
 ];
 
 // ── 踢馆梯度：八大菜系 × 5 档（喽啰→总厨），难度递增，挑过一级来下一级 ──
-// 第 15 天后每天第二客 50% 概率来"当前该来"的那一位；挑过他，进度往前推。
+// 第 15 周后每周第二客 50% 概率来"当前该来"的那一位；挑过他，进度往前推。
 // ── 女性客人（收功后可受邀留坐闲聊，好感>15）──────────────────────────
 export const FEMALE_GUEST_IDS = new Set([
   "caidan", "zhuoma", "huasao", "huyanxue", "meiduo",
@@ -551,14 +551,19 @@ export const EXPEDITION_MAP = [
   { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46, guests: ["wenzhanggui", "tangcu", "shusheng", "suniang", "tiannan", "xianbo", "liruoyou", "lanjie", "ryuwei"] },
 ];
 
-// 探秘情境 100 种，按十类分好（轻度武侠，一据点一类，各据点各记各的上次，不重复）
+// 探秘情境，按十类分好（轻度武侠，一据点一类，各据点各记各的上次，不重复）
 export const EXP_SCEN_BY_CAT = {
   市井: ["市井讨价还价", "早市抢货", "夜市捡漏", "与胡商砍价", "当铺赎物",
     "粮行议价", "药铺赊账", "铁匠铺订刀", "布庄换料", "酒坊讨酒"],
   奇遇: ["奇遇·老丐传艺", "奇遇·落难客商", "奇遇·隐士指点", "奇遇·捡到头彩", "奇遇·山洪救人",
     "奇遇·古井秘藏", "奇遇·雷劈老树", "奇遇·白狐引路", "奇遇·游方郎中", "奇遇·说书人赠言"],
+  // ── 黑夜行侠：同一位夜行人的四条路数，铁钩剔骨刀、锅底灰印、五味呛粉、熟记全巷炊烟，都是这人的招牌细节──
   劫镖江湖: ["劫镖·黑风截道", "护镖·夜走官道", "劫镖·马帮火并", "截胡·夺回赃物", "江湖·擂台赌菜",
-    "江湖·厨会斗艺", "江湖·踢馆挑衅", "江湖·恩怨调解", "劫镖·镖银失窃", "江湖·夜探贼巢"],
+    "江湖·厨会斗艺", "江湖·踢馆挑衅", "江湖·恩怨调解", "劫镖·镖银失窃", "江湖·夜探贼巢",
+    "夜行侠·铁钩剔骨刀劫土司私库，赃粮换钱塞进穷家窗台",
+    "夜行侠·锅底灰印护孤寡，石阵挡门缝塞警示纸条不露脸",
+    "夜行侠·赌坊黑市黑吃黑，被围时一撮五味粉呛得自己先打喷嚏脱身",
+    "夜行侠·暗中护镖追踪，熟记满城几时哪家飘炊烟"],
   探洞地宫: ["探山洞·钟乳滴泉", "下地宫·石门锁阵", "探山洞·暗河渡险", "下地宫·长明灯阵", "探山洞·蝙蝠惊群",
     "下地宫·塌陷逃生", "探山洞·石髓采撷", "下地宫·古墓避毒", "探山洞·一线天光", "下地宫·水牢摸鱼"],
   密林采山: ["穿密林·瘴气迷途", "穿密林·兽径追踪", "采山·雨后捡菌", "采山·悬崖采药", "穿密林·藤蔓缠人",
@@ -574,6 +579,128 @@ export const EXP_SCEN_BY_CAT = {
   商贸: ["行商·走村串户", "以物易物", "赊账收账", "拍卖·头彩竞价", "赶集·摆摊卖菜",
     "订购·包下果园", "预售·年菜订金", "换季·清仓甩卖", "团购·府衙采买", "尾货·收山货"],
 };
+
+// ── 周历：一轮=一周（原一轮=一天），农历节气×汉地节日×藏历康巴节庆 合一 ──
+// month/part 供顶部「第N周·X月Y」展示；festivals[].strong 是 EXPEDITION_MAP 的 category 名单——
+// 撞上了就「强夺舍」（探秘全程紧扣节庆写），没撞上只在探秘context里提一句当下节气（弱关联，不改情节）。
+export const MONTH_NAMES = ["正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"];
+export const WEEK_CALENDAR = [
+  /*  1 */ { month: 12, part: "初", jieqi: { name: "小寒", custom: "吃糯米饭，探梅，年味渐起，家家备腊味" } },
+  /*  2 */ { month: 12, part: "上", festivals: [{ name: "腊八节", tag: "汉", custom: "腊月初八，喝腊八粥、泡腊八蒜", strong: ["市井", "人情"] }] },
+  /*  3 */ { month: 12, part: "下", jieqi: { name: "大寒", custom: "尾牙祭，除旧布新，赶年集，腌腹肉灌香肠正当时" } },
+  /*  4 */ { month: 12, part: "末" },
+  /*  5 */ { month: 1, part: "初", jieqi: { name: "立春", custom: "咬春（吃春饼/生萝卜），鞭春牛，迎句芒神" },
+    festivals: [{ name: "小年", tag: "汉", custom: "腊月廿三/廿四，祭灶王，扫尘", strong: ["市井", "人情"] }] },
+  /*  6 */ { month: 1, part: "上", festivals: [
+    { name: "除夕", tag: "汉", custom: "腊月三十，守岁、年夜饭", strong: ["人情", "市井"] },
+    { name: "古突·驱鬼节", tag: "藏", custom: "腊月廿九夜，面疙瘩汤占卜来年", strong: ["人情"] }] },
+  /*  7 */ { month: 1, part: "上", festivals: [
+    { name: "春节", tag: "汉", custom: "正月初一，拜年、放鞭炮", strong: ["节庆", "人情"] },
+    { name: "洛萨·藏历新年", tag: "藏", custom: "祈愿大法会（默朗木法会）起", strong: ["节庆", "人情"] }] },
+  /*  8 */ { month: 1, part: "下", jieqi: { name: "雨水", custom: "拉保保——四川三百年古俗，认干爹求平安，取「雨露滋润易生长」之意，广汉至今办保保节；回娘家、接寿" },
+    festivals: [
+      { name: "元宵节", tag: "汉", custom: "正月十五，吃汤圆、赏灯、猜灯谜", strong: ["节庆", "市井", "人情"] },
+      { name: "摆花节·酥油花灯节", tag: "藏", custom: "正月十五，僧人塑酥油花供灯，与元宵同日", strong: ["节庆", "市井"] }] },
+  /*  9 */ { month: 1, part: "末" },
+  /* 10 */ { month: 2, part: "初", jieqi: { name: "惊蛰", custom: "祭白虎化口舌是非，打小人，吃梨" },
+    festivals: [
+      { name: "龙抬头", tag: "汉", custom: "二月初二，剃龙头，吃龙须面", strong: ["节庆", "市井"] },
+      { name: "送魔节·亮宝会", tag: "藏", custom: "二月初七/初八，逐村寨鬼驱邪+寺院晒珍宝法器", strong: ["节庆", "市井"] }] },
+  /* 11 */ { month: 2, part: "上" },
+  /* 12 */ { month: 2, part: "下", jieqi: { name: "春分", custom: "竖蛋，放风筝，吃春菜，粘雀子嘴（汤圆插田埂免雀啄种）" } },
+  /* 13 */ { month: 2, part: "末", festivals: [{ name: "上巳节", tag: "汉", custom: "三月三，部分地区仍存，踏青祓禊", strong: [] }] },
+  /* 14 */ { month: 3, part: "初", jieqi: { name: "清明", custom: "扫墓祭祖，踏青插柳，蹴鞠，川地兴吃清明粑（艾草粑）" },
+    festivals: [{ name: "清明节", tag: "汉", custom: "与节气同日，扫墓祭祖踏青", strong: ["人情", "节庆"] }] },
+  /* 15 */ { month: 3, part: "上", festivals: [{ name: "世轮金刚节", tag: "藏", custom: "时轮金刚法会，三月十五，僧众诵经祈愿", strong: ["节庆"] }] },
+  /* 16 */ { month: 3, part: "下", jieqi: { name: "谷雨", custom: "摘谷雨茶，祭仓颉，走谷雨（结伴出游），香椿正当时" } },
+  /* 17 */ { month: 3, part: "末" },
+  /* 18 */ { month: 4, part: "初", jieqi: { name: "立夏", custom: "称人，斗蛋，尝三新" },
+    festivals: [{ name: "转山会·沐佛节", tag: "康", custom: "藏历四月初八，康定跑马山转山会：祭山转山，扎帐野餐，跳锅庄弦子，跑马射箭", strong: ["节庆", "密林采山"] }] },
+  /* 19 */ { month: 4, part: "上", festivals: [{ name: "转山会·沐佛节", tag: "康", custom: "跑马山转山会尾声，余兴未散", strong: ["节庆", "密林采山"] }] },
+  /* 20 */ { month: 4, part: "上", festivals: [{ name: "萨嘎达瓦节", tag: "藏", custom: "四月十五，纪念释迦牟尼诞生/成佛/圆寂，全月吃素放生", strong: ["节庆"] }] },
+  /* 21 */ { month: 4, part: "下", jieqi: { name: "小满", custom: "祭车神，抢水，食苦菜" } },
+  /* 22 */ { month: 4, part: "末", festivals: [{ name: "逛林卡", tag: "藏", custom: "五月初一起，全民携帐入林野餐赏景，历时二十天", strong: ["密林采山", "节庆"] }] },
+  /* 23 */ { month: 5, part: "初", jieqi: { name: "芒种", custom: "送花神，煮青梅，安苗祭土地祈丰收" } },
+  /* 24 */ { month: 5, part: "上", festivals: [
+    { name: "端午节", tag: "汉", custom: "五月初五，吃粽子、赛龙舟、挂菖蒲", strong: ["节庆", "水域"] },
+    { name: "采花节", tag: "康", custom: "南坪博峪一带，与端午同日，纪念教耕织的莲芝姑娘，姑娘们上山采花两日", strong: ["节庆", "密林采山"] },
+    { name: "逛林卡", tag: "藏", custom: "五月十五，全月高潮", strong: ["密林采山"] }] },
+  /* 25 */ { month: 5, part: "下", jieqi: { name: "夏至", custom: "吃面（冬至饺子夏至面），祭地，川地兴过水面" } },
+  /* 26 */ { month: 5, part: "末" },
+  /* 27 */ { month: 6, part: "初", jieqi: { name: "小暑", custom: "食新尝新米祭祖，晒伏" } },
+  /* 28 */ { month: 6, part: "上", festivals: [
+    { name: "六月六", tag: "汉", custom: "晒衣节，部分地区尝新祭祖", strong: ["市井"] },
+    { name: "丹伊得钦·朝山节", tag: "藏", custom: "转湖转山还愿", strong: ["密林采山", "节庆"] }] },
+  /* 29 */ { month: 6, part: "上" },
+  /* 30 */ { month: 6, part: "下", jieqi: { name: "大暑", custom: "饮伏茶，晒伏姜，斗蟋蟀" } },
+  /* 31 */ { month: 6, part: "末", festivals: [{ name: "理塘八一赛马会", tag: "康", custom: "公历8月1日固定，源出藏历六月初三转山赛马古俗，四百余年历史，街市巡马+草原赛马", strong: ["节庆"] }] },
+  /* 32 */ { month: 7, part: "初", jieqi: { name: "立秋", custom: "贴秋膘，啃秋，川地兴摸秋讨彩头" },
+    festivals: [
+      { name: "七夕节", tag: "汉", custom: "七月初七，乞巧", strong: ["市井", "节庆"] },
+      { name: "雪顿节", tag: "藏", custom: "六月三十/七月初一，晒佛演藏戏，拉萨一带最盛，康区较淡", strong: [] }] },
+  /* 33 */ { month: 7, part: "上", festivals: [
+    { name: "中元节", tag: "汉", custom: "七月十五，祭祖「鬼节」", strong: ["人情"] },
+    { name: "沐浴节", tag: "藏", custom: "七月六至十二日，嘎玛日吉，全家下河沐浴，历时七天", strong: ["水域"] }] },
+  /* 34 */ { month: 7, part: "下", jieqi: { name: "处暑", custom: "放河灯，开渔节，吃鸭子" },
+    festivals: [{ name: "望果节", tag: "藏", custom: "秋收前择吉日，绕田巡游祈丰收，过节即开镰", strong: ["节庆", "商贸"] }] },
+  /* 35 */ { month: 7, part: "末", festivals: [{ name: "望果节", tag: "藏", custom: "各寨择日不同，部分延至此周", strong: ["节庆"] }] },
+  /* 36 */ { month: 8, part: "初", jieqi: { name: "白露", custom: "收清露，饮白露茶，祭禹王" } },
+  /* 37 */ { month: 8, part: "上", festivals: [
+    { name: "中秋节", tag: "汉", custom: "八月十五，赏月吃月饼，一家团圆", strong: ["节庆", "人情"] },
+    { name: "迎秋节·金马节·央勒节", tag: "康", custom: "各寨丰收节俗，择日不一，无统一藏历定日", strong: [] }] },
+  /* 38 */ { month: 8, part: "上", jieqi: { name: "秋分", custom: "祭月古俗（中秋祭月即由此演变），竖蛋，吃秋菜，送秋牛图" } },
+  /* 39 */ { month: 8, part: "下" },
+  /* 40 */ { month: 8, part: "末", festivals: [{ name: "重阳节", tag: "汉", custom: "九月初九，登高、赏菊、插茱萸、吃重阳糕", strong: ["节庆", "密林采山"] }] },
+  /* 41 */ { month: 9, part: "初", jieqi: { name: "寒露", custom: "登高赏菊，吃螃蟹，饮菊花酒，采茱萸" } },
+  /* 42 */ { month: 9, part: "上" },
+  /* 43 */ { month: 9, part: "下", jieqi: { name: "霜降", custom: "赏菊，吃柿子，进补（补冬不如补霜降）" } },
+  /* 44 */ { month: 9, part: "末" },
+  /* 45 */ { month: 10, part: "初", jieqi: { name: "立冬", custom: "补冬，北饺子南黄酒" },
+    festivals: [{ name: "寒衣节", tag: "汉", custom: "十月初一，送寒衣祭祖", strong: ["人情"] }] },
+  /* 46 */ { month: 10, part: "上" },
+  /* 47 */ { month: 10, part: "下", jieqi: { name: "小雪", custom: "腌腹肉，晒鱼干，酿酒——灌香肠腌腊味的旺季" } },
+  /* 48 */ { month: 10, part: "末" },
+  /* 49 */ { month: 11, part: "初", jieqi: { name: "大雪", custom: "腌肉，进补，瑞雪兆丰年" } },
+  /* 50 */ { month: 11, part: "上", festivals: [{ name: "仙女节·白拉姆节", tag: "藏", custom: "十月十五，妇女向护法女神献祭祈福", strong: ["节庆"] }] },
+  /* 51 */ { month: 11, part: "下", jieqi: { name: "冬至", custom: "祭祖，北饺子南汤圆，冬至大如年，数九起" },
+    festivals: [{ name: "燃灯节", tag: "藏", custom: "十月二十五，宗喀巴圆寂纪念日，家家屋顶点酥油灯", strong: ["节庆", "人情"] }] },
+  /* 52 */ { month: 11, part: "末" },
+];
+
+// day 是累加的轮次计数（原「第几天」，现「第几周」），按 52 周循环取周历内容——超过52自然进入下一年循环。
+export function weekCalOf(day) {
+  const idx = ((((day - 1) % 52) + 52) % 52);
+  return WEEK_CALENDAR[idx];
+}
+// 当下节气：找不到当周的就往前找最近一次生效的（节气是延续到下个节气前的一段时节，不是单日）
+export function currentJieqiName(day) {
+  for (let back = 0; back < 52; back++) {
+    const e = weekCalOf(day - back);
+    if (e.jieqi) return e.jieqi.name;
+  }
+  return null;
+}
+// 顶部展示用：「X月Y」，不含「第N周」（那部分由调用处自己拼，好复用同一份 st.day 数字）
+export function weekLabel(day) {
+  const e = weekCalOf(day);
+  return `${MONTH_NAMES[e.month - 1]}${e.part}`;
+}
+// 探秘据点×当周历法：撞上强关联就整段节庆背景，没撞上就一句当下节气弱提示
+export function calendarContextFor(day, category) {
+  const e = weekCalOf(day);
+  const matched = (e.festivals || []).filter(f => (f.strong || []).includes(category));
+  if (matched.length) {
+    return {
+      strong: true,
+      scenario: matched.map(f => f.name).join("·"),
+      text: matched.map(f => `${f.name}（${f.tag}俗）：${f.custom}`).join("；"),
+    };
+  }
+  const jn = currentJieqiName(day);
+  if (!jn) return { strong: false, scenario: null, text: null };
+  const je = e.jieqi ? e.jieqi.custom : null;
+  return { strong: false, scenario: null, text: `当下节气「${jn}」${je ? "：" + je : ""}` };
+}
 
 // ── 探秘维度系统（玩家不可见，AI出题+系统判定用；设计见 docs/探秘系统设计.md）──
 // 维度只决定"这题在考什么"，不出现在题干文本里。四类分组用于抽题时保证不重复类别。
