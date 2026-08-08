@@ -603,8 +603,17 @@ export const HOURS = ["卯时·开门", "午时·客来", "未时·客来", "酉
 
 // ── 探秘地图：十个据点，一据点对一类情境，点开地图选地方去 ──────────
 // top/left 是相对底图（assets/map_bg.png）宽高的百分比坐标，不是视口。
-export const EXPEDITION_MAP = [
-  { id: "xuedong",   name: "雪线古洞", category: "探洞地宫", top: 32, left: 15, guests: ["huyanxue", "qingxu"] },
+// 江湖大地图（古风信息台）：家/广场/瓦舍/擂台/红白堂/土司府——每周新鲜事 + 可进可聊
+export const WORLD_LOCATIONS = [
+  { id: "home",    name: "豆花庄", icon: "🏠", top: 82, left: 14, desc: "家——账本、黄历、灶台", vibe: "灶火暖" },
+  { id: "square",  name: "广场",   icon: "🏮", top: 56, left: 30, desc: "聊天、买卖、邸报", vibe: "人声杂" },
+  { id: "washe",   name: "瓦舍",   icon: "🎭", top: 36, left: 58, desc: "说书、戏台、喝酒", vibe: "锣鼓响" },
+  { id: "leitai",  name: "擂台",   icon: "⚔", top: 70, left: 84, desc: "比武挑战", vibe: "杀气凝" },
+  { id: "hongbai", name: "红白堂", icon: "🎎", top: 22, left: 28, desc: "红事白事宴席", vibe: "人情重" },
+  { id: "tusi",    name: "土司府", icon: "🏯", top: 15, left: 82, desc: "土司宴席、差事", vibe: "府门深" },
+];
+
+export const EXPEDITION_MAP = [  { id: "xuedong",   name: "雪线古洞", category: "探洞地宫", top: 32, left: 15, guests: ["huyanxue", "qingxu"] },
   { id: "yakou",     name: "风雪垭口", category: "天灾",     top: 15, left: 67, guests: ["basang", "caimai"] },
   { id: "linchang",  name: "转经林场", category: "密林采山", top: 58, left: 20, guests: ["laoliehu", "asuo"] },
   { id: "yeyi",      name: "牧道野驿", category: "奇遇",     top: 74, left: 8,  guests: ["zhaxi", "maguotou"] },

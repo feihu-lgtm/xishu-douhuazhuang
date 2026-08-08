@@ -2,11 +2,11 @@
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
-  BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
-} from "./data.js?v=v22";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v22";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v22";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v22";
+  BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
+} from "./data.js?v=v23";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v23";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v23";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v23";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -355,6 +355,7 @@ export function renderSide(st, h) {
     item("副厨", "U", can.snack, "snack") +
     item("酿酒", "W", true, "brew") +
     item("备餐", "X", can.serve, "serve") +
+    item("江湖", "Y", true, "world") +
     item("商店", "T", can.shop, "shop") +
     item("探秘", "M", can.exp, "exp") +
     item("下一日", "N", can.next, "next") +
@@ -727,6 +728,98 @@ export function openMap(st, { onGo }) {
     if (node) onGo(node);
   });
   modal.querySelector("[data-leave]").onclick = () => closeModal(cleanup);
+}
+
+// ── 江湖大地图（古风信息台）：家/广场/瓦舍/擂台/红白堂/土司府 ──
+// 每周各地点新鲜事（st.locs[id].fresh），有事的点冒红点；点地点进地点页。
+export function openWorldMap(st, { onEnter, onExplore }) {
+  let fit = () => {};
+  const cleanup = () => window.removeEventListener("resize", fit);
+  const locs = (st.locs || {});
+  const freshOf = (id) => (locs[id] && locs[id].fresh && locs[id].fresh.week === st.day) ? locs[id].fresh : null;
+  const modal = openModal(`
+    <div class="map-head">
+      <span class="map-title">江 湖 · 四方有事</span>
+      <span class="ck-btn plain" data-explore style="margin-left:auto">探秘地图 →</span>
+      <span class="return" data-leave>Return · 返回</span>
+    </div>
+    <div class="map-body">
+      <div class="map-frame">
+        <img class="map-img" src="./assets/map_bg.png" alt="">
+        ${WORLD_LOCATIONS.map(n => `
+          <div class="map-pin" data-id="${n.id}" style="top:${n.top}%;left:${n.left}%" title="${n.desc}">
+            <span class="map-dot">${n.icon}</span>
+            <span class="map-label">${n.name}</span>
+            ${freshOf(n.id) ? `<span class="fresh-dot" title="本周有新鲜事：${freshOf(n.id).title}"></span>` : ""}
+          </div>`).join("")}
+      </div>
+    </div>
+    <div class="map-note">地点有<span class="fresh-dot inline"></span> = 本周新鲜事；没有也有得逛——进去看看、聊聊、互动。</div>
+  `, cleanup, "fullscreen");
+
+  const body = modal.querySelector(".map-body");
+  const frame = modal.querySelector(".map-frame");
+  const img = modal.querySelector(".map-img");
+  fit = () => {
+    const availW = body.clientWidth - 40;
+    const availH = body.clientHeight - 40;
+    const ratio = (img.naturalWidth && img.naturalHeight) ? img.naturalWidth / img.naturalHeight : 3 / 2;
+    let w = availW, h = w / ratio;
+    if (h > availH) { h = availH; w = h * ratio; }
+    frame.style.width = `${Math.round(w)}px`;
+    frame.style.height = `${Math.round(h)}px`;
+  };
+  fit();
+  img.onload = fit;
+  img.onerror = fit;
+  window.addEventListener("resize", fit);
+
+  modal.querySelectorAll("[data-id]").forEach(el => el.onclick = () => {
+    const loc = WORLD_LOCATIONS.find(n => n.id === el.dataset.id);
+    if (loc) onEnter(loc);
+  });
+  modal.querySelector("[data-explore]").onclick = () => { closeModal(cleanup); onExplore(); };
+  modal.querySelector("[data-leave]").onclick = () => closeModal(cleanup);
+}
+
+// ── 地点页：新鲜事 + 在场人 + 功能台 + 聊天（说话改变量）────
+export function openLocView(st, loc, { onChat, onAction, onBack }) {
+  const ls = (st.locs || {})[loc.id] || {};
+  const fresh = (ls.fresh && ls.fresh.week === st.day) ? ls.fresh : null;
+  const modal = openModal(`
+    <div class="map-head">
+      <span class="map-title">${loc.icon} ${loc.name} · ${loc.vibe || ""}</span>
+      <span class="return" data-back style="margin-left:auto">返回地图</span>
+    </div>
+    <div class="loc-body">
+      <div class="loc-desc">${loc.desc}</div>
+      ${fresh ? `
+        <div class="loc-fresh">
+          <b>本周新鲜事 · ${fresh.title}</b>
+          <p>${fresh.desc}</p>
+          ${fresh.npc ? `<i>${fresh.npc}</i>` : ""}
+        </div>` : `<div class="loc-fresh none">这周${loc.name}没什么大事——但热闹还在，进去聊聊。</div>`}
+      <div class="loc-acts" data-acts></div>
+      <div class="ck-label">搭话（说话会改变这方世界）</div>
+      <div class="loc-chat">
+        <input id="loc-inp" placeholder="想跟${loc.name}的人说点什么……" />
+        <span class="ck-btn plain" data-send>说</span>
+      </div>
+    </div>
+  `, () => {});
+  const q = (s) => modal.querySelector(s);
+  q("[data-acts]").innerHTML = (onAction.acts || []).map(a =>
+    `<span class="ck-chip ${a.on ? "on" : ""}" data-act="${a.id}">${a.label}</span>`).join("") || `<span class="ck-chip">此处将启</span>`;
+  q("[data-act]")?.forEach?.(el => el.onclick = () => onAction.run(el.dataset.act, modal));
+  q("[data-send]").onclick = () => {
+    const v = q("#loc-inp").value.trim();
+    if (!v) return;
+    q("#loc-inp").value = "";
+    onChat(v);
+  };
+  q("#loc-inp").addEventListener("keydown", (e) => { if (e.key === "Enter") q("[data-send]").click(); });
+  q("[data-back]").onclick = () => { closeModal(); onBack(); };
+  return modal;
 }
 
 // ── 探秘出发前：问一句特殊要求（对这次探秘活动的指令，可留空）────────

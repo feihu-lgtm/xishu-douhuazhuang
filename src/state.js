@@ -3,7 +3,7 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
   RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS, rivalGuestAt, BREW_RECIPES,
-} from "./data.js?v=v22";
+} from "./data.js?v=v23";
 
 export const GUESTS_PER_DAY = 3;
 const SAVE_KEY = "xiaochu-save-v1";
@@ -320,6 +320,20 @@ export function findKnownGuest(st, id) {
 export function inviteCandidates(st) {
   const known = [...GUESTS, ...(st.customGuests || [])];
   return known.filter(g => (FEMALE_GUEST_IDS.has(g.id) || g.gender === "女") && (st.aff[g.id] || 0) > 15);
+}
+// ── 探秘叙事同行：主叙事里现身的女子常客，就地转正为同行目标 ──
+// 叙事把她写进了现场（出场≥1次），出题/结算就不能让她凭空消失——遇险→脱困的戏要写全，
+// 救出/共患难都加好感、记小纸条。同据点熟人优先，出场多的优先。
+export function pickNarrativeRescue(st, nodeGuestIds, text) {
+  if (!text) return null;
+  const isFemale = (g) => g && (g.gender === "女" || FEMALE_GUEST_IDS.has(g.id));
+  const local = new Set(nodeGuestIds || []);
+  const hits = [...GUESTS, ...(st.customGuests || [])]
+    .filter(isFemale)
+    .map(g => ({ g, n: (text.split(g.name).length - 1) }))
+    .filter(x => x.n > 0)
+    .sort((a, b) => (b.n - a.n) || ((local.has(b.g.id) ? 1 : 0) - (local.has(a.g.id) ? 1 : 0)));
+  return hits.length ? hits[0].g : null;
 }
 // 邀客·点将明日：玩家钦点（最多 GUESTS_PER_DAY 位），不管认不认得、平日在哪、是不是踢馆同行，
 // 明天准来，各占一个客位；其余客位照常随机。

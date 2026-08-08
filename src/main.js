@@ -1,23 +1,23 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS } from "./data.js?v=v22";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v23";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, settleSideNote,
-} from "./state.js?v=v22";
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
+} from "./state.js?v=v23";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v22";
-import { chatContext } from "./prompt.js?v=v22";
+} from "./ai.js?v=v23";
+import { chatContext } from "./prompt.js?v=v23";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, initMobileDrawers,
-} from "./ui.js?v=v22";
+  commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, initMobileDrawers,
+} from "./ui.js?v=v23";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -69,6 +69,7 @@ const handlers = {
   notes: () => openNotes(st),
   pickGuest: () => doPickGuest(),
   exp: () => openExpeditionMap(),
+  world: () => openWorld(),
   nsfw: () => { setNsfw(!getNsfw()); sys(getNsfw() ? "■ 模式开启：相关写作规则强制注入。" : "■ 模式关闭。"); renderAll(st, handlers); },
   save: () => exportSave(),
   load: () => importSave(),
@@ -455,6 +456,7 @@ async function doServe(sel) {
   st.aff[g.id] = Math.max(0, Math.min(100, affNow + d));
   st.coins += pay;
   st.earned += pay;
+  ledger("待客进账", pay);
   st.totalServed += 1;
   st.served += 1;
   st.pendingSet = null;
@@ -647,6 +649,9 @@ async function doExpedition(node, intent) {
     calendarStrong: cal.strong ? cal.text : null, calendarMention: cal.strong ? null : cal.text,
     rescueTarget: rescueTarget ? { name: rescueTarget.name, ident: rescueTarget.ident, aff: st.aff[rescueTarget.id] || 0 } : null,
   });
+  // 主叙事里现身的女子常客就地转正为同行：出题、结算都得有她，别出了主叙事就凭空消失；
+  // 遇险→脱困的戏走全，救出/共患难都加好感、记小纸条（情境已指定救场对象的以情境为准）
+  const activeRescue = rescueTarget || pickNarrativeRescue(st, node.guests, r.narrative);
   await expNarr(r.narrative);
   if (!r.ai) sys("（说书人未接线或掉线，探秘先走模板。设置里填 AI 密钥可现写。）");
   if (r.comment) await expComment(r.comment, faceOf(r.mood));
@@ -658,7 +663,7 @@ async function doExpedition(node, intent) {
   const ch = await genChallenge(loadCfg(), {
     scenario, category: node.category, intent,
     background,
-    rescueTarget: rescueTarget ? { name: rescueTarget.name } : null,
+    rescueTarget: activeRescue ? { name: activeRescue.name } : null,
   });
   stepTrace("出题", "pass", `${ch.options.length} 个选项（${ch.options.map(o => o.dim).join("/")}）`);
   await expNarr(`走到紧要处——${ch.prompt}`);
@@ -678,7 +683,7 @@ async function doExpedition(node, intent) {
     // 结算走 AI：500 字收尾叙事，回扣背景；命中救场情境则按成败分英雄救美/美救英雄两个方向写
     const stt = await genSettlement(loadCfg(), {
       background, prompt: ch.prompt, choice: opt.text, dim: outcome.dim, ok: check.ok, special: specialNames,
-      rescueName: rescueTarget ? rescueTarget.name : null,
+      rescueName: activeRescue ? activeRescue.name : null,
     });
     if (stt.text) await expNarr(stt.text);
     else await sys(check.ok ? `【检定】「${opt.text}」这一手成了（≈${check.p}%）${CHECK_DIMS.includes(outcome.dim) ? `，愈发老练（${rank}）` : ""}。` : `【检定】「${opt.text}」这一手没成（≈${check.p}%），白折腾半日。`);
@@ -690,12 +695,13 @@ async function doExpedition(node, intent) {
       note("探秘", `${node.name}·${scenario}·「${opt.text}」${outcome.dim}检定落空，收成潦草。`);
     }
     // 英雄救美（成）/美救英雄（不成）：不管哪个方向都是加分的相处，好感不倒扣，只是成了多涨一点
-    if (rescueTarget) {
+    if (activeRescue) {
       st.aff = st.aff || {};
       const gain = check.ok ? 4 : 2;
-      const before = st.aff[rescueTarget.id] || 0;
-      st.aff[rescueTarget.id] = Math.min(100, before + gain);
-      sys(`${check.ok ? "英雄救美" : "美救英雄"}——「好感」${rescueTarget.name} +${gain}（今 ${st.aff[rescueTarget.id]} · ${affName(st.aff[rescueTarget.id])}）`);
+      const before = st.aff[activeRescue.id] || 0;
+      st.aff[activeRescue.id] = Math.min(100, before + gain);
+      sys(`${check.ok ? "英雄救美" : "美救英雄"}——「好感」${activeRescue.name} +${gain}（今 ${st.aff[activeRescue.id]} · ${affName(st.aff[activeRescue.id])}）`);
+      note("救美", `${node.name}·${scenario}·${check.ok ? "救出" : "共患难"}${activeRescue.name}，好感+${gain}。`);
     }
   } else {
     stepTrace("鉴定", "skip", "收手不掺和");
@@ -773,6 +779,7 @@ function doShop() {
       const cost = item.price * q;
       if (st.coins < cost) { sys("文钱不够。"); return { ok: false }; }
       st.coins -= cost;
+      ledger("商店采买", -cost);
       if (cat === "ingredient") st.inv[id] = (st.inv[id] || 0) + q;
       else if (cat === "cookware") st.cookware.push(id);
       else if (cat === "tech") st.techs.push(id);
@@ -884,6 +891,105 @@ function nowTs() {
   const d = new Date(); const p = (n) => String(n).padStart(2, "0");
   return `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
+// ── 江湖大地图编排：进地图 → 进地点页 → 搭话（走流水线）/ 功能台 ──
+function locOf(id) {
+  st.locs = st.locs || {};
+  st.locs[id] = st.locs[id] || { id, fresh: null, seen: 0 };
+  return st.locs[id];
+}
+function openWorld() {
+  openWorldMap(st, {
+    onEnter: (loc) => openLocView(st, loc, {
+      onChat: (text) => {
+        const ls = locOf(loc.id);
+        const fresh = (ls.fresh && ls.fresh.week === st.day) ? `${loc.name}·${ls.fresh.title}：${ls.fresh.desc}` : "";
+        doLocChat(loc.id === "home" ? "sutang" : loc.id, loc.name === "豆花庄" ? "苏唐" : loc.name, loc.name, fresh, text);
+      },
+      onAction: locActs(loc),
+      onBack: () => openWorld(),
+    }),
+    onExplore: () => openExpeditionMap(),
+  });
+}
+function locActs(loc) {
+  // 各地点功能台：阶段 3 逐个点亮，先占位
+  const acts = [];
+  if (loc.id === "home") acts.push({ id: "ledger", label: "账房册子", on: true }, { id: "calendar", label: "黄历", on: true }, { id: "cook", label: "灶台", on: true });
+  if (loc.id === "square") acts.push({ id: "bulletin", label: "布告墙", on: true }, { id: "trade", label: "集市买卖", on: false }, { id: "dibao", label: "邸报", on: false });
+  if (loc.id === "washe") acts.push({ id: "shuoshu", label: "说书", on: false }, { id: "xitai", label: "戏台", on: false }, { id: "weilu", label: "围炉喝酒", on: false });
+  if (loc.id === "leitai") acts.push({ id: "tiao", label: "比武", on: false });
+  if (loc.id === "hongbai") acts.push({ id: "yanxi", label: "接宴席", on: false });
+  if (loc.id === "tusi") acts.push({ id: "chai", label: "接差事", on: false });
+  return {
+    acts,
+    run: (actId, modal) => {
+      if (actId === "cook") { closeModal(); return doCook(); }
+      if (actId === "ledger") { closeModal(); return doLedger(); }
+      if (actId === "calendar") { closeModal(); return doCalendar(); }
+      if (actId === "bulletin") { closeModal(); return openSquareBoard(); }
+      sys(`${loc.name}·${(acts.find(a => a.id === actId) || {}).label}——此处将启，先跟${loc.name}的人搭搭话。`);
+    },
+  };
+}
+// ── 账房册子（通用表格浏览）：流水/菜谱/星料/酒库/待客 ──
+function ledger(act, delta) {
+  st.ledger = st.ledger || [];
+  st.ledger.push({ day: st.day, ts: nowTs(), act, delta: Math.round(delta) });
+  if (st.ledger.length > 200) st.ledger.shift();
+}
+function doLedger() {
+  const books = [
+    { t: "流水账", d: (st.ledger || []).length ? st.ledger.slice(-14).reverse().map(l => `${l.day}周 ${l.ts} ${l.act} ${l.delta > 0 ? "+" : ""}${l.delta}文`).join("\n") : "（账房还没记过流水——待客、买卖、事件的收支都会记）" },
+    { t: "菜谱册", d: (st.menu || []).slice(-10).map(m => `「${m.name}」${m.used ? "· " + m.used.slice(0, 12) : ""}`).join("\n") || "（空）" },
+    { t: "星料谱", d: Object.entries(st.stars || {}).map(([n, s]) => `${n} ${"★".repeat(s)}`).join("\n") || "（还没寻到带星食材）" },
+    { t: "酒库", d: Object.entries(st.wines || {}).map(([n, c]) => `${n}×${c}`).join("、") || "（酒库空）" },
+    { t: "待客簿", d: (st.dayLog || []).slice(-10).map(l => `${l.day}周·${l.name}·${l.dish || ""}${l.score != null ? "·" + l.score + "分" : ""}`).join("\n") || "（还没待过客）" },
+  ];
+  let idx = 0;
+  const draw = () => {
+    const b = books[idx];
+    openModal(`
+      <h2>账 房 · ${b.t}</h2>
+      <div class="ck-chips">
+        ${books.map((x, i) => `<span class="ck-chip ${i === idx ? "on" : ""}" data-book="${i}">${x.t}</span>`).join("")}
+      </div>
+      <div class="ck-mats"><span class="ck-mat" style="white-space:pre-wrap;line-height:1.9">${b.d.split("\n").map(x => escapeHtml(x)).join("\n")}</span></div>
+      <div class="ck-btns"><span class="ck-btn plain" data-prev>上一册</span><span class="ck-btn plain" data-next>下一册</span></div>
+      <span class="return" data-back>Return · 返回</span>
+    `, () => {});
+    const q = (s) => document.querySelector("#modal-root [data-back]") ? document.querySelector(`#modal-root [data-${s.slice(1)}]`) : null;
+    document.querySelectorAll("#modal-root [data-book]").forEach(el => el.onclick = () => { idx = +el.dataset.book; draw(); });
+    document.querySelector("#modal-root [data-prev]").onclick = () => { idx = (idx + books.length - 1) % books.length; draw(); };
+    document.querySelector("#modal-root [data-next]").onclick = () => { idx = (idx + 1) % books.length; draw(); };
+    document.querySelector("#modal-root [data-back]").onclick = () => closeModal();
+  };
+  draw();
+}
+// ── 黄历（简单版：当日页；夜间对账阶段3）──
+function doCalendar() {
+  const cal = calendarContextFor(st.day, null);
+  const today = (st.dayLog || []).filter(l => l.day === st.day);
+  const coins = st.coins || 0;
+  openModal(`
+    <h2>黄 历 · 第 ${st.day} 周（${weekLabel(st.day)}）</h2>
+    <div class="loc-fresh">${cal.strong ? `【节庆】${cal.strong}` : ""}${cal.text ? `【时节】${cal.text}` : ""}</div>
+    <div class="loc-fresh none">今日待客 ${today.length} 位${today.length ? "：" + today.map(l => `${l.name}「${l.dish || ""}」${l.score ?? ""}分`).join("、") : "（还没客人上门）"}<br>钱袋：${coins} 文 · 名声：${st.fame || 0}</div>
+    <span class="return" data-back>Return · 返回</span>
+  `, () => {});
+  document.querySelector("#modal-root [data-back]").onclick = () => closeModal();
+}
+// ── 布告墙：广场消息流（回响/聊天消息都上墙）──
+function openSquareBoard() {
+  const items = (st.square || []).slice(-12).reverse();
+  openModal(`
+    <h2>布 告 墙 · 广场</h2>
+    <div class="ck-mats" style="flex-direction:column;align-items:stretch">
+      ${items.length ? items.map(x => `<span class="ck-mat" style="white-space:normal;line-height:1.8">${escapeHtml(x.from)}：${escapeHtml(x.text)}<i style="display:block;opacity:.6">第${x.day}周 ${x.ts}</i></span>`).join("") : `<span class="ck-mat zero">布告墙还空着——跟广场的人聊聊天，消息会传上来。</span>`}
+    </div>
+    <span class="return" data-back>Return · 返回</span>
+  `, () => {});
+  document.querySelector("#modal-root [data-back]").onclick = () => closeModal();
+}
 
 // ── 世界回响：每完成一件事单独跑一个（200字叙事 + 一行AI小纸条）──
 // 200 字存 st.echoes 播放池（不注入 prompt）；AI 纸条行挂到该轮系统小纸条之后（st.notes 条目 ai 字段）。
@@ -904,6 +1010,9 @@ async function fireEcho(event, result) {
   const noteLine = r.note || (result || "").slice(0, 30); // AI 没出纸条行时兜底
   st.echoes.push({ form: r.form, prose: r.prose, note: noteLine, day: st.day });
   if (st.echoes.length > 30) st.echoes.shift();
+  st.square = st.square || [];
+  st.square.push({ from: `${r.form}·街巷`, form: r.form, text: noteLine, day: st.day, ts: nowTs() }); // 回响同步上布告墙
+  if (st.square.length > 60) st.square.shift();
   // AI 一行小纸条：匹配到系统小纸条之后（该轮最近一条 note 的 ai 字段，各自一行、作为一条）
   if (noteLine) {
     st.notes = st.notes || [];
@@ -1411,7 +1520,7 @@ function bind() {
     if ($("#modal-root").classList.contains("open")) return;
     if (!st) return;
     const k = e.key.toLowerCase();
-    const map = { c: "cook", u: "snack", w: "brew", x: "serve", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
+    const map = { c: "cook", u: "snack", w: "brew", x: "serve", y: "world", t: "shop", m: "exp", n: "next", i: "bag", f: "settings", l: "trace", p: "notes", q: "save", h: "help" };
     if (map[k]) handlers[map[k]]();
   });
   $("#btn-new").onclick = () => startNew();
