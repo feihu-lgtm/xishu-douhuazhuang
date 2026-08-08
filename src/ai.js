@@ -572,7 +572,7 @@ export async function genChallenge(cfg, ctx) {
       `options 给 4-6 个，尽量覆盖不同路子：硬闯硬碰、巧取身法、细看辨认、上前搭话、押一把赌注等；题干与选项像小说正文，让玩家自己猜要考什么。`,
     ].filter(Boolean).join("\n");
     try {
-      const raw = await callAI(cfg, sys, user, "探秘出题", 120000, true);
+      const raw = await callAI(cfg, sys, user, "探秘出题", 45000, true); // 出题是小 JSON：45s 兜底 fallback，别让玩家干等
       const o = parseJSONRescue(raw);
       let opts = Array.isArray(o?.options) ? o.options : [];
       opts = opts.filter(x => x && x.text && RESOLVABLE_DIMS.includes(x.dim)).slice(0, 6);
