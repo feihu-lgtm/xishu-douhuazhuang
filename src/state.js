@@ -56,6 +56,7 @@ export function newState() {
     snackRecipes: [],        // 苏唐菜单 [{name,cat,tag,used,quality,desc}]
     menu: [],                // 师兄菜单 [{name,used,desc}]
     notes: [],               // 小纸条：每轮动作/对话的小总结 [{day,ts,act,text}]
+    chatLog: [],             // 闲聊历史：最近几轮 [{u: 师兄说, a: 苏唐回应}],供苏唐接话有据
     todaySnacks: [],         // 今日苏唐做的小吃 [{name,quality,flavor}]
     pendingSet: null,        // 上菜时配的 set
     shopSeed: 1,

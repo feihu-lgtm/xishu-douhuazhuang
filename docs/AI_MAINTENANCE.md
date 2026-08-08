@@ -38,6 +38,10 @@ AI 密钥在游戏内"设置"里填（DeepSeek，`api.deepseek.com`，模型 dee
 5. **名字氪金框**：余味名字一律 `꧁༺✧余味✧༻꧂`（`ui.js` 的 `ryuweiTag`，用于客人卡/探秘常客/邀客面板三处）。
 6. **苏唐批表情图标**：苏唐批（`comment` 条目）在 mood 为 开心/兴奋/心动/得意（`MOOD_WORDS` 索引 0/2/3/4）时，随机带一个 `su_face_1..4.png` 表情图标（`ui.js faceOf` + `commentLine`/`commentGlow`/`logStream.apply` 的 face 参数）；不高兴/中性不带。四张图是从 Cat 发的 2×2 苏唐表情图切出来的（黑背景抠透明，flood-fill 保黑碗），右下角那张同时是浏览器 favicon（`assets/favicon.png`）。
 
+## 闲聊上下文（chatContext）
+
+玩家闲聊（`genChat`）会注入 `prompt.js` 的 `chatContext(st)` 分块上下文（学 qucuo/jihaitang 的分块标号、数据拼接分离）：【场景】（周数/已待客/手上菜/今日来客/苏唐今日小吃）、【苏唐与师兄】（suAff 好感 + 银簪/店誉，无簪时提余味盼头）、【近况】（最近 4 条小纸条）、【最近对话】（`st.chatLog` 最近 4 轮）。`st.chatLog` 由 `main.js` 闲聊完成后自动入档（保留 8 轮，`{u: 师兄说, a: 苏唐回应}`）。genChat 的 sys 指示苏唐"接住上下文、别凭空造人造事、别生硬报清单"。改闲聊相关逻辑时别丢 chatLog 记录链。
+
 ## 评语解析（extractComment）
 
 `ai.js` 的 `extractComment` 是**块解析**（宽容版）：`苏唐批/心情/菜单/纸条` 四个标记，顺序任意、中英文冒号都认；苏唐批可跨行直到下一个标记或结尾，心情/菜单/纸条取单行；其余文字归 main。**别改回老的 `[^\n]+` 单行正则**——AI 换行写评语时会拆不出苏唐批条目（当时就是竖线"不显示"的根因）。

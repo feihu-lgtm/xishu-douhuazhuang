@@ -12,6 +12,7 @@ import {
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
+import { chatContext } from "./prompt.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
@@ -978,7 +979,14 @@ async function onCommand(text) {
   busy = true;
   startTrace("闲聊");
   const h = logStream("narr");
-  const r = await genChat(loadCfg(), t, c => h.append(c), ctxLine(st));
+  const r = await genChat(loadCfg(), t, c => h.append(c), chatContext(st));
+  // 闲聊历史入档（苏唐接话有据：后几轮能提前面说过的事）
+  const replyText = (r.prose || "").replace(/\n/g, " ").trim();
+  if (replyText) {
+    st.chatLog = st.chatLog || [];
+    st.chatLog.push({ u: t, a: replyText.slice(0, 40) });
+    if (st.chatLog.length > 8) st.chatLog.shift();
+  }
   note("闲聊", `师兄说「${t.slice(0, 18)}」，说书人接了一段。`);
   endTrace("闲聊一段");
   if (r.ai && h.text) {

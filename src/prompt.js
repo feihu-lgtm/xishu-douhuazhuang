@@ -1,6 +1,6 @@
 // ── Prompt 编排（学 ji-haitang：分块、标号、不冗余；数据与拼接分离）──────
 // 每个调用 = 一个 system（身份+文风+格式）+ 一个 user（【标号】分块的事实与约束）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel } from "./data.js";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, starLabel, weekLabel } from "./data.js";
 
 // 标号块：空内容则整块省略，避免冗余空段
 export const sec = (t, b) => (b ? `【${t}】\n${b}\n` : "");
@@ -24,6 +24,24 @@ export const starSec = (st) => {
   if (n <= 0) return "";
   return sec("店誉", `豆花庄得了食评人余味送的 ${n} 支银簪（一支银簪等于一星，蜀地独一份，比县志里锦官城那几家名馆还金贵）。这份名声必须落进这场的言行里：旧识、熟客见面就夸，夸得真诚具体；同行（尤其上门挑刺的厨子）先忌惮三分，挑刺也先掂量「这家挂着星」。别直白喊口号，把分量写在台词与态度里。`);
 };
+
+// ── 闲聊上下文（学 qucuo/jihaitang：分块、标号、不冗余；数据与拼接分离）──
+// 苏唐接话要有据：场景/关系/今日来客/近况/最近对话/店誉全拼进 user 块，
+// 她提人提事不凭空——来过的客人、做过的菜、师兄的银簪名声都是谈资。
+export function chatContext(st) {
+  const stars = (st?.ryuweiRating || {}).tier ?? 0;
+  const dayLogTxt = (st?.dayLog || []).slice(-3).map(d => `给${d.name}上了「${d.dish}」${d.score}分`).join("；");
+  const snacks = (st?.todaySnacks || []).slice(-2).map(s => `备了「${s.name}」`).join("、");
+  const notes = (st?.notes || []).slice(-4).map(n => `${n.act}·${n.text}`).join("；");
+  const chatLog = (st?.chatLog || []).slice(-4).map(c => `师兄说「${c.u.slice(0, 20)}」→ 苏唐回「${c.a.slice(0, 24)}」`).join("\n");
+  const cur = st?.dish ? `手上正做着「${st.dish.name}」` : "灶上还空着";
+  return [
+    sec("场景", `第${st?.day}周（${weekLabel(st?.day)}）· 已待客${st?.served ?? 0}位。${cur}。${dayLogTxt ? `今日来客：${dayLogTxt}。` : ""}${snacks ? `苏唐今日${snacks}。` : ""}`),
+    sec("苏唐与师兄", `苏唐对师兄好感 ${st?.suAff ?? 0}。${stars > 0 ? `店里挂着余味送的${stars}支银簪（一支=一星），苏唐为这份名头得意，熟人面前会显摆两句，也怕砸了招牌。` : "还没拿到银簪，苏唐盼着余味再来指点。余味是她俩都看重的人。"}`),
+    sec("近况", notes || "平淡一日，灶上安稳。"),
+    chatLog ? sec("最近对话", chatLog) : "",
+  ].filter(Boolean).join("\n");
+}
 
 // ── 身份 + 文风（所有说书人调用共用的 system 基座）────────────────────
 export const STYLE = [
