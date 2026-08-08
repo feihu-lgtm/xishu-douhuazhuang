@@ -6,6 +6,7 @@ import {
 } from "./data.js";
 import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -1104,6 +1105,8 @@ export function openBag(st) {
 // ── 设置 ───────────────────────────────────────────────────────────────
 export function openSettings() {
   const cfg = loadCfg();
+  const bst = bgmState();
+  const bgmOptions = () => BGM_TRACKS.map((t, i) => `<option value="${i}" ${bst.idx === i ? "selected" : ""}>${t.name} · ${t.artist}</option>`).join("");
   const modal = openModal(`
     <h2>设 置 · AI 说书人</h2>
     <div class="set-row"><label>接口地址</label><input id="set-url" placeholder="OpenAI 兼容端点，如 https://api.deepseek.com" value="${cfg.endpoint || ""}"></div>
@@ -1118,11 +1121,29 @@ export function openSettings() {
     <div class="set-row"><label>苏唐对话字数</label><input id="set-suwords" type="number" min="50" step="10" value="${cfg.suWords ?? 300}"></div>
     <div class="set-row"><label>小吃剧情字数</label><input id="set-snackwords" type="number" min="50" step="10" value="${cfg.snackWords ?? 300}"></div>
     <div class="set-row"><label>浮动 %</label><input id="set-tol" type="number" min="0" max="60" step="5" value="${cfg.tolPct ?? 15}"></div>
-    <div class="set-note" id="set-msg">流式开着，说书人的字边写边上屏；关了则想完一次给出。<br>长度上限即 max_tokens，默认 65536，厂商报参数错就调小。<br>出菜/闲聊字数是说书人正文的目标字数（±浮动%），想长想短自己调。<br>不填也能玩——说书人退成模板白描，灶神照样起名。</div>
+    <div class="set-row" style="border-top:1px dashed #d8c3bd;margin-top:10px;padding-top:10px"><label>留声机</label><select id="set-bgm"><option value="-1" ${bst.on ? "" : "selected"}>停</option>${bgmOptions()}</select><span class="ck-btn plain" data-bgm-toggle>${bst.on ? "暂停" : "播放"}</span><span class="ck-btn plain" data-bgm-next>下首</span></div>
+    <div class="set-row"><label>音量</label><input id="set-vol" type="range" min="0" max="100" step="1" value="${Math.round(bst.vol * 100)}"></div>
+    <div class="set-row"><label>循环播放</label><input id="set-loop" type="checkbox" ${bst.loop ? "checked" : ""}><span class="set-hint">单曲循环，听完自己接着放</span></div>
+    <div class="set-note" id="set-msg">流式开着，说书人的字边写边上屏；关了则想完一次给出。<br>长度上限即 max_tokens，默认 65536，厂商报参数错就调小。<br>出菜/闲聊字数是说书人正文的目标字数（±浮动%），想长想短自己调。<br>留声机的曲目/音量/循环即时生效，不用点保存。<br>不填也能玩——说书人退成模板白描，灶神照样起名。</div>
     <div class="ck-btns"><span class="ck-btn plain" data-save>保存</span></div>
     <span class="return" data-back>Return · 返回</span>
   `, () => {});
   const q = (s) => modal.querySelector(s);
+  bgmInit();
+  const syncBgm = () => {
+    const s = bgmState();
+    q("#set-bgm").value = String(s.idx);
+    q("[data-bgm-toggle]").textContent = s.on ? "暂停" : "播放";
+  };
+  q("#set-bgm").onchange = () => {
+    const i = parseInt(q("#set-bgm").value, 10);
+    if (i < 0) bgmPause(); else bgmPlay(i);
+    syncBgm();
+  };
+  q("[data-bgm-toggle]").onclick = () => { bgmToggle(); syncBgm(); };
+  q("[data-bgm-next]").onclick = () => { bgmNext(); syncBgm(); };
+  q("#set-vol").oninput = () => bgmSetVolume(parseInt(q("#set-vol").value, 10) / 100);
+  q("#set-loop").onchange = () => bgmSetLoop(q("#set-loop").checked);
   q("[data-fetch]").onclick = async () => {
     q("#set-msg").textContent = "检索模型中…";
     try {
