@@ -3,10 +3,10 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS,
-} from "./data.js?v=v5";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v5";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v5";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v5";
+} from "./data.js?v=v6";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v6";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v6";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v6";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -338,8 +338,8 @@ function currentGuestSafe(st) {
 export function renderSide(st, h) {
   const can = {
     cook: st.phase === "guest",
-    suCook: st.phase === "guest" && (st.suAff || 0) >= 40, // 副厨：苏唐全包（好感够时）
-    snack: true,
+    snack: true,       // 副厨：小吃面板（苏唐做小吃）
+    serve: st.phase === "guest" && !!currentGuestSafe(st), // 备餐：准备上菜（选 3 菜 + 1 酒）
     shop: st.phase === "closing" || st.served >= 3,
     exp: st.phase === "closing" || st.served >= 3,
     next: st.phase === "closing" || st.served >= 3,
@@ -349,9 +349,9 @@ export function renderSide(st, h) {
        <span>${label}</span><span class="key">${key}</span></div>`;
   $("#side").innerHTML =
     item("主厨", "C", can.cook, "cook") +
-    item("副厨", "U", can.suCook, "suCook") +
+    item("副厨", "U", can.snack, "snack") +
     item("酿酒", "W", true, "brew") +
-    item("备餐", "X", can.snack, "snack") +
+    item("备餐", "X", can.serve, "serve") +
     item("商店", "T", can.shop, "shop") +
     item("探秘", "M", can.exp, "exp") +
     item("下一日", "N", can.next, "next") +
