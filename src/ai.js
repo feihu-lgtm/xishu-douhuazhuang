@@ -767,6 +767,32 @@ const CHAT_FALLBACK = [
 ];
 let chatIdx = 0;
 
+// ── 酿造叙事：下坛/蒸馏时 AI 写苏唐酿酒的小剧情（数值系统判定，AI 不碰）──
+export async function genBrew(cfg, brew) {
+  if (cfgReady(cfg)) {
+    const sys = "你是西蜀豆花庄的说书人。第三人称写苏唐酿酒的一段小剧情：蒸料、下曲、封坛（蒸馏酒则写甑锅里的火光与滴露），动作白描，带「」对话与 *心理*，有烟火气。分 2-3 段。";
+    const user = `【酿酒】苏唐要酿「${brew.name}」：基底 ${brew.base}，曲用 ${brew.qu}${brew.extra && brew.extra.length ? `，辅料 ${brew.extra.join("、")}` : ""}。${brew.needsStill ? "这酒要上甑蒸馏——烧酒，打箭炉马帮带来的新法，蜀地人起初嫌烈。" : brew.kind === "黄酒" ? "黄酒讲究低温慢酵、陈酿数周，急不得。" : "封坛等它发酵，日子到了才开。"}`;
+    try {
+      const raw = await callAI(cfg, sys, user, "酿酒");
+      return { prose: (raw || "").trim(), ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { prose: `苏唐把${brew.base}蒸透，拌进${brew.qu}，封了坛口，在坛沿画了道记号。`, ai: false };
+}
+
+// ── 余味开席：四样大阵仗的品评叙事（分数系统判定，AI 只写戏）────
+export async function genFeastReview(cfg, ctx) {
+  if (cfgReady(cfg)) {
+    const sys = "你是西蜀豆花庄的说书人。写余味（峨眉破戒的女侠食评人，任性少女、口味刁钻、年轻一流高手）吃大阵仗的场景：四样摆满一桌，她逐样尝，每样一句点评（火候/滋味/酒的劲儿），最后收在总评上。第三人称，带「」对话与 *心理*。分 3-4 段。";
+    const user = `【大阵仗】余味面前摆了四样：大菜「${ctx.feast.main.dish.name}」(${ctx.scores.mainScore}分)、汤「${ctx.feast.soup.dish.name}」(${ctx.scores.soupScore}分)、小吃「${ctx.feast.snack.name}」(${ctx.scores.snackScore}分)、酒「${ctx.feast.wine.name}」(${ctx.scores.winePts}分)。总分 ${ctx.total}/100（四样各 25%）。她的点评跟分数实打实对应：高的夸到实处，低的点破毛病，别夸成满分也没给分。`;
+    try {
+      const raw = await callAI(cfg, sys, user, "开席");
+      return { prose: (raw || "").trim(), ai: true };
+    } catch { /* 降级 */ }
+  }
+  return { prose: `四样摆齐。余味逐一尝过，放下筷子：「${ctx.total >= 75 ? "这一席，够格让我惦记。" : "还差些火候，下次再来讨教。"}」`, ai: false };
+}
+
 export async function genChat(cfg, text, onChunk, context) {
   if (cfgReady(cfg)) {
     const sys = STYLE + `\n师兄在日记里写了句话，你以日记的笔法接下去，分 2-4 段，用上对话「」与心理 *...*。正文总字数约 ${cfg.chatWords || 160} 字（±${cfg.tolPct ?? 15}%）。【上下文】里是店里实况（今日来客、近况、最近对话、银簪名声）——苏唐的回应要接住这些：提到的人与事要跟上下文对得上（来过的客人、做过的菜、师兄的招牌名声都是谈资），别凭空造人造事，也别生硬报清单，自然勾连即可。若对话里在场的客人说出了想吃什么（口味/食材/做法），末尾再单独一行「心愿：」+ 客人原话（一字不改，他说了什么就写什么）；客人没提就不写这行。末尾照例附「苏唐批：」一句和「心情：」一个词（八个里选）；再一行「表情：」——若这回应答里有暧昧/亲密/逗弄氛围，从 脸红出汗/微微翻白眼/憋气/吐舌/wink/嘟嘴/鼓气/娇羞比耶 里选一个最贴的，否则写「平常」；再一行「好感：+N」，N 取 0-3，按这回应答的甜度/用心/文本质量来定，被逗乐、暖心、撩到位就给高；${getNsfw() ? `再一行「亲密：」——若涉及亲热/做爱情节，判断有没有做到位，写「无」「未尽兴」或「到位」。` : ""}`;

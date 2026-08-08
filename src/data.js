@@ -187,8 +187,8 @@ export const INGREDIENTS = [
     lore: "灶房后头那几只芦花鸡下的，个头不大，蛋黄却红得发亮。" },
   { name: "熊猫笋", kind: "食材", price: 1,
     lore: "嫩清甜带竹香，熊猫啃剩的冷箭竹笋尖，护谷弟子说别捡但确实好吃。" },
-  { name: "鱼定村青稞", kind: "食材", price: 1,
-    lore: "粗嚼劲足微甜，糌和青稞饼的原料。" },
+  { name: "鱼定村青稞", kind: "基底", price: 1,
+    lore: "粗嚼劲足微甜，糌和青稞饼的原料。也是酿青稞酒的底子，高原的酒都从它来。" },
   { name: "玉泉寨土豆", kind: "食材", price: 1,
     lore: "粉沙煮烂即化，不挑地，石头缝也长。" },
   { name: "雅江嫩豆腐", kind: "食材", price: 1,
@@ -249,8 +249,20 @@ export const INGREDIENTS = [
     lore: "内江红糖，甜得厚，凉糕冰粉少不了它。" },
   { name: "冰粉籽", kind: "食材", price: 2,
     lore: "冰粉籽手搓出浆，点成冰粉，颤巍巍一碗清凉。" },
-  { name: "蜀南大米", kind: "食材", price: 1,
-    lore: "蜀南大米，蒸饭粒粒分明，豆花饭的底。" },
+  { name: "蜀南大米", kind: "基底", price: 1,
+    lore: "蜀南大米，蒸饭粒粒分明，豆花饭的底。蒸熟了拌曲，就是蜀地酒的根。" },
+  { name: "麦芽", kind: "基底", price: 4,
+    lore: "大麦发芽、晾晒成芽，麦香浓醇，酿麦酒、做麦芽糖的底子。北地酒坊多用此物。" },
+  { name: "甜酒曲", kind: "曲", price: 2,
+    lore: "根霉小曲，米酒快酿的引子，蜀地酒坊家家灶头备着一包。" },
+  { name: "麦曲", kind: "曲", price: 3,
+    lore: "麦子发霉制曲，黄酒的糖化发酵全靠它，越陈的曲越香。" },
+  { name: "大曲", kind: "曲", price: 5,
+    lore: "小麦踩成的大块曲，烧酒的引子——蒸馏酒是打箭炉马帮带回的新货，蜀地人起初嫌它烈。" },
+  { name: "藏曲", kind: "曲", price: 4,
+    lore: "藏地青稞酒曲，掺了高原野花，玉泉寨牧人冬春蒸青稞就靠它。" },
+  { name: "蒸馏器", kind: "工具", price: 60,
+    lore: "打箭炉铁匠铺打的甑锅，蒸酒取露的家伙事——烧酒能不能酿，就看有没有它。" },
   { name: "竹签", kind: "食材", price: 1,
     lore: "削尖的竹签，穿肉穿菜，烤串的家伙什。" },
 ];
@@ -261,13 +273,15 @@ export const STAR_MAP = {};
 export const starOf = (n) => STAR_MAP[n] || 0;
 export const starLabel = (n) => starOf(n) ? "★".repeat(starOf(n)) : "";
 
-// ── 食材分类标签：调料/肉/菜/主食/其他 ───────────────────────────────
-export const ING_TAGS = ["调料", "肉", "菜", "主食", "其他"];
+// ── 食材分类标签：调料/肉/菜/主食/基底/曲/其他 ───────────────────────
+export const ING_TAGS = ["调料", "肉", "菜", "主食", "基底", "曲", "其他"];
 const _TAG = {
   调料: ["熊山花椒","贡措海盐","锦官豆瓣酱","雅江菜籽油","雪山野蜂蜜","大草甸孜然","黑风寨苞谷醋","喇嘛庙藏红花","天都镇酱油","鱼定村野葱油","二荆条辣椒","汉源清溪花椒","泡海椒","保宁醋","潼川豆豉","叙府芽菜","玫瑰花酱","酸木瓜","香茅草","单山蘸水","内江红糖"],
   肉: ["牦牛腱子肉","藏香猪五花","大草甸黄羊腿","雪山雪鸡肉","狼曲冷水鱼","青衣江团鱼","贡措海裂腹鱼","熊曲石斑","宣威火腿"],
   菜: ["熊山松茸","青城山蕨菜","熊山铁棍山药","贡措海苔花","大草甸野韭","熊猫笋","玉泉寨土豆","雅江嫩豆腐","大草甸蘑菇","锦官城干笋","见手青","鸡枞菌","干巴菌","石屏豆腐","折耳根"],
-  主食: ["鱼定村青稞","蜀南大米","过桥米线","饵块"],
+  主食: ["过桥米线","饵块"],
+  基底: ["蜀南大米","鱼定村青稞","麦芽"],
+  曲: ["甜酒曲","麦曲","大曲","藏曲"],
 };
 export function ingTag(name) {
   for (const [t, arr] of Object.entries(_TAG)) if (arr.includes(name)) return t;
@@ -288,7 +302,40 @@ export const SET_CATS = ["汤", "饭", "点心", "串", "小吃"];
 
 // 商店常备（刷新也总在架）
 export const SHOP_BASICS = ["贡措海盐", "雅江菜籽油", "熊山花椒", "二荆条辣椒",
-  "玉泉寨土豆", "蜀南大米", "绿豆", "竹签", "牛奶", "鸡蛋"];
+  "玉泉寨土豆", "蜀南大米", "绿豆", "竹签", "牛奶", "鸡蛋",
+  "麦芽", "甜酒曲", "麦曲", "大曲", "藏曲", "蒸馏器"];
+
+// ── 商店基酒（应急/没料没时间时买现成的，品质固定；自酿更高）────────
+export const SHOP_WINES = [
+  { name: "锦官米酒", flavor: "tian", quality: 58, price: 12, desc: "锦官城酒坊的寻常米酒，甜淡，应急用。" },
+  { name: "玉泉青稞酒", flavor: "xianxiang", quality: 60, price: 15, strong: true, desc: "玉泉寨牧人酿的青稞酒，粗犷有后劲。" },
+  { name: "马帮烧酒", flavor: "mala", quality: 65, price: 25, strong: true, desc: "打箭炉马帮带的蒸馏烧酒，烈如烧刀。" },
+  { name: "锦官黄酒", flavor: "chun", quality: 72, price: 30, desc: "锦官城老字号黄酒，陈了三年，醇厚。" },
+];
+
+// ── 酿造配方 · 基底+曲+辅料 → 酒 ────────────────────────────────────
+// 工序（内功可加速）：米酒=快酿1周 / 青稞=陶罐1-2周 / 麦酒=3周 / 白酒=发酵2-3周+蒸馏(需蒸馏器) / 黄酒=陈酿6-10周
+// flavor 尽量用做菜味型 id（匹配客人口味）；strong=烈酒（余味爱，斯文客嫌）；chun/yaoxiang 为酒专属
+export const BREW_RECIPES = [
+  { id: "nuomijiu", name: "糯米酒", base: "蜀南大米", qu: "甜酒曲", extra: [], flavor: "tian", kind: "米酒", weeks: 1, desc: "醪糟清甜，入口绵，蜀地家家灶上都有的家常酒。" },
+  { id: "suanmeiniang", name: "酸梅酿", base: "蜀南大米", qu: "甜酒曲", extra: ["酸木瓜"], flavor: "suanla", kind: "米酒", weeks: 1, desc: "果酸入酒，开胃爽口——余味姑娘口头念叨的酸。" },
+  { id: "diaomeijiu", name: "雕梅酒", base: "蜀南大米", qu: "甜酒曲", extra: ["雕梅", "内江红糖"], flavor: "tiansuan", kind: "米酒", weeks: 1, desc: "雕梅的酸甜浸进酒里，琥珀色，甜酸交织。" },
+  { id: "meiguilu", name: "玫瑰露", base: "蜀南大米", qu: "甜酒曲", extra: ["玫瑰花酱"], flavor: "tian", kind: "米酒", weeks: 1, desc: "花气入酒，甜而不腻，姑娘们喜欢的。" },
+  { id: "mijiu", name: "蜜酒", base: "蜀南大米", qu: "甜酒曲", extra: ["雪山野蜂蜜"], flavor: "tian", kind: "米酒", weeks: 1, desc: "蜜甜润喉，后味干净。" },
+  { id: "jiangguozhongniang", name: "浆果重酿", base: "蜀南大米", qu: "甜酒曲", extra: ["避雨浆果窖藏酒"], flavor: "tiansuan", kind: "米酒", weeks: 1, desc: "旧酒为引，新酒为体，浆果香沉在底。" },
+  { id: "qingkejiu", name: "青稞酒", base: "鱼定村青稞", qu: "藏曲", extra: [], flavor: "xianxiang", strong: true, kind: "青稞", weeks: 2, desc: "高原粗犷，后劲足，牧人敬酒用的是它。" },
+  { id: "naijiu", name: "奶酒", base: "鱼定村青稞", qu: "藏曲", extra: ["乳扇", "牛奶"], flavor: "tian", kind: "青稞", weeks: 2, desc: "牦牛奶香裹着酒气，玉泉寨的暖身酒。" },
+  { id: "zangyaojiu", name: "藏药酒", base: "鱼定村青稞", qu: "藏曲", extra: ["喇嘛庙藏红花"], flavor: "yaoxiang", kind: "青稞", weeks: 2, desc: "藏红花入酒，药香辛辣。喇嘛庙规矩是佛前不饮，市井里照喝。" },
+  { id: "mishaoshao", name: "米烧酒", base: "蜀南大米", qu: "大曲", extra: [], flavor: "mala", strong: true, kind: "白酒", weeks: 3, needsStill: true, desc: "甑蒸取露，清如水、味极浓烈——李时珍说的烧酒，蜀地人叫烧刀。" },
+  { id: "maishaoshao", name: "麦烧酒", base: "麦芽", qu: "大曲", extra: [], flavor: "mala", strong: true, kind: "白酒", weeks: 3, needsStill: true, desc: "麦香冲烈，打箭炉烧坊的手艺。" },
+  { id: "qingkebaijiu", name: "青稞白酒", base: "鱼定村青稞", qu: "大曲", extra: [], flavor: "mala", strong: true, kind: "白酒", weeks: 3, needsStill: true, desc: "藏地高度，一口下去胸口烧起来。" },
+  { id: "mihuangjiu", name: "米黄酒", base: "蜀南大米", qu: "麦曲", extra: [], flavor: "chun", kind: "黄酒", weeks: 6, desc: "低温慢酵，色如琥珀，陈得越久越醇——锦官城名馆的看家酒。" },
+  { id: "yaoxianghuangjiu", name: "药香黄酒", base: "蜀南大米", qu: "麦曲", extra: ["喇嘛庙藏红花"], flavor: "yaoxiang", kind: "黄酒", weeks: 6, desc: "黄酒泡药，入药入膳两用，药铺也收。" },
+  { id: "shanzhenhuangjiu", name: "山珍黄酒", base: "蜀南大米", qu: "麦曲", extra: ["熊山松茸"], flavor: "chun", kind: "黄酒", weeks: 6, desc: "松茸沉底，鲜醇厚重。" },
+  { id: "mimaijiu", name: "蜜麦酒", base: "麦芽", qu: "麦曲", extra: ["雪山野蜂蜜"], flavor: "tian", kind: "麦酒", weeks: 3, desc: "麦甜蜜香，北地麦酒的蜀地变种。" },
+  { id: "huamaizhang", name: "花麦酿", base: "麦芽", qu: "麦曲", extra: ["玫瑰花酱"], flavor: "tian", kind: "麦酒", weeks: 3, desc: "花香裹麦香。" },
+  { id: "suanmaijiu", name: "酸麦酒", base: "麦芽", qu: "麦曲", extra: ["酸木瓜"], flavor: "suanla", kind: "麦酒", weeks: 3, desc: "麦酸爽口，配油腻正合适。" },
+];
 
 // ── 配方（10 道）· 料槽组合×技法，命中=固定菜名 ────────────────────────
 export const RECIPES = [

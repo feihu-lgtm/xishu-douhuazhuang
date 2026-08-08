@@ -26,6 +26,16 @@ export const starSec = (st) => {
   return sec("店誉", `豆花庄得了食评人余味送的 ${n} 支银簪（一支银簪等于一星，蜀地独一份，比县志里锦官城那几家名馆还金贵）。余味是峨眉破戒的女侠——任性少女、年纪轻轻的一流高手、口味刁钻，叫她「前辈」她会急眼。这份名声必须落进这场的言行里：旧识、熟客见面就夸，夸得真诚具体；同行（尤其上门挑刺的厨子）先忌惮三分，挑刺也先掂量「这家挂着星」。别直白喊口号，把分量写在台词与态度里。`);
 };
 
+// 食评人余味 · 专属点评规则：银簪评级是她的招牌，评价落到火候，带出评级惦记
+export const ryuweiSec = (g, st) => {
+  if (!g?.ryuwei) return "";
+  const n = (st?.ryuweiRating || {}).tier ?? 0;
+  const pts = (st?.ryuweiRating || {}).pts ?? 0;
+  const need = [75, 85, 95][n];
+  const remain = need ? Math.max(0, need - pts) : 0;
+  return sec("食评人余味", `余味是峨眉破戒的女侠食评人——任性少女、口味刁钻、年纪轻轻的一流高手，别叫前辈。她的银簪评级是招牌：大阵仗四样（大菜/汤/小吃/酒水）各 25%，总分 ${remain > 0 ? `还差 ${remain} 分到下一星（她上回给到 ${pts} 分）` : "已到最高星"}。她的评价要实打实落到火候与滋味上，会带出银簪、评级的惦记。`);
+};
+
 // ── 闲聊上下文（学 qucuo/jihaitang：分块、标号、不冗余；数据与拼接分离）──
 // 苏唐接话要有据：场景/关系/今日来客/近况/最近对话/店誉全拼进 user 块，
 // 她提人提事不凭空——来过的客人、做过的菜、师兄的银簪名声都是谈资。
@@ -90,6 +100,7 @@ export function dishUser(ctx) {
     rivalSec(ctx.guest) +
     bodySec(ctx.guest) +
     starSec(ctx.st) +
+    ryuweiSec(ctx.guest, ctx.st) +
     sec("约束", `只能使用这些料：${ctx.materials.join("、")}，不得凭空添加任何其他食材。`) +
     sec("配方", ctx.recipeName ? `这搭配正中配方「${ctx.recipeName}」，菜名必须用它。` : "这搭配没有固定配方，请你即兴起一个贴切的菜名。") +
     sec("武学", ctx.martial ? `这一勺练到 ${ctx.martial.external.join("、") || "基本功"}${ctx.martial.internal ? "，并运了内功" : ""}；食材配合 ${ctx.martial.synergy} 分；成菜基础分 ${ctx.baseScore}。正文里把这套身手自然带出来。` : "") +
@@ -130,6 +141,7 @@ export function reactionUser(ctx) {
     rivalSec(ctx.guest) +
     bodySec(ctx.guest) +
     starSec(ctx.st) +
+    ryuweiSec(ctx.guest, ctx.st) +
     sec("主菜", `「${ctx.dishName}」（${ctx.mainBy || "师兄"}做的）：${ctx.mainDesc || "（无描述）"}。这道主菜评分 ${ctx.score} 分。`) +
     sec("佐餐", ctx.snackName ? `小吃「${ctx.snackName}」（苏唐做的）：${ctx.snackDesc || "苏唐手作。"}。这道小吃评分 ${ctx.snackScore ?? "—"} 分。` : "（这顿没有佐餐小吃）") +
     sec("裁决", `${ctx.tierDesc}（${ctx.score}分）。客人对师兄的好感为 ${ctx.aff ?? 0}（${ctx.affName || "面生"}）。`) +

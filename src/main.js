@@ -1,14 +1,14 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS } from "./data.js";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES } from "./data.js";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
-  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, wishMatchScore, GUESTS_PER_DAY,
+  registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, GUESTS_PER_DAY,
 } from "./state.js";
 import {
-  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts,
+  loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
 } from "./ai.js";
@@ -16,7 +16,7 @@ import { chatContext } from "./prompt.js";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, closeModal, logStream,
-  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt,
+  commentLine, setMood, suLine, suSys, slogStream, openSnack, openSet, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt,
 } from "./ui.js";
 
 let st = null;
@@ -341,6 +341,23 @@ async function doServe() {
   if (st.phase !== "guest" || !st.dish) return;
   const g = currentGuest(st);
   if (!g) return;
+  // ── 余味大阵仗：两道菜（大菜+汤）入席，四样齐才开席评星 ──
+  if (g.ryuwei) {
+    const feast = st.feast = st.feast || {};
+    if (!feast.main) {
+      feast.main = { dish: st.dish, score: scoreDish(st.dish, g, (st.guestWishes || {})[g.id]) };
+      st.dish = null;
+      sys("大菜入席。余味在等——再给她做一道汤。");
+      return;
+    }
+    if (!feast.soup) {
+      feast.soup = { dish: st.dish, score: scoreDish(st.dish, g, (st.guestWishes || {})[g.id]) };
+      st.dish = null;
+      sys("汤也入席。去「佐餐」选小吃和酒水——四样凑齐，余味才开席评星。");
+      return;
+    }
+    return sys("四样凑齐了——去「佐餐」给余味开席。");
+  }
   busy = true;
   try {
   startTrace("佐餐");
@@ -415,18 +432,7 @@ async function doServe() {
   // 出餐评分：主菜(谁做)和小吃(苏唐)分别评分+星级
   sys(`【评分】主菜「${dish.name}」(${mainBy}做) ${score} 分 ${starsOf(score)}` +
     (snackScore != null ? ` · 小吃「${setName}」(苏唐做) ${snackScore} 分 ${starsOf(snackScore)}` : ""));
-  // 食评人余味：吃完按评分给鱼尾银簪评级（锚点），够档晋升
-  if (g.ryuwei) {
-    const newTier = ryuweiGain(st, score);
-    if (newTier) {
-      const nm = ryuweiTierName(st);
-      // 送银簪：一支银簪 = 一星（米其林式荣誉），档位即所持银簪数
-      await narrGlow(`「${g.name}」掸掸裙摆，从发间取下一支银簪，搁进师兄掌心：「${nm}——${newTier === 1 ? "做得很好，我的小鱼尾巴都要跳了。这支银簪，收好，算一星。" : newTier === 2 ? "全天下只有锦官城两家、拉萨一家、打箭炉一家，如今多了鱼定村这一家。两支银簪，两星。" : "三尾鱼？头一回在册子上落这三笔。三支银簪，三星——小鱼儿的尾巴都要跳断了。"}」`);
-      renderAll(st, handlers);
-    } else {
-      await narrGlow(`「${g.name}」筷子一放，微微摇头：「尾巴没压住，再练练，小鱼尾巴都耷拉下来啦。」`);
-    }
-  }
+  // 余味的评级走大阵仗开席（doFeastServe），单菜不评银簪
   // 踢馆同行：按档位阈值（req）判定——达标把他赶走，必爆 ★食材 + 大额钱，并推进梯度
   if (g.rival) {
     const stars = (st.ryuweiRating || {}).tier ?? 0; // 银簪数=星级：挂了星的馆子，同行先忌惮三分
@@ -758,6 +764,100 @@ function note(act, text) {
   captureRoundLog(); // 这一轮的左右栏新增内容存进 st.recentLog，供读档回显
 }
 
+// ── 酿造：苏唐下坛（一次投料 → 入在酿清单 → AI 叙事；内功催酿）──
+async function doBrew(recipeId) {
+  const rec = BREW_RECIPES.find(r => r.id === recipeId);
+  if (!rec) return sys("没有这个酒方。");
+  const need = [rec.base, rec.qu, ...(rec.extra || [])];
+  const miss = need.filter(n => (st.inv[n] || 0) <= 0);
+  if (miss.length) return sys(`缺料：${miss.join("、")}——酿不了「${rec.name}」。`);
+  if (rec.needsStill && !(st.inv["蒸馏器"] || 0)) return sys("烧酒要上甑蒸馏——先弄台蒸馏器（打箭炉铁匠铺的货）。");
+  if ((st.brewing || []).length >= 3) return sys("坛子都用完了——等酿好的出坛再说。");
+  if (busy) return sys("说书人正忙着呢。");
+  busy = true;
+  try {
+  for (const n of need) { st.inv[n] -= 1; if (st.inv[n] <= 0) delete st.inv[n]; }
+  const weeks = brewWeeks(rec, st);
+  const b = {
+    recipeId: rec.id, name: rec.name, base: rec.base, qu: rec.qu, extra: rec.extra || [],
+    flavor: rec.flavor, strong: !!rec.strong, kind: rec.kind, needsStill: !!rec.needsStill,
+    startedDay: st.day, dueDay: st.day + weeks,
+  };
+  st.brewing = st.brewing || [];
+  st.brewing.push(b);
+  closeModal();
+  startTrace("酿造");
+  const r = await genBrew(loadCfg(), b);
+  await suLine(r.prose);
+  if (!r.ai) sys("（说书人未接线或掉线，酿酒先用模板。）");
+  const when = weeks === 0 ? "立等可取" : `第 ${b.dueDay} 周可取`;
+  suSys(`【酿造】「${b.name}」下坛 · ${when} · 内功 ${st.skills["内功"] || 0}`);
+  note("酿造", `苏唐酿「${b.name}」（${rec.kind}），${when}。`);
+  endTrace(`酿造「${b.name}」`);
+  } finally { busy = false; }
+  renderAll(st, handlers);
+  saveGame(st);
+}
+
+// ── 余味开席：四样（大菜/汤/小吃/酒水）各 25%，总分定星 ────────
+async function doFeastServe() {
+  const g = currentGuest(st);
+  if (!g?.ryuwei) return;
+  const feast = st.feast;
+  if (!feast?.main || !feast?.soup || !feast?.snack || !feast?.wine) return sys("四样没凑齐——还差一样，余味不开席。");
+  busy = true;
+  try {
+  startTrace("开席");
+  const mainScore = feast.main.score, soupScore = feast.soup.score;
+  const snackPts = feast.snack.score, winePts = feast.wine.score;
+  const total = Math.round((mainScore + soupScore + snackPts + winePts) / 4);
+  // 开席叙事（AI 品评四样，分数系统已定）
+  const h = logStream("narr", { extraClass: "ryuwei-comment" });
+  const r = await genFeastReview(loadCfg(), { g, feast, scores: { mainScore, soupScore, snackScore: snackPts, winePts }, total });
+  if (r.ai) h.apply(r.prose, "");
+  else { h.remove(); await narrGlow(r.prose); if (!r.ai) sys("（说书人未接线或掉线，开席先用模板。）"); }
+  // 定星：现评现定，tier 只升不降
+  const newTier = ryuweiGain(st, total);
+  if (newTier) {
+    const nm = ryuweiTierName(st);
+    await narrGlow(`「${g.name}」掸掸裙摆，从发间取下一支银簪，搁进师兄掌心：「${nm}——${newTier === 1 ? "做得很好，我的小鱼尾巴都要跳了。这支银簪，收好，算一星。" : newTier === 2 ? "全天下只有锦官城两家、拉萨一家、打箭炉一家，如今多了鱼定村这一家。两支银簪，两星。" : "三尾鱼？头一回在册子上落这三笔。三支银簪，三星——小鱼儿的尾巴都要跳断了。"}」`);
+    renderAll(st, handlers);
+  } else if (total >= 75) {
+    const curTier = (st.ryuweiRating || {}).tier ?? 0;
+    const next = RYUWEI_TIERS.find(t => t.tier === curTier + 1);
+    const remain = next ? Math.max(0, next.need - total) : 0;
+    await narrGlow(`「${g.name}」放下筷子，指尖在袖口那支银簪上轻轻一按：「这席够格——就是还差 ${remain} 分，够到下一支银簪。下次，小鱼尾巴该跳了。」`);
+  } else {
+    await narrGlow(`「${g.name}」筷子一放，微微摇头：「尾巴没压住，再练练，小鱼尾巴都耷拉下来啦。」`);
+  }
+  // 结算：好感 + 入账（四样的大阵仗，钱给足）
+  st.aff[g.id] = Math.min(100, (st.aff[g.id] || 0) + 6);
+  const pay = Math.round(888 * (0.5 + total / 200));
+  st.coins += pay; st.earned += pay;
+  st.totalServed += 1; st.served += 1;
+  gold(`${g.name} 放下 ${pay} 文铜钱。（大阵仗总分 ${total}）`);
+  sys(`【开席】大菜 ${mainScore} · 汤 ${soupScore} · 小吃 ${snackPts} · 酒水 ${winePts} → 总分 ${total}（四样各25%）`);
+  note("开席", `余味大阵仗：${mainScore}/${soupScore}/${snackPts}/${winePts} → ${total}分${newTier ? `，晋${ryuweiTierName(st)}` : ""}。`);
+  endTrace(`开席·总分${total}`);
+  st.feast = null;
+  } finally { busy = false; }
+  renderAll(st, handlers);
+  saveGame(st);
+}
+
+// ── 买基酒（应急：商店现成的品质固定，自己酿的更高）────────────
+function doBuyWine(name) {
+  const w = SHOP_WINES.find(x => x.name === name);
+  if (!w) return;
+  if (st.coins < w.price) return sys(`钱不够——${w.name}要 ${w.price} 文。`);
+  st.coins -= w.price;
+  st.wines = st.wines || {};
+  st.wines[w.name] = (st.wines[w.name] || 0) + 1;
+  sys(`买了「${w.name}」（品质 ${w.quality}）——自己酿的会更好。`);
+  renderAll(st, handlers);
+  saveGame(st);
+}
+
 async function doSnackRequest(txt) {
   if (busySnack) return sys("苏唐正忙着备小吃呢。");
   busySnack = true;
@@ -842,6 +942,29 @@ function doPickGuest() {
 // ── 佐餐（替代上菜+配set）──────────────────────────────────────────
 function doZuocan() {
   if (st.phase !== "guest" || !st.dish) return;
+  const gSet = currentGuest(st);
+  if (gSet?.ryuwei) {
+    // 余味大阵仗：选小吃+酒水，四样齐开席
+    openSet(st, { feast: true, onSet: (sel) => {
+      const feast = st.feast = st.feast || {};
+      if (sel.snack) {
+        const srec = (st.snackRecipes || []).find(x => x.name === sel.snack);
+        feast.snack = { name: sel.snack, score: snackScoreOf(srec, gSet) };
+        st.snacks[sel.snack] -= 1;
+        if (st.snacks[sel.snack] <= 0) delete st.snacks[sel.snack];
+      }
+      if (sel.wine) {
+        const winfo = (st.wineRecipes || []).find(r => r.name === sel.wine)
+          || SHOP_WINES.find(w => w.name === sel.wine) || {};
+        const q = winfo.quality ?? 60;
+        feast.wine = { name: sel.wine, quality: q, flavor: winfo.flavor, strong: !!winfo.strong, score: wineScore({ quality: q, flavor: winfo.flavor, strong: !!winfo.strong }, gSet) };
+        st.wines[sel.wine] -= 1;
+        if (st.wines[sel.wine] <= 0) delete st.wines[sel.wine];
+      }
+      doFeastServe();
+    } });
+    return;
+  }
   const has = Object.values(st.snacks || {}).some(n => n > 0);
   if (!has) return doServe();
   openSet(st, { onSet: (name) => { st.pendingSet = name; doServe(); } });
@@ -909,6 +1032,13 @@ async function doNext() {
   try {
   await doReview();            // 收工总评在翻篇时做
   nextDay(st);
+  // 酿造结算：到期的坛子出酒（苏唐的活计，跨周长期机制）
+  const brews = settleBrewing(st);
+  for (const b of brews) {
+    await suLine(`酒坛子开了——「${b.name}」${b.extraWeeks ? `（比预定多陈了 ${b.extraWeeks} 周）` : ""}出酒 5 杯，品质 ${b.quality}。`);
+    if (st.suSkills["酿酒"] <= 100) sys(`苏唐酿酒手艺见长：酿酒技能 +2（今 ${st.suSkills["酿酒"]}）。`);
+    note("出酒", `「${b.name}」出坛${b.extraWeeks ? `（多陈${b.extraWeeks}周）` : ""}，品质${b.quality}，5杯。`);
+  }
   applyRival(st);              // 第二客可能换成踢馆同行
   dismissInvite();             // 新一天开门：收掉昨天晚上的邀请面板
   setMood(0);
@@ -953,6 +1083,7 @@ async function onCommand(text) {
   if (["灶台", "做菜", "开灶"].includes(cmd)) return doCook();
   if (["上菜", "端菜", "佐餐"].includes(cmd)) return doZuocan();
   if (["小吃", "零食"].includes(cmd)) return doSnackPanel();
+  if (["酿造", "酿酒", "brew", "酒"].includes(cmd)) return openBrew(st, { onBrew: doBrew, onBuy: doBuyWine });
   if (["商店", "买", "逛街"].includes(cmd)) return doShop();
   if (["探秘", "副本", "exp"].includes(cmd)) return openExpeditionMap();
   if (["新客", "招客", "newguest"].includes(cmd)) return doNewGuest();

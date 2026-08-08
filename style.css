@@ -605,6 +605,16 @@ body {
 @keyframes vline-flow { to { background-position: 0 200%; } }
 @keyframes vline-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
+.brew-row {
+  margin: 8px 22px; padding: 10px 14px;
+  border: 1px solid var(--line-soft); border-radius: 8px; cursor: pointer;
+  transition: border-color .15s;
+}
+.brew-row:hover { border-color: var(--gold); }
+.brew-row b { color: var(--ink-bright); letter-spacing: 2px; }
+.brew-row i { color: var(--ink-dim); font-size: 12px; margin-left: 8px; font-style: normal; }
+.brew-row p { margin: 4px 0 0; color: var(--mute); font-size: 12.5px; }
+
 /* 苏唐批 · 高兴评带表情图标（四个 favicon 表情之一），不高兴/中性评不带 */
 .entry.comment.su-face-1 .bd::before,
 .entry.comment.su-face-2 .bd::before,

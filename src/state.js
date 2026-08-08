@@ -50,7 +50,7 @@ export function newState() {
     earned: 0,
     aff: {},                 // 好感度 {guestId: 0-100}
     skills: { 刀法: 10, 剑法: 10, 拳掌: 10, 枪法: 10, 投掷: 10, 轻功: 10, 内功: 10 },
-    suSkills: { 刀法: 20, 剑法: 10, 拳掌: 15, 枪法: 10, 投掷: 15, 轻功: 15, 内功: 15 }, // 苏唐的
+    suSkills: { 刀法: 20, 剑法: 10, 拳掌: 15, 枪法: 10, 投掷: 15, 轻功: 15, 内功: 15, 酿酒: 5 }, // 苏唐的（酿酒 0-100，每次酿造锻炼）
     suAff: 0,                // 苏唐好感（对话/备菜就加）
     snacks: {},              // 备好的小吃 {name: 份数}
     snackRecipes: [],        // 苏唐菜单 [{name,cat,tag,used,quality,desc}]
@@ -59,6 +59,7 @@ export function newState() {
     chatLog: [],             // 闲聊历史：最近几轮 [{u: 师兄说, a: 苏唐回应}],供苏唐接话有据
     todaySnacks: [],         // 今日苏唐做的小吃 [{name,quality,flavor}]
     pendingSet: null,        // 上菜时配的 set
+    feast: null,             // 余味大阵仗：{main:{dish}, soup:{dish}, snack:null, wine:null} 四样凑齐开席
     shopSeed: 1,
     shopIng: rollShopIng(1), // 刷新后的在架食材（种子对应 shopSeed: 1）
     buyQty: {},              // 每样固定买几份（锁定，免手动调）
@@ -79,6 +80,9 @@ export function newState() {
     pendingGifts: null,      // 收功时后台备好的明日熟客送礼 {givers:[{name,gift}], text}
     guestMemories: {},       // 隔离记忆：{guestId:[{day,mainBy,dish,mainScore,snackName,snackScore}]} 每个客人只记得自己经历的事
     guestWishes: {},         // 问客心愿：{guestId: "客人原话"} 说了什么就是什么，做菜匹配加分
+    wines: {},               // 酒库存 {酒名: 瓶数}（自酿/商店基酒）
+    wineRecipes: [],         // 自酿酒单 [{name,base,qu,extra,flavor,quality,strong,kind}]（出过酒才记）
+    brewing: [],             // 在酿清单 [{recipeId, name, base, qu, extra, startedDay, dueDay, still, flavor, strong, kind}]
     ryuweiRating: { pts: 0, tier: 0 }, // 食评人余味的鱼尾评级锚点：0无尾 1一尾鱼翘楚 2两尾鱼(绝世) 3三尾鱼(传说)
     nextGuestPicks: [],      // 邀客点将：玩家钦点明日必到的客人 id 列表(最多 GUESTS_PER_DAY 个)，nextDay 消费后清空
     explicitPickCount: 0,    // 今日客位里有几个是玩家钦点的（供 applyRival 判断该不该抢第2个客位）
@@ -316,6 +320,59 @@ export function inviteCandidates(st) {
 }
 // 邀客·点将明日：玩家钦点（最多 GUESTS_PER_DAY 位），不管认不认得、平日在哪、是不是踢馆同行，
 // 明天准来，各占一个客位；其余客位照常随机。
+// ── 酿造 · 苏唐的活计（内功催酿 + 酿酒技能定品质）─────────────────
+// 内功催酿：周数 = ceil(基础周数 × (1 - 内功/250))；内功≥50 时 1 周配方立等可取
+export function brewWeeks(recipe, st) {
+  const nf = (st.skills || {})["内功"] || 0;
+  if (recipe.weeks <= 1 && nf >= 50) return 0; // 立等可取：内功催发酒曲
+  return Math.max(1, Math.ceil(recipe.weeks * (1 - nf / 250)));
+}
+// 品质 = 40 保底 + 基底星数×14 + 辅料星数均值×10 + 酿酒技能×0.4 + 工序（蒸馏/陈酿）加成，clamp 0-100
+// 技能权重高：新手酿出 45 上下的普通酒（略逊商店基酒 58-72，练手用），技能 80+ 配好料才远超商店货
+export function brewQuality(recipe, st, extraWeeks = 0) {
+  const star = (n) => (st.stars && st.stars[n]) || 0;
+  const basePts = star(recipe.base) * 14;
+  const exPts = (recipe.extra || []).length
+    ? (recipe.extra.reduce((a, n) => a + star(n), 0) / recipe.extra.length) * 10 : 0;
+  const skill = ((st.suSkills || {})["酿酒"] || 5) * 0.4;
+  const proc = recipe.needsStill ? 12 : (recipe.kind === "黄酒" ? 8 + extraWeeks * 2 : 5);
+  return Math.max(0, Math.min(100, Math.round(40 + basePts + exPts + skill + proc)));
+}
+// 周结算：到期出酒（doNext 翻篇时调）；返回本批出酒（含品质），供叙事
+export function settleBrewing(st) {
+  const done = [];
+  st.brewing = (st.brewing || []).filter(b => {
+    if (b.dueDay > st.day) return true;
+    done.push(b);
+    return false;
+  });
+  for (const b of done) {
+    const extraWeeks = Math.max(0, st.day - b.dueDay); // 陈酿超期：黄酒更醇
+    const q = brewQuality({ ...b, needsStill: b.needsStill }, st, extraWeeks);
+    st.wines = st.wines || {};
+    st.wines[b.name] = (st.wines[b.name] || 0) + 5;
+    st.wineRecipes = st.wineRecipes || [];
+    const rec = st.wineRecipes.find(r => r.name === b.name);
+    if (rec) rec.quality = Math.max(rec.quality, q);
+    else st.wineRecipes.push({ name: b.name, base: b.base, qu: b.qu, extra: b.extra, flavor: b.flavor, quality: q, strong: !!b.strong, kind: b.kind, needsStill: !!b.needsStill });
+    st.suSkills = st.suSkills || {};
+    st.suSkills["酿酒"] = Math.min(100, (st.suSkills["酿酒"] || 5) + 2); // 每次酿造锻炼
+    b.quality = q; b.extraWeeks = extraWeeks;
+  }
+  return done;
+}
+
+// ── 酒水分（余味大阵仗 25% 之一）＝ 品质 70% + 味型匹配 30% ──────────
+// flavor 对上客人口味 +30；烈酒（strong）：余味这种高手 +15，斯文客 −10
+export function wineScore(wine, guest) {
+  if (!wine) return 0;
+  const q = wine.quality ?? 60;
+  let pts = q * 0.7;
+  if (wine.flavor && guest && wine.flavor === guest.flavor) pts += 30;
+  else if (wine.strong) pts += guest && guest.ryuwei ? 15 : -10;
+  return Math.max(0, Math.min(100, Math.round(pts)));
+}
+
 export function nextDay(st) {
   st.day += 1;
   st.served = 0;
@@ -400,27 +457,30 @@ export function rankLabel(succ, achieve) {
   return "生手";
 }
 
-// ── 食评人余味 · 鱼尾评级 ────────────────────────────────────────────
+// ── 食评人余味 · 鱼尾评级（米其林式，四样大阵仗直接定星）────────────
 // 一尾鱼=翘楚；两尾鱼=绝世（全天下只有锦官城两家/拉萨一家/打箭炉一家）；三尾鱼=传说（从没听说过）
-// 每晋升一档，余味送出一支银簪；档位即所持银簪数，一支银簪=一星米其林（星级店誉影响 NPC 言行）
+// 余味评分 1+1+1+1=100（大菜/汤/小吃/酒水各 25%）：总分 ≥75 → 1 星、≥85 → 2 星、≥95 → 3 星。
+// 缺一样 = 那项 0 分，3 样满分才 75（封顶 1 星）——必须四样齐且样样硬。
+// 每晋升一档，余味送出一支银簪；档位即所持银簪数，一支银簪=一星米其林。tier 只升不降。
 export const RYUWEI_TIERS = [
   { tier: 0, name: "无名小馆", need: 0 },
-  { tier: 1, name: "一尾鱼·翘楚", need: 150 },
-  { tier: 2, name: "两尾鱼·绝世", need: 400 },
-  { tier: 3, name: "三尾鱼·传说", need: 1200 },
+  { tier: 1, name: "一尾鱼·翘楚", need: 75 },
+  { tier: 2, name: "两尾鱼·绝世", need: 85 },
+  { tier: 3, name: "三尾鱼·传说", need: 95 },
 ];
 export function ryuweiTierName(st) {
   const t = (st.ryuweiRating || {}).tier ?? 0;
   return (RYUWEI_TIERS[t] || RYUWEI_TIERS[0]).name;
 }
-// 余味吃完按评分给评级点；够档则晋升一档，返回新档
-export function ryuweiGain(st, score) {
+// 余味吃完按四样总分直接定星（现评现定，tier 只升不降）；pts 记历史最高总分
+export function ryuweiGain(st, totalScore) {
   st.ryuweiRating = st.ryuweiRating || { pts: 0, tier: 0 };
-  if (score >= 60) st.ryuweiRating.pts += Math.round((score - 50) / 5); // 60→2 … 100→10
-  const cur = st.ryuweiRating.tier;
-  const next = RYUWEI_TIERS.findLast(t => st.ryuweiRating.pts >= t.need)?.tier ?? cur;
-  st.ryuweiRating.tier = Math.max(cur, next);
-  return st.ryuweiRating.tier > cur ? st.ryuweiRating.tier : 0; // 晋升返回新档，否则 0
+  st.ryuweiRating.pts = Math.max(st.ryuweiRating.pts || 0, Math.round(totalScore));
+  const star = totalScore >= 95 ? 3 : totalScore >= 85 ? 2 : totalScore >= 75 ? 1 : 0;
+  const cur = st.ryuweiRating.tier ?? 0;
+  const next = Math.max(cur, star);
+  st.ryuweiRating.tier = next;
+  return next > cur ? next : 0; // 晋升返回新档，否则 0
 }
 
 // ── 通用维度检定：骰子维度走熟练度（计数/成就），属性维度走 skills ───

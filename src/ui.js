@@ -2,8 +2,9 @@
 import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
+  BREW_RECIPES, SHOP_WINES,
 } from "./data.js";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, ryuweiTierName, rivalGuestForSchool, brewWeeks, GUESTS_PER_DAY } from "./state.js";
 import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw } from "./ai.js";
 
 // 顶部限流五点是空心/实心 + 12s 计时
@@ -852,25 +853,68 @@ export function openSnack(st, { onRequest, onRemake, onTag }) {
 }
 
 // ── 佐餐（选小吃 → 出餐按钮）────────────────────────────────────────
-export function openSet(st, { onSet }) {
-  let sel = null;
+export function openSet(st, { onSet, feast = false }) {
+  let selSnack = null, selWine = null;
   const stock = Object.entries(st.snacks || {}).filter(([, n]) => n > 0);
+  const wines = Object.entries(st.wines || {}).filter(([, n]) => n > 0);
+  const wineInfo = (n) => (st.wineRecipes || []).find(r => r.name === n) || SHOP_WINES.find(w => w.name === n) || { quality: 60, desc: "" };
   function draw() {
     const modal = openModal(`
-      <h2>佐 餐 · 上菜搭个边</h2>
-      <div class="set-note">给客人多搭一份苏唐备的小吃。选好点「出餐」。当前：${sel || "不佐餐"}。</div>
+      <h2>佐 餐 ${feast ? "· 余味大阵仗" : "· 上菜搭个边"}</h2>
+      <div class="set-note">${feast
+        ? `大菜 ✓ 汤 ✓ ——选小吃和酒水，四样齐了「开席」，余味按 25%×4 评星。`
+        : `给客人多搭一份苏唐备的小吃（可选酒水）。选好点「出餐」。`}</div>
+      <div class="ck-label" style="padding:0 22px">小吃（苏唐备）</div>
       <div class="ck-mats">
-        <span class="ck-mat ${sel === null ? "zero" : ""}" data-set="">不佐餐</span>
-        ${stock.map(([n, c]) => `<span class="ck-mat ${sel === n ? "" : "zero"}" data-set="${n}" style="${sel === n ? "border-color:var(--gold);color:var(--gold)" : ""}">${n} ×${c}</span>`).join("")}
+        <span class="ck-mat ${selSnack === null ? "zero" : ""}" data-snack="">${feast ? "不配小吃" : "不佐餐"}</span>
+        ${stock.map(([n, c]) => `<span class="ck-mat ${selSnack === n ? "" : "zero"}" data-snack="${n}" style="${selSnack === n ? "border-color:var(--gold);color:var(--gold)" : ""}">${n} ×${c}</span>`).join("")}
       </div>
-      <div class="ck-btns"><span class="ck-btn" data-serve>出 餐</span></div>
+      ${feast || wines.length ? `<div class="ck-label" style="padding:0 22px">酒水（酒库）</div>
+      <div class="ck-mats">
+        <span class="ck-mat ${selWine === null ? "zero" : ""}" data-wine="">不配酒</span>
+        ${wines.map(([n, c]) => `<span class="ck-mat ${selWine === n ? "" : "zero"}" data-wine="${n}" style="${selWine === n ? "border-color:var(--gold);color:var(--gold)" : ""}">${n} ×${c} <i style="font-style:normal;opacity:.7">(品质${wineInfo(n).quality})</i></span>`).join("")}
+      </div>` : ""}
+      <div class="ck-btns"><span class="ck-btn" data-serve>${feast ? "开 席" : "出 餐"}</span></div>
       <span class="return" data-back>Return · 返回</span>
     `, () => {});
-    modal.querySelectorAll("[data-set]").forEach(el => el.onclick = () => { sel = el.dataset.set || null; draw(); });
-    modal.querySelector("[data-serve]").onclick = () => { onSet(sel); closeModal(); };
+    modal.querySelectorAll("[data-snack]").forEach(el => el.onclick = () => { selSnack = el.dataset.snack || null; draw(); });
+    modal.querySelectorAll("[data-wine]").forEach(el => el.onclick = () => { selWine = el.dataset.wine || null; draw(); });
+    modal.querySelector("[data-serve]").onclick = () => { onSet(feast ? { snack: selSnack, wine: selWine } : selSnack); closeModal(); };
     modal.querySelector("[data-back]").onclick = () => closeModal();
   }
   draw();
+}
+
+// ── 酿造面板：配方下坛 / 商店基酒 / 在酿坛子一览 ────────────────
+export function openBrew(st, { onBrew, onBuy }) {
+  const wineStr = Object.entries(st.wines || {}).map(([n, c]) => `${n}×${c}`).join("、") || "空";
+  const brewing = (st.brewing || []).map(b => {
+    const wait = Math.max(0, b.dueDay - st.day);
+    return `「${b.name}」${wait === 0 ? "今周可取" : `再等 ${wait} 周`}`;
+  }).join("；") || "坛子都空着";
+  const modal = openModal(`
+    <h2>酿 造 · 苏唐的活计</h2>
+    <div class="set-note">酿酒手艺 <b>${st.suSkills?.酿酒 ?? 5}</b> · 每次酿造 +2（封顶 100）。内功催酿：内功 ≥ 50，米酒立等可取。</div>
+    <div class="set-note">酒库：${wineStr}<br>在酿：${brewing}</div>
+    <div class="ck-label" style="padding:0 22px">配方（下坛扣料，跨周取酒）</div>
+    ${BREW_RECIPES.map(r => {
+      const weeks = brewWeeks(r, st);
+      const wait = weeks === 0 ? "立等可取" : `${r.weeks}周${weeks !== r.weeks ? `（内功→${weeks}周）` : ""}`;
+      return `<div class="brew-row" data-brew="${r.id}">
+        <b>${r.name}</b><i>${r.kind} · ${wait}${r.needsStill ? " · 需蒸馏器" : ""}${r.strong ? " · 烈" : ""}</i>
+        <p>${r.base} + ${r.qu}${r.extra.length ? " + " + r.extra.join(" + ") : ""} · ${r.desc}</p>
+      </div>`;
+    }).join("")}
+    <div class="ck-label" style="padding:0 22px">商店基酒（应急：品质固定，自己酿的更高）</div>
+    ${SHOP_WINES.map(w => `<div class="brew-row" data-buy="${w.name}">
+      <b>${w.name}</b><i>品质 ${w.quality} · ${w.price}文${w.strong ? " · 烈" : ""}</i>
+      <p>${w.desc}</p>
+    </div>`).join("")}
+    <span class="return" data-back>Return · 返回</span>
+  `, () => {});
+  modal.querySelectorAll("[data-brew]").forEach(el => el.onclick = () => onBrew(el.dataset.brew));
+  modal.querySelectorAll("[data-buy]").forEach(el => el.onclick = () => onBuy(el.dataset.buy));
+  modal.querySelector("[data-back]").onclick = () => closeModal();
 }
 
 // ── 邀客·点将明日（最多 GUESTS_PER_DAY 位，任何人，含踢馆八线当前挑战者，点/取消即改）──

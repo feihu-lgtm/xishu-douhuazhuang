@@ -360,14 +360,17 @@ test("专练技法：片/串/颠 分别专练 剑法/枪法/投掷", () => {
   assert.equal(train["颠"], "投掷");
 });
 
-test("余味鱼尾评级：吃完按评分累积，够档晋升", () => {
+test("余味鱼尾评级：大阵仗四样总分直接定星（75/85/95 → 1/2/3星），只升不降", () => {
   const st = newState();
   assert.equal(ryuweiTierName(st), "无名小馆");
-  assert.equal(ryuweiGain(st, 50), 0, "低分不晋升");
-  let t = 0;
-  for (let i = 0; i < 20; i++) { const n = ryuweiGain(st, 95); if (n) t = n; }
-  assert.equal(st.ryuweiRating.tier, 1, "累积够一尾鱼");
+  assert.equal(ryuweiGain(st, 50), 0, "低分不定星");
+  assert.equal(ryuweiGain(st, 80), 1, "≥75 一星");
   assert.equal(ryuweiTierName(st), "一尾鱼·翘楚");
+  assert.equal(ryuweiGain(st, 70), 0, "掉分不降星");
+  assert.equal(st.ryuweiRating.tier, 1, "星只升不降");
+  assert.equal(ryuweiGain(st, 90), 2, "≥85 两星");
+  assert.equal(ryuweiGain(st, 96), 3, "≥95 三星");
+  assert.equal(ryuweiTierName(st), "三尾鱼·传说");
 });
 
 test("小吃独立评分：品质为底，味型对上+10", () => {
