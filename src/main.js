@@ -1,24 +1,24 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v52";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v52";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v53";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v53";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v52";
+} from "./state.js?v=v53";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeiluChat, genDuel, genJianghuEnter,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v52";
-import { chatContext } from "./prompt.js?v=v52";
+} from "./ai.js?v=v53";
+import { chatContext } from "./prompt.js?v=v53";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
   commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, lamuIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, openWeiluChat, initMobileDrawers,
-} from "./ui.js?v=v52";
+} from "./ui.js?v=v53";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -545,7 +545,7 @@ async function doServe(sel) {
     }
   }
   sys(`「好感」${g.name} ${d >= 0 ? "+" : ""}${d}（今 ${st.aff[g.id]} · ${affName(st.aff[g.id])}）`);
-  note("出餐", reactNote || `给${g.name}上「${dish.name}」${setName ? `+「${setName}」` : ""}，满意度${score}，好感+${d}。`);
+  note("出餐", reactNote || `给${g.name}上${[dish?.name, ...snackNames].filter(Boolean).map(n => `「${n}」`).join("、") || "「菜」"}，满意度${score}，好感+${d}。`);
   endTrace(`给${g.name}·满意度${score}·好感+${d}`);
   if (r.ms != null) sys(`说书 ${fmtMs(r.ms)}`);
   } finally { busy = false; saveGame(st); }  // 结算完立即落盘（回响等尾部流程不阻塞存档）

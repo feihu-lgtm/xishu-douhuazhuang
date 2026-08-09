@@ -46,28 +46,6 @@ body {
 /* 余味 CG 全屏播放（16:9，夺舍整个界面） */
 .cg-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; height: 100%; }
 .cg-img { max-width: 100%; max-height: 100%; object-fit: contain; border: 1px solid var(--line); box-shadow: 0 8px 44px rgba(0,0,0,.55); }
-/* 拉姆 CG 圣女卡：原图是暗底圆形头像卡，裁圆展示避免大片黑空；金环圣光呼吸 */
-.cg-wrap.cg-lamu { gap: 20px; }
-.cg-lamu-ring {
-  position: relative;
-  width: min(56vh, 56vw); height: min(56vh, 56vw);
-  border-radius: 50%; overflow: hidden;
-  border: 2px solid rgba(240, 201, 106, .55);
-  box-shadow: 0 0 44px rgba(240, 201, 106, .32), 0 0 130px rgba(240, 201, 106, .16);
-}
-.cg-lamu-ring::before {
-  content: ""; position: absolute; inset: -7px; border-radius: 50%;
-  border: 1px solid rgba(240, 201, 106, .65);
-  animation: lamu-ring-pulse 2.6s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes lamu-ring-pulse {
-  0%, 100% { opacity: .25; transform: scale(1); }
-  50% { opacity: .95; transform: scale(1.045); }
-}
-.cg-lamu-ring .cg-img { width: 100%; height: 100%; object-fit: cover; border: none; box-shadow: none; }
-.cg-lamu-title { font-size: 20px; letter-spacing: .12em; }
-.cg-lamu-line { color: var(--ink-dim); font-size: 13px; letter-spacing: .05em; max-width: 70vw; text-align: center; }
 
 #app {
   position: fixed; inset: 16px;

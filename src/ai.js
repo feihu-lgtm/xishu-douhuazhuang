@@ -1,8 +1,8 @@
 // 西蜀豆花庄 · AI 说书人（OpenAI 兼容端点，类酒馆接法；无 key 静默降级模板）
 // 支持流式（SSE）输出与模型列表检索（GET /models）。
-import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v52";
+import { FLAVOR_BY_ID, FLAVORS, TECHNIQUES, TECHNIQUE_IDS, ING_BY_NAME, SNACKS, starLabel, CATEGORY_TASK_TYPES, EXPEDITION_TASK_TYPES } from "./data.js?v=v53";
 import { NSFW_RULES, MODE_PRIMER_MESSAGES } from "./modePrimer.js";
-import { CHECK_DIMS } from "./state.js?v=v52";
+import { CHECK_DIMS } from "./state.js?v=v53";
 
 // ■ 黑方块模式：开启=强制注入 NSFW 规则+primer 消息（学 qucuo，默认开）
 let nsfwOn = true;
@@ -13,7 +13,7 @@ const msgsWithMode = (system, user) =>
   nsfwOn
     ? [{ role: "system", content: system }, ...MODE_PRIMER_MESSAGES, { role: "user", content: user }]
     : [{ role: "system", content: system }, { role: "user", content: user }];
-import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v52";
+import { STYLE, tierGuide, tierOfScore, dishUser, snackUser, reactionUser, RYUWEI_VOICE, HEYUXIE_VOICE } from "./prompt.js?v=v53";
 export { tierOfScore, tierGuide };
 
 const CFG_KEY = "xiaochu-ai-v1";
