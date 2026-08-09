@@ -517,6 +517,51 @@ body {
 .entry.lamu::before { left: 4px; top: 4px; }
 .entry.lamu::after { right: 6px; top: 10px; animation-delay: .6s; }
 
+/* ── 珂萝 · 西域书姬：珊瑚金放射流光（区别于余味横向探照灯/拉姆纵向圣光）── */
+.keluo-glow {
+  background: linear-gradient(90deg, #ffb199, #ffd9a0, #ff8c69, #ffb199);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: keluo-breathe 2.8s ease-in-out infinite;
+  font-weight: 600;
+}
+@keyframes keluo-breathe {
+  0%, 100% { text-shadow: 0 0 6px rgba(255, 140, 105, .22), 0 0 18px rgba(255, 217, 160, .12); }
+  50% { text-shadow: 0 0 12px rgba(255, 140, 105, .55), 0 0 32px rgba(255, 217, 160, .32); }
+}
+.pcard .gname.keluo-name {
+  position: relative;
+  background: linear-gradient(90deg, #ffb199, #ffd9a0, #ff8c69, #ffb199);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: keluo-breathe 2.8s ease-in-out infinite;
+  font-weight: 700;
+}
+.pcard .gname.keluo-name::before,
+.pcard .gname.keluo-name::after {
+  content: "✶"; position: absolute; font-size: 11px; color: #ff9d7a;
+  animation: keluo-fall 2.2s ease-in-out infinite; pointer-events: none;
+}
+.pcard .gname.keluo-name::before { left: -6px; top: -4px; }
+.pcard .gname.keluo-name::after { right: -6px; top: 2px; animation-delay: .8s; }
+@keyframes keluo-fall {
+  0%, 100% { opacity: .15; transform: translateY(0) scale(.7); }
+  50% { opacity: 1; transform: translateY(5px) scale(1.15); }
+}
+.entry.narr.keluo-comment .bd,
+.entry.narr.keluo-comment .bd p,
+.entry.narr.keluo-comment .bd span,
+.entry.comment.keluo-comment .bd,
+.entry.comment.keluo-comment .bd p,
+.entry.comment.keluo-comment .bd span {
+  background: linear-gradient(90deg, #ffb199, #ffd9a0, #ff8c69, #ffb199);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.entry.keluo::before, .entry.keluo::after {
+  content: "✶"; position: absolute; color: #ff9d7a; font-size: 14px;
+  animation: keluo-fall 2s ease-in-out infinite;
+}
+.entry.keluo::before { left: 4px; top: 4px; }
+.entry.keluo::after { right: 6px; top: 10px; animation-delay: .6s; }
+
 /* ── 鎏金瀑布 · 拉姆到场全屏特效（金流从天而降，只动 transform/opacity）── */
 .lamu-waterfall {
   position: fixed; inset: 0; z-index: 70;
