@@ -648,11 +648,11 @@ export const EXPEDITION_MAP = [  { id: "xuedong",   name: "雪山派", category:
   { id: "linchang",  name: "转经林场", category: "密林采山", top: 58, left: 20, guests: ["laoliehu", "asuo"] },
   { id: "yeyi",      name: "牧道野驿", category: "奇遇",     top: 74, left: 8,  guests: ["zhaxi", "maguotou"] },
   { id: "gudao",     name: "黑风古道", category: "劫镖江湖", top: 62, left: 47, guests: ["qingyilou", "lasan", "luosha"] },
-  { id: "koudu",     name: "官道渡口", category: "水域",     top: 79, left: 72, guests: ["danzeng", "paochuan"] },
+  { id: "koudu",     name: "官道渡口", category: "水域",     top: 79, left: 72, guests: ["danzeng", "paochuan", "ganqu"] },
   { id: "zaoshi",    name: "早市坊",   category: "市井",     top: 83, left: 38, guests: ["huasao", "daniang"] },
   { id: "miaohui",   name: "庙会集场", category: "节庆",     top: 10, left: 46, guests: ["meiduo", "baiguniang", "daijiak"] },
   { id: "chengjiao", name: "城郊人家", category: "人情",     top: 90, left: 87, guests: ["caidan", "zhuoma", "laosun", "susu"] },
-  { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46, guests: ["wenzhanggui", "tangcu", "shusheng", "suniang", "tiannan", "xianbo", "liruoyou", "lanjie", "ryuwei", "lamu"] },
+  { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46, guests: ["wenzhanggui", "tangcu", "shusheng", "suniang", "tiannan", "xianbo", "liruoyou", "lanjie", "ryuwei", "lamu", "keluo"] },
 ];
 
 // 探秘情境，按十类分好（轻度武侠，一据点一类，各据点各记各的上次，不重复）

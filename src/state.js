@@ -3,8 +3,8 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, DEFAULT_COOKWARE_ID, FLAVOR_BY_ID,
   RECIPES, GUESTS, INGREDIENTS, ING_BY_NAME, QUAL_BONUS, START_INV, START_COINS, SHOP_BASICS,
   RIVAL_LEVELS, RIVAL_SCHOOLS, FEMALE_GUEST_IDS, rivalGuestAt, BREW_RECIPES,
-} from "./data.js?v=v59";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v59";
+} from "./data.js?v=v60";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v60";
 
 export const GUESTS_PER_DAY = 3;
 const SAVE_KEY = "xiaochu-save-v1";
@@ -326,7 +326,8 @@ export function jianghuInviteCandidates(st) {
 // ── 邀请候选：所有认识的女性（预设女客 + 女厨/女新客等动态客人），好感>15 ──
 export function inviteCandidates(st) {
   const known = [...GUESTS, ...(st.customGuests || [])];
-  return known.filter(g => (FEMALE_GUEST_IDS.has(g.id) || g.gender === "女") && (st.aff[g.id] || 0) > 15);
+  // 名客常驻：余味/拉姆/珂萝/绀曲 好感不足也能邀（特殊角色，不设门槛）
+  return known.filter(g => (FEMALE_GUEST_IDS.has(g.id) || g.gender === "女") && ((st.aff[g.id] || 0) > 15 || g.ryuwei || g.lamu || g.keluo || g.ganqu));
 }
 // ── 探秘叙事同行：主叙事里现身的常客，就地转正为同行目标 ──
 // 叙事把他/她写进了现场（出场≥1次），出题/结算就不能让他/她凭空消失——遇险→脱困的戏要写全，
