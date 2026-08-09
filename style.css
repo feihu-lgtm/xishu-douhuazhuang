@@ -778,6 +778,9 @@ body {
 .entry.comment.su-face-3 .bd::before { background-image: url("./assets/su_face_3.png"); }
 .entry.comment.su-face-4 .bd::before { background-image: url("./assets/su_face_4.png"); }
 
+/* 拉姆 · 出场 chibi 表情（8 张随机招呼脸之一，切自 3:2 表情表） */
+.lamu-chibi { display: block; width: 132px; height: auto; margin: 2px auto 10px; border-radius: 14px; filter: drop-shadow(0 0 12px rgba(255, 233, 168, .4)); }
+
 /* 日记三色：旁白(底) / 对话「」(金) / 心理 *…*(斜灰)，多分段左对齐 */
 .entry .para { margin: 0 0 10px; text-align: left; }
 .entry .para:last-child { margin-bottom: 0; }

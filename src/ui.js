@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v55";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v55";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v55";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v55";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v55";
+} from "./data.js?v=v56";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v56";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v56";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v56";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v56";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -310,7 +310,8 @@ export function ryuweiIntro(g) {
 // 黄教圣女·拉姆 · 出场特效（银铃 + 圣光，❀ 格桑花，从上往下落的炫彩）
 export function lamuIntro(g) {
   const bd = mkEntry($("#log"), "lamu");
-  bd.innerHTML = `❀ 铃 ❀ 圣女驾到 ❀ 铃 ❀<br><span class="lamu-line">${escapeHtml(`“${g.order}”`)}</span>`;
+  const face = [1, 3, 6, 8][Math.floor(Math.random() * 4)]; // 圣女驾到 · 招呼脸（开心/害羞/得意/俏皮）
+  bd.innerHTML = `<img class="lamu-chibi" src="./assets/lamu_face_${face}.webp" alt="">❀ 铃 ❀ 圣女驾到 ❀ 铃 ❀<br><span class="lamu-line">${escapeHtml(`“${g.order}”`)}</span>`;
   bd.parentElement.classList.remove("typing");
   $("#log").scrollTop = $("#log").scrollHeight;
   lamuWaterfall(); // 圣女到场 · 全屏鎏金瀑布
@@ -1128,6 +1129,7 @@ const CG_LIST = [
   { src: "./assets/ryuwei_cg.png", alt: "余味" },
   { src: "./assets/sutang_cg.png", alt: "苏唐" },
   { src: "./assets/lamu_cg.webp", alt: "拉姆" },
+  { src: "./assets/yuwei_lamu_cg.webp", alt: "余味×拉姆" },
 ];
 export function openCg() {
   const pick = CG_LIST[Math.floor(Math.random() * CG_LIST.length)];
