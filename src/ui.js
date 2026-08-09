@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v60";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v60";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v60";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v60";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v60";
+} from "./data.js?v=v61";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v61";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v61";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v61";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v61";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -1114,7 +1114,7 @@ export function renderInvite(st, { onInvite, onCancel } = {}) {
         const a = st.aff[g.id] || 0;
         const isInv = invited && invited.id === g.id;
         return `<div class="invite-row" data-q="${g.name}${g.ident}">
-          <span class="invite-name">${g.ryuwei || g.lamu ? `<span class="${glowClassOf(g)}">${nameTagOf(g)}</span>` : g.name}<i>${g.ident}</i></span>
+          <span class="invite-name">${g.ryuwei || g.lamu || g.keluo || g.ganqu ? `<span class="${glowClassOf(g)}">${nameTagOf(g)}</span>` : g.name}<i>${g.ident}</i></span>
           <span class="invite-aff">好感 ${a}</span>
           ${isInv ? `<span class="ck-btn plain" data-cancel="${g.id}">请她回去</span>` : `<span class="ck-btn plain" data-invite="${g.id}">邀请</span>`}
         </div>`;
@@ -1422,7 +1422,7 @@ export function openInviteGuest(st, { onToggle, onDone }) {
   const jhKnown = JIANGHU_ROSTER.filter(g => st?.jianghu?.known?.[g.id]); // 只可点将已相识的江湖客
   const card = (g, picks) => `
       <div class="menu-item-card pick ${picks.includes(g.id) ? "on" : ""}" data-pick="${g.id}">
-        <b>${g.ryuwei || g.lamu ? `<span class="${glowClassOf(g)}">${nameTagOf(g)}</span>` : g.name}</b><i>${g.ident}${g.ryuwei ? " · 顶级食评人" : g.lamu ? " · 银铃守戒" : ""}</i>
+        <b>${g.ryuwei || g.lamu || g.keluo || g.ganqu ? `<span class="${glowClassOf(g)}">${nameTagOf(g)}</span>` : g.name}</b><i>${g.ident}${g.ryuwei ? " · 顶级食评人" : g.lamu ? " · 银铃守戒" : g.keluo ? " · 丝路书姬" : g.ganqu ? " · 求索宫算娘" : ""}</i>
         <p>${g.order || ""}</p>
       </div>`;
   function draw() {
