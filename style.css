@@ -426,6 +426,97 @@ body {
 .entry.ryuwei::after { right: 6px; top: 10px; animation-delay: .5s; }
 @keyframes ryuwei-twinkle { 0%,100% { opacity: .2; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
 
+/* ── 拉姆 · 黄教圣女圣光：从上往下的炫彩（区别于余味的横向流光）──
+   余味 = 玫瑰金横向探照灯；拉姆 = 金黄圣光自上而下扫落（黄教尚黄）。
+   只动 transform/opacity，GPU 合成。 */
+.lamu-glow {
+  background: linear-gradient(180deg, #fff8e1, #f0c96a, #fffdf5, #c9b26b, #fff8e1);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lamu-breathe 2.8s ease-in-out infinite;
+  font-weight: 600;
+}
+@keyframes lamu-breathe {
+  0%, 100% { text-shadow: 0 0 6px rgba(255, 233, 168, .22), 0 0 18px rgba(201, 178, 107, .12); }
+  50% { text-shadow: 0 0 12px rgba(255, 233, 168, .55), 0 0 32px rgba(201, 178, 107, .32); }
+}
+
+/* 客人卡 · 拉姆名字圣光（纵向渐变）+ 格桑花飘落（区别于余味上飘的 ✦） */
+.pcard .gname.lamu-name {
+  position: relative;
+  background: linear-gradient(180deg, #fff8e1, #f0c96a, #fffdf5, #c9b26b, #fff8e1);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lamu-breathe 2.8s ease-in-out infinite;
+  font-weight: 700;
+}
+.pcard .gname.lamu-name::before,
+.pcard .gname.lamu-name::after {
+  content: "❀";
+  position: absolute;
+  font-size: 11px;
+  color: #f0c96a;
+  animation: lamu-fall 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+.pcard .gname.lamu-name::before { left: -6px; top: -4px; }
+.pcard .gname.lamu-name::after { right: -6px; top: 2px; animation-delay: .8s; }
+@keyframes lamu-fall {
+  0%, 100% { opacity: .15; transform: translateY(0) scale(.7); }
+  50% { opacity: 1; transform: translateY(5px) scale(1.15); }
+}
+
+/* 拉姆评语流光炫彩 · 整段纵向渐变（圣光） */
+.entry.narr.lamu-comment .bd,
+.entry.narr.lamu-comment .bd p,
+.entry.narr.lamu-comment .bd span,
+.entry.comment.lamu-comment .bd,
+.entry.comment.lamu-comment .bd p,
+.entry.comment.lamu-comment .bd span {
+  background: linear-gradient(180deg, #fff8e1, #f0c96a, #fffdf5, #c9b26b, #fff8e1);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: lamu-breathe 2.8s ease-in-out infinite;
+  font-weight: 600;
+}
+/* 圣光带：从上往下扫过整段评语（transform 驱动，GPU 合成） */
+.entry.narr.lamu-comment,
+.entry.comment.lamu-comment {
+  position: relative;
+  overflow: hidden;
+}
+.entry.narr.lamu-comment::after,
+.entry.comment.lamu-comment::after {
+  content: "";
+  position: absolute; left: 0; right: 0; top: -10%; height: 45%;
+  background: linear-gradient(to bottom, transparent 0%, rgba(255, 248, 225, .08) 45%, rgba(255, 248, 225, .28) 50%, rgba(255, 248, 225, .08) 55%, transparent 100%);
+  animation: lamu-sweep 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes lamu-sweep {
+  0% { transform: translateY(-130%); }
+  55%, 100% { transform: translateY(480%); }
+}
+
+/* 拉姆出场特效 · 银铃圣光（❀ 铃 ❀ 圣女驾到） */
+.entry.lamu { position: relative; }
+.entry.lamu .bd {
+  background: linear-gradient(180deg, #fff8e1, #f0c96a, #fffdf5, #c9b26b, #fff8e1);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: lamu-breathe 2.8s ease-in-out infinite;
+  font-weight: 700; letter-spacing: .12em;
+}
+.entry.lamu .bd .lamu-line { font-weight: 400; letter-spacing: 0; color: var(--ink-bright); }
+.entry.lamu::before, .entry.lamu::after {
+  content: "❀"; position: absolute; color: #f0c96a; font-size: 14px;
+  animation: lamu-fall 2s ease-in-out infinite;
+}
+.entry.lamu::before { left: 4px; top: 4px; }
+.entry.lamu::after { right: 6px; top: 10px; animation-delay: .6s; }
+
 /* 晨间送礼 · 仪式感领取 */
 .gift-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 26px 44px; text-align: center; }
 .gift-box { font-size: 54px; animation: giftbounce 1.2s ease-in-out infinite; }

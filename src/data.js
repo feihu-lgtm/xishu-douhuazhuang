@@ -508,6 +508,14 @@ export const GUESTS = [
     flavor: "suanla", tech: "炖", fav: "酸木瓜",
     body: "柳叶脸，素银鱼尾簪做工极好，月白立领小袄靛青马面裙，腰间一枚银鱼符、一柄窄剑，两根竹木筷随身。峨眉破戒的女侠，任性少年气，年纪轻轻的一流高手，口味刁钻",
     order: "本姑娘今儿就要一道收尾干净的酸来。莫急着揭锅，多闷一炷香，酸要收得干干净净——不够刁，我可要念叨一路的。" },
+  // ── 黄教护法圣女 · 拉姆（猫娘圣女·银铃守戒·圣光自上而下落）──────
+  // 猫耳少女，全寨子最圣洁也最爱偷吃小鱼干；神圣是装的，被摸就咕噜咕噜。
+  // 流光炫彩与余味同源但方向相反：余味横向探照灯，拉姆圣光从上往下扫（ui.js lamu-* / style.css）。
+  { id: "lamu", name: "拉姆", ident: "黄教·护法圣女", spend: 100, gender: "女", lamu: true,
+    flavor: "xianxiang", tech: "烤", fav: "狼曲冷水鱼",
+    koupi: "喵。说话尾音带喵，紧张时更明显",
+    body: "猫耳少女，琥珀竖瞳，深红氆氇短藏袍半边滑肩、黑绒颈圈缀金铃，额前银链坠眉心，猫尾尾尖一撮白毛——黄教护法圣女，全寨子最圣洁，也最爱偷吃小鱼干。神圣是装的，被摸就咕噜咕噜；铃铛一摘，戒就破了",
+    order: "「小师傅，来道素的就成……灶上若有小鱼干，也，咳，一并端来，圣女要替佛祖尝尝咸淡。」" },
   // ── 云游苦行客（乞丐/僧人/磕长头香客，皆是过路人，消费力低但各有风骨）──
   { id: "qigai", name: "乞丐", ident: "云游乞儿", spend: 8,
     flavor: "jiachang", tech: "炒", fav: "玉泉寨土豆",
@@ -526,7 +534,7 @@ export const GUESTS = [
 export const FEMALE_GUEST_IDS = new Set([
   "caidan", "zhuoma", "huasao", "huyanxue", "meiduo",
   "baiguniang", "daijiak", "suniang", "lasan", "tiannan", "susu",
-  "lanjie", "luosha", "liruoyou", "ryuwei", "heyuxie",
+  "lanjie", "luosha", "liruoyou", "ryuwei", "heyuxie", "lamu",
 ]);
 export const RIVAL_LEVELS = [
   { tag: "喽啰·采买", req: 65, bonus: [40, 60] },
@@ -628,7 +636,7 @@ export const EXPEDITION_MAP = [  { id: "xuedong",   name: "雪山派", category:
   { id: "zaoshi",    name: "早市坊",   category: "市井",     top: 83, left: 38, guests: ["huasao", "daniang"] },
   { id: "miaohui",   name: "庙会集场", category: "节庆",     top: 10, left: 46, guests: ["meiduo", "baiguniang", "daijiak"] },
   { id: "chengjiao", name: "城郊人家", category: "人情",     top: 90, left: 87, guests: ["caidan", "zhuoma", "laosun", "susu"] },
-  { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46, guests: ["wenzhanggui", "tangcu", "shusheng", "suniang", "tiannan", "xianbo", "liruoyou", "lanjie", "ryuwei"] },
+  { id: "guancheng", name: "关城商市", category: "商贸",     top: 91, left: 46, guests: ["wenzhanggui", "tangcu", "shusheng", "suniang", "tiannan", "xianbo", "liruoyou", "lanjie", "ryuwei", "lamu"] },
 ];
 
 // 探秘情境，按十类分好（轻度武侠，一据点一类，各据点各记各的上次，不重复）

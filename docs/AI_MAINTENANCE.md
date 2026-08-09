@@ -38,6 +38,16 @@ AI 密钥在游戏内"设置"里填。常用反代：ggchan（`https://gcli.ggch
 5. **名字氪金框**：余味名字一律 `꧁༺✧余味✧༻꧂`（`ui.js` 的 `ryuweiTag`，用于客人卡/探秘常客/邀客面板三处）。
 6. **苏唐批表情图标**：苏唐批（`comment` 条目）在 mood 为 开心/兴奋/心动/得意（`MOOD_WORDS` 索引 0/2/3/4）时，随机带一个 `su_face_1..4.png` 表情图标（`ui.js faceOf` + `commentLine`/`commentGlow`/`logStream.apply` 的 face 参数）；不高兴/中性不带。四张图是从 Cat 发的 2×2 苏唐表情图切出来的（黑背景抠透明，flood-fill 保黑碗），右下角那张同时是浏览器 favicon（`assets/favicon.png`）。
 
+## 拉姆（黄教圣女）系统 —— 第二套流光炫彩
+
+拉姆是黄教护法圣女·猫娘（`data.js` GUESTS 条目，`lamu: true`，消费力 100）。她的炫彩**与余味同源但方向相反**，Cat 钦定别改：
+
+1. **方向**：余味 = 玫瑰金横向探照灯（`ryuwei-*`）；拉姆 = 金黄圣光**自上而下**扫落（`lamu-*`，黄教尚黄）。名字符号：余味 `꧁༺✧余味✧༻꧂`，拉姆 `꧁༺❀拉姆❀༻꧂`（❀ 格桑花，`ui.js lamuTag`）。
+2. **分发**：`ui.js` 的 `nameTagOf/nameClassOf/glowClassOf/identNoteOf` 按 `g.ryuwei/g.lamu` 分流；`narrGlow/commentGlow` 第二参 `kind`（"ryuwei"|"lamu"）决定评语类名；`main.js` 做菜/上菜用 `glowKind`，探秘按名字包含「余味/拉姆」匹配。出场特效 `lamuIntro`（❀ 铃 ❀ 圣女驾到）。
+3. **CSS**：`style.css` 的 `lamu-breathe`（光晕呼吸）、`lamu-sweep`（圣光带 translateY 从上往下）、`lamu-fall`（❀ 飘落，余味是上飘的 ✦）、`lamu-name/lamu-glow/lamu-comment/entry.lamu`。纪律同前：只动 transform/opacity。
+4. **无评级机制**：她不是食评人，不吃大阵仗/银簪那套；开席逻辑仍只认 `g.ryuwei`。
+5. **口癖**：喵（`koupi` 字段已写）。
+
 ## 闲聊上下文（chatContext）
 
 玩家闲聊（`genChat`）会注入 `prompt.js` 的 `chatContext(st)` 分块上下文（学 qucuo/jihaitang 的分块标号、数据拼接分离）：【场景】（周数/已待客/手上菜/今日来客/苏唐今日小吃）、【苏唐与师兄】（suAff 好感 + 银簪/店誉，无簪时提余味盼头）、【近况】（最近 4 条小纸条）、【最近对话】（`st.chatLog` 最近 4 轮）。`st.chatLog` 由 `main.js` 闲聊完成后自动入档（保留 8 轮，`{u: 师兄说, a: 苏唐回应}`）。genChat 的 sys 指示苏唐"接住上下文、别凭空造人造事、别生硬报清单"。改闲聊相关逻辑时别丢 chatLog 记录链。

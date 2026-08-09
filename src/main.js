@@ -1,24 +1,24 @@
 // 西蜀豆花庄 · 主循环
-import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v47";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v47";
+import { ING_BY_NAME, RECIPES, INGREDIENTS, starOf, starLabel, EXPEDITION_MAP, EXP_SCEN_BY_CAT, RIVAL_SCHOOLS, GUESTS, TECHNIQUES, FLAVOR_BY_ID, calendarContextFor, weekLabel, RESCUE_SCENARIOS, FEMALE_GUEST_IDS, BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS } from "./data.js?v=v49";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v49";
 import {
   newState, saveGame, loadGame, hasSave, currentGuest, judgeStove,
   scoreDish, tierOf, payOf, buyItem, nextDay, affDeltaFor, affName,
   applyMartialExp, applySuExp, computeBaseScore, refreshShop, shopStock,
   rollCheck, checkChance, rankLabel, checkDim, CHECK_DIMS, ACHIEVE_DEFS, ACHIEVE_N,
   registerUse, unlockProgress, applyUnlocks, buyAllIngredients, rivalStageNext, rivalGuestForSchool, findKnownGuest, snackScoreOf, ryuweiGain, ryuweiTierName, RYUWEI_TIERS, wishMatchScore, settleBrewing, brewWeeks, brewQuality, wineScore, matchBrew, GUESTS_PER_DAY, pickNarrativeRescue, settleSideNote,
-} from "./state.js?v=v47";
+} from "./state.js?v=v49";
 import {
   loadCfg, genDish, genReaction, genChat, genMartial, genSnack, genReview, genExpedition, genChallenge, genSettlement, genNewGuest, genSuCook, genDropIngredient, genGifts, genBrew, genFeastReview, genRyuweiEnter, genEcho, genLocChat, extractSideNote, genFreshEvents, genSquareFolks, genTheater, genWeiluChat, genDuel, genJianghuEnter,
   extractComment, extractFace, POSE_INDEX, splitSayMood, moodIndex, fmtMs, rateDots, rateState, menuDescOf, tierOfScore,
   startTrace, stepTrace, endTrace, getNsfw, setNsfw,
-} from "./ai.js?v=v47";
-import { chatContext } from "./prompt.js?v=v47";
+} from "./ai.js?v=v49";
+import { chatContext } from "./prompt.js?v=v49";
 import {
   narr, say, sys, gold, playerLine, renderAll, openCook, openShop, openMap, openChallengePanel,
   openBag, openSettings, openHelp, openTrace, openNotes, openModal, closeModal, logStream,
-  commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, openWeiluChat, initMobileDrawers,
-} from "./ui.js?v=v47";
+  commentLine, commentGlow, setMood, suLine, suSys, slogStream, openSnack, openSet, openServe, openBrew, openInviteGuest, renderRate, rollNsfwFace, openExpeditionAsk, renderInvite, dismissInvite, waitGiftClaim, ryuweiIntro, lamuIntro, openCg, narrGlow, faceOf, markPrompt, showEcho, echoBarOn, openWorldMap, openLocView, openJianghuChat, openWeiluChat, initMobileDrawers,
+} from "./ui.js?v=v49";
 
 let st = null;
 let busy = false;        // 说书/做菜/上菜/对话 通道
@@ -129,6 +129,8 @@ async function guestArrives() {
         tier: (st.ryuweiRating || {}).tier ?? 0,
       });
       if (er.ai && er.prose) await suLine(er.prose);
+    } else if (g.lamu) {
+      lamuIntro(g);   // 黄教圣女·拉姆 · 银铃圣光出场
     }
     else if (isJianghu) {
       // 江湖客进店：说书人现场编登场（贴人设），没接 AI 时模板兜底
@@ -318,8 +320,8 @@ async function cookNarrate(j) {
   stepTrace("武学裁决", "pass", `练${got.join("、")} · 配合${martial.synergy} · 基础分${baseScore}`);
   // 第二轮·出菜叙事（带上任务：做给谁、TA 爱什么味）
   const g = currentGuest(st);
-  const glowCook = !!g.ryuwei; // 食评人余味的菜 · 评语整段流光炫彩
-  const h = logStream("narr", glowCook ? { extraClass: "ryuwei-comment" } : {});
+  const glowKind = g.ryuwei ? "ryuwei" : g.lamu ? "lamu" : null; // 余味横向流光 / 拉姆圣光自上而下
+  const h = logStream("narr", glowKind ? { extraClass: `${glowKind}-comment` } : {});
   const res = await genDish(cfg, {
     materials: j.materials,
     lore,
@@ -340,9 +342,9 @@ async function cookNarrate(j) {
     setMood(moodIndex(ex.mood) ?? 0);
   } else {
     h.remove();
-    if (glowCook) {
-      if (res.prose) await narrGlow(res.prose);
-      if (res.comment) await commentGlow(res.comment, faceOf(res.mood));
+    if (glowKind) {
+      if (res.prose) await narrGlow(res.prose, glowKind);
+      if (res.comment) await commentGlow(res.comment, faceOf(res.mood), glowKind);
     } else {
       await narr(res.prose);
       if (res.comment) await commentLine(res.comment, faceOf(res.mood));
@@ -448,13 +450,13 @@ async function doServe(sel) {
   const affNow = st.aff[g.id] || 0;
   const pay = payOf(g, total, affNow) + (snackNames.length ? 2 : 0);
   const mainDesc = dish?.menuDesc || "";
-  const glowServe = !!g.ryuwei; // 食评人余味的菜 · 端菜与品尝全部流光炫彩
-  const sv = (t) => (glowServe ? narrGlow(t) : narr(t));
+  const glowKind = g.ryuwei ? "ryuwei" : g.lamu ? "lamu" : null; // 余味/拉姆的菜 · 端菜与品尝全部流光炫彩
+  const sv = (t) => (glowKind ? narrGlow(t, glowKind) : narr(t));
   await sv(`师兄把${dishItems.map(d => `「${d.name}」`).join("、")}${snackNames.length ? `和${snackNames.map(n => `「${n}」`).join("、")}` : ""}端上桌，往 ${g.name} 面前一放。`);
   for (const d of dishItems) if (d.menuDesc) await sv(`【菜牌】${d.menuDesc}`); // 每道大菜一张菜牌，不合并
   for (const n of snackNames) { const rec = (st.snackRecipes || []).find(x => x.name === n); if (rec?.desc) await sv(`【菜牌】${rec.desc}`); } // 每道小吃也有菜牌（苏唐手作的用料与做法）
   if (wineName) await sv(`又斟上一杯「${wineName}」。`);
-  const h = logStream("narr", glowServe ? { extraClass: "ryuwei-comment" } : {}); // 品尝场景进左栏
+  const h = logStream("narr", glowKind ? { extraClass: `${glowKind}-comment` } : {}); // 品尝场景进左栏
   const r = await genReaction(loadCfg(), {
     guest: g, dishName: dish?.name || snackNames[0] || "", score: total, tier, mainBy,
     dishNames: dishItems.map(d => d.name),
@@ -665,10 +667,12 @@ function guestListOf(node) {
   const push = (guest) => {
     const aff = st.aff[guest.id] || 0;
     const m = ((st.guestMemories || {})[guest.id] || [])[0]; // 最近一条记忆
-    list.push({ name: guest.name, ident: guest.ident, aff, gender: guest.gender, ryuwei: !!guest.ryuwei, heyuxie: !!guest.heyuxie, wu: guest.wu, lore: guest.lore, koupi: guest.koupi, mem: m ? fmtGuestMemory(m) : "" });
+    list.push({ name: guest.name, ident: guest.ident, aff, gender: guest.gender, ryuwei: !!guest.ryuwei, lamu: !!guest.lamu, heyuxie: !!guest.heyuxie, wu: guest.wu, lore: guest.lore, koupi: guest.koupi, mem: m ? fmtGuestMemory(m) : "" });
   };
   const ryu = GUESTS.find(x => x.ryuwei);
   if (ryu) push(ryu); // 食评人余味 · 每个据点都愿搭手，置顶
+  const lamu = GUESTS.find(x => x.lamu);
+  if (lamu) push(lamu); // 黄教圣女·拉姆 · 置顶第二位（圣光炫彩同源不同向）
   for (const id of (node.guests || [])) {
     const guest = GUESTS.find(x => x.id === id);
     if (!guest || guest.id === ryu?.id) continue;
@@ -717,9 +721,9 @@ async function doExpedition(node, intent) {
   // 英雄救美/美救英雄：命中这5条情境之一，当场点一位同行女子（任何npc，好感0也算数）
   const rescueTarget = RESCUE_SCENARIOS.has(scenario) ? pickRescueTarget(node) : null;
   // 余味相关才炫彩：正文里出现余味（她出场/被提及）才流光，不因她是据点常客就整篇泛化
-  const withRyu = (t) => (t || "").includes("余味");
-  const expNarr = (t) => (withRyu(t) ? narrGlow(t) : narr(t));
-  const expComment = (t, face) => (withRyu(t) ? commentGlow(t, face) : commentLine(t, face));
+  const specialOf = (t) => (t || "").includes("余味") ? "ryuwei" : (t || "").includes("拉姆") ? "lamu" : null;
+  const expNarr = (t) => { const k = specialOf(t); return k ? narrGlow(t, k) : narr(t); };
+  const expComment = (t, face) => { const k = specialOf(t); return k ? commentGlow(t, face, k) : commentLine(t, face); };
   sys(`【探秘·${node.name}】${scenario}——师兄与苏唐动身，武功${skillAvg}·苏唐手艺${suAvg}……${intent ? `（师兄交代：${intent}）` : ""}`);
   // ① 一次调用：主叙事(500字) + 关卡题干/选项(4-6个) + 收获 special；玩家钦定主线夺舍；勾连据点常客与隔离记忆；弱关联时至少带一句当下节气
   const r = await genExpedition(loadCfg(), {
@@ -1007,7 +1011,7 @@ async function rollFreshEvents(st) {
   const n = locs.filter((l, i) => cards[i] && cards[i].title).length;
   sys(`（江湖酝酿：${n} 个地方本周有新事——地图上冒红点。）`);
   // 广场刷 NPC：随机 2-4 位角色出现在广场（有名有姓，能聊能交易）
-  const cands = GUESTS.filter(g => !g.ryuwei || Math.random() < 0.25).sort(() => Math.random() - 0.5).slice(0, 2 + Math.floor(Math.random() * 2));
+  const cands = GUESTS.filter(g => (!g.ryuwei || Math.random() < 0.25) && (!g.lamu || Math.random() < 0.25)).sort(() => Math.random() - 0.5).slice(0, 2 + Math.floor(Math.random() * 2));
   const folks = await genSquareFolks(loadCfg(), cands.map(g => ({ id: g.id, name: g.name, ident: g.ident })));
   st.squareFolks = folks.map(f => ({ ...f, week: st.day }));
   if (folks.length) sys(`（广场来了 ${folks.length} 位熟人：${folks.map(f => f.name).join("、")}——去广场聊聊。）`);
@@ -1790,7 +1794,7 @@ async function collectGifts() {
     st.stars = st.stars || {}; st.starLore = st.starLore || {};
     st.stars[sp.name] = sp.stars;
     if (sp.desc) st.starLore[sp.name] = sp.desc;
-    gifts.push({ name: g.name, ident: g.ident, ryuwei: !!g.ryuwei, gift: sp });
+    gifts.push({ name: g.name, ident: g.ident, ryuwei: !!g.ryuwei, lamu: !!g.lamu, gift: sp });
   }
   const r = await genGifts(loadCfg(), { givers: gifts });
   st.pendingGifts = { givers: gifts, text: r.text || "" };
@@ -1804,11 +1808,11 @@ async function showPendingGifts() {
   st.pendingGifts = null;
   if (pg.text) await narr(pg.text);
   const row = (g) => `　· 「${g.gift.name}」${"★".repeat(g.gift.stars)}（${g.gift.desc}）——${g.name}托人送来`;
-  const plain = pg.givers.filter(g => !g.ryuwei).map(row);
-  const glow = pg.givers.filter(g => g.ryuwei).map(row); // 食评人余味的礼单 · 顶级流光炫彩
+  const plain = pg.givers.filter(g => !g.ryuwei && !g.lamu).map(row);
+  const glow = pg.givers.filter(g => g.ryuwei || g.lamu).map(g => ({ line: row(g), kind: g.ryuwei ? "ryuwei" : "lamu" })); // 余味/拉姆的礼单 · 各用各的流光炫彩
   if (plain.length) await narr(["【收到】", ...plain].join("\n\n"));
   else if (glow.length) await narr("【收到】");
-  for (const line of glow) await narrGlow(line);
+  for (const g of glow) await narrGlow(g.line, g.kind);
 }
 
 async function doNext() {
