@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v58";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v58";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v58";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v58";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v58";
+} from "./data.js?v=v59";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v59";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v59";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v59";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v59";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -296,11 +296,13 @@ const ryuweiTag = (name) => `꧁༺✧${name}✧༻꧂`;
 const lamuTag = (name) => `꧁༺❀${name}❀༻꧂`;
 // 西域·珂萝 名字 · 珊瑚金八芒星（区别于余味的 ✧、拉姆的 ❀）
 const keluoTag = (name) => `꧁༺✶${name}✶༻꧂`;
-// 名字/流光按人物分流：余味 ✧ 横向 / 拉姆 ❀ 纵向 / 珂萝 ✶ 珊瑚金放射 / 普通原名
-const nameTagOf = (g) => g.ryuwei ? ryuweiTag(g.name) : g.lamu ? lamuTag(g.name) : g.keluo ? keluoTag(g.name) : g.name;
-const nameClassOf = (g) => g.ryuwei ? "ryuwei-name" : g.lamu ? "lamu-name" : g.keluo ? "keluo-name" : "";
-const glowClassOf = (g) => g.ryuwei ? "ryuwei-glow" : g.lamu ? "lamu-glow" : g.keluo ? "keluo-glow" : "";
-const identNoteOf = (g) => g.ryuwei ? "顶级食评人" : g.lamu ? "银铃守戒" : g.keluo ? "丝路书姬" : "";
+// 滇池·绀曲 名字 · 深海蓝三叉戟（区别于余味✧/拉姆❀/珂萝✶）
+const ganquTag = (name) => `꧁༺♆${name}♆༻꧂`;
+// 名字/流光按人物分流：余味 ✧ 横向 / 拉姆 ❀ 纵向 / 珂萝 ✶ 珊瑚金 / 绀曲 ♆ 水波蓝 / 普通原名
+const nameTagOf = (g) => g.ryuwei ? ryuweiTag(g.name) : g.lamu ? lamuTag(g.name) : g.keluo ? keluoTag(g.name) : g.ganqu ? ganquTag(g.name) : g.name;
+const nameClassOf = (g) => g.ryuwei ? "ryuwei-name" : g.lamu ? "lamu-name" : g.keluo ? "keluo-name" : g.ganqu ? "ganqu-name" : "";
+const glowClassOf = (g) => g.ryuwei ? "ryuwei-glow" : g.lamu ? "lamu-glow" : g.keluo ? "keluo-glow" : g.ganqu ? "ganqu-glow" : "";
+const identNoteOf = (g) => g.ryuwei ? "顶级食评人" : g.lamu ? "银铃守戒" : g.keluo ? "丝路书姬" : g.ganqu ? "求索宫算娘" : "";
 
 // 食评人余味 · 出场特效（星星文字 + 渐变炫彩，贴合 UI 玫瑰色系）
 export function ryuweiIntro(g) {
@@ -323,6 +325,14 @@ export function keluoIntro(g) {
   const bd = mkEntry($("#log"), "keluo");
   const face = [1, 3, 6, 8][Math.floor(Math.random() * 4)]; // 招呼脸（开心/害羞/得意/俏皮）
   bd.innerHTML = `<img class="lamu-chibi" src="./assets/keluo_face_${face}.webp" alt="">✶ 书 ✶ 胡姬驾到 ✶ 书 ✶<br><span class="lamu-line">${escapeHtml(`“${g.order}”`)}</span>`;
+  bd.parentElement.classList.remove("typing");
+  $("#log").scrollTop = $("#log").scrollHeight;
+}
+// 滇池·绀曲 · 出场（♆ 水波流光 + chibi 招呼脸）
+export function ganquIntro(g) {
+  const bd = mkEntry($("#log"), "ganqu");
+  const face = [1, 3, 6, 8][Math.floor(Math.random() * 4)]; // 招呼脸（开心/害羞/得意/俏皮）
+  bd.innerHTML = `<img class="lamu-chibi" src="./assets/ganqu_face_${face}.webp" alt="">♆ 算 ♆ 算娘驾到 ♆ 算 ♆<br><span class="lamu-line">${escapeHtml(`“${g.order}”`)}</span>`;
   bd.parentElement.classList.remove("typing");
   $("#log").scrollTop = $("#log").scrollHeight;
 }
@@ -1141,6 +1151,7 @@ const CG_LIST = [
   { src: "./assets/lamu_cg.webp", alt: "拉姆" },
   { src: "./assets/yuwei_lamu_cg.webp", alt: "余味×拉姆" },
   { src: "./assets/keluo_cg.webp", alt: "珂萝" },
+  { src: "./assets/ganqu_cg.webp", alt: "绀曲" },
 ];
 export function openCg() {
   const pick = CG_LIST[Math.floor(Math.random() * CG_LIST.length)];

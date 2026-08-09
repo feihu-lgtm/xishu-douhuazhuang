@@ -562,6 +562,51 @@ body {
 .entry.keluo::before { left: 4px; top: 4px; }
 .entry.keluo::after { right: 6px; top: 10px; animation-delay: .6s; }
 
+/* ── 绀曲 · 滇池算娘：绀青水波流光自上而下（区别于余味横向/拉姆圣光/珂萝珊瑚放射）── */
+.ganqu-glow {
+  background: linear-gradient(180deg, #7dd3fc, #38bdf8, #bae6fd, #0ea5e9, #7dd3fc);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: ganqu-breathe 2.8s ease-in-out infinite;
+  font-weight: 600;
+}
+@keyframes ganqu-breathe {
+  0%, 100% { text-shadow: 0 0 6px rgba(56, 189, 248, .22), 0 0 18px rgba(125, 211, 252, .12); }
+  50% { text-shadow: 0 0 12px rgba(56, 189, 248, .55), 0 0 32px rgba(125, 211, 252, .32); }
+}
+.pcard .gname.ganqu-name {
+  position: relative;
+  background: linear-gradient(180deg, #7dd3fc, #38bdf8, #bae6fd, #0ea5e9, #7dd3fc);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: ganqu-breathe 2.8s ease-in-out infinite;
+  font-weight: 700;
+}
+.pcard .gname.ganqu-name::before,
+.pcard .gname.ganqu-name::after {
+  content: "♆"; position: absolute; font-size: 11px; color: #38bdf8;
+  animation: ganqu-fall 2.2s ease-in-out infinite; pointer-events: none;
+}
+.pcard .gname.ganqu-name::before { left: -6px; top: -4px; }
+.pcard .gname.ganqu-name::after { right: -6px; top: 2px; animation-delay: .8s; }
+@keyframes ganqu-fall {
+  0%, 100% { opacity: .15; transform: translateY(0) scale(.7); }
+  50% { opacity: 1; transform: translateY(5px) scale(1.15); }
+}
+.entry.narr.ganqu-comment .bd,
+.entry.narr.ganqu-comment .bd p,
+.entry.narr.ganqu-comment .bd span,
+.entry.comment.ganqu-comment .bd,
+.entry.comment.ganqu-comment .bd p,
+.entry.comment.ganqu-comment .bd span {
+  background: linear-gradient(180deg, #7dd3fc, #38bdf8, #bae6fd, #0ea5e9, #7dd3fc);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.entry.ganqu::before, .entry.ganqu::after {
+  content: "♆"; position: absolute; color: #38bdf8; font-size: 14px;
+  animation: ganqu-fall 2s ease-in-out infinite;
+}
+.entry.ganqu::before { left: 4px; top: 4px; }
+.entry.ganqu::after { right: 6px; top: 10px; animation-delay: .6s; }
+
 /* ── 鎏金瀑布 · 拉姆到场全屏特效（金流从天而降，只动 transform/opacity）── */
 .lamu-waterfall {
   position: fixed; inset: 0; z-index: 70;
