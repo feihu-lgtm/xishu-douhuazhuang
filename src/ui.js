@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v49";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v49";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v49";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v49";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v49";
+} from "./data.js?v=v51";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v51";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v51";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v51";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v51";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -313,6 +313,46 @@ export function lamuIntro(g) {
   bd.innerHTML = `❀ 铃 ❀ 圣女驾到 ❀ 铃 ❀<br><span class="lamu-line">${escapeHtml(`“${g.order}”`)}</span>`;
   bd.parentElement.classList.remove("typing");
   $("#log").scrollTop = $("#log").scrollHeight;
+  lamuWaterfall(); // 圣女到场 · 全屏鎏金瀑布
+}
+
+// ── 鎏金瀑布 · 拉姆到场全屏特效（金流从天而降，transform/opacity 驱动）──
+const WATERFALL_MS = 4600;
+export function lamuWaterfall() {
+  const old = document.getElementById("lamu-waterfall");
+  if (old) old.remove();
+  const wf = document.createElement("div");
+  wf.id = "lamu-waterfall";
+  wf.className = "lamu-waterfall";
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  // 鎏金流：26 道粗细不一的瀑布金线
+  for (let i = 0; i < 26; i++) {
+    const s = document.createElement("i");
+    s.className = "wf-streak";
+    s.style.left = `${rnd(-2, 100)}%`;
+    s.style.width = `${rnd(2, 7)}px`;
+    s.style.height = `${rnd(28, 68)}vh`;
+    s.style.animationDuration = `${rnd(2.2, 4.2)}s`;
+    s.style.animationDelay = `${rnd(-4.2, 0)}s`;
+    wf.appendChild(s);
+  }
+  // 金屑：40 粒碎金随瀑布飞溅
+  for (let i = 0; i < 40; i++) {
+    const f = document.createElement("b");
+    f.className = "wf-fleck";
+    f.style.left = `${rnd(0, 100)}%`;
+    f.style.width = f.style.height = `${rnd(2, 6)}px`;
+    f.style.setProperty("--drift", `${rnd(-32, 32)}px`);
+    f.style.animationDuration = `${rnd(1.4, 3)}s`;
+    f.style.animationDelay = `${rnd(-3, 0)}s`;
+    wf.appendChild(f);
+  }
+  document.body.appendChild(wf);
+  // 播完淡出移除
+  setTimeout(() => {
+    wf.classList.add("out");
+    setTimeout(() => wf.remove(), 900);
+  }, WATERFALL_MS);
 }
 
 export function renderLeft(st, hideGuest) {
@@ -1087,6 +1127,7 @@ export function renderInvite(st, { onInvite, onCancel } = {}) {
 const CG_LIST = [
   { src: "./assets/ryuwei_cg.png", alt: "余味" },
   { src: "./assets/sutang_cg.png", alt: "苏唐" },
+  { src: "./assets/lamu_cg.webp", alt: "拉姆" },
 ];
 export function openCg() {
   const pick = CG_LIST[Math.floor(Math.random() * CG_LIST.length)];
