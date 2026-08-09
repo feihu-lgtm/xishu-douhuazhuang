@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v51";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v51";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v51";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v51";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v51";
+} from "./data.js?v=v52";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v52";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v52";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v52";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v52";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -1131,9 +1131,15 @@ const CG_LIST = [
 ];
 export function openCg() {
   const pick = CG_LIST[Math.floor(Math.random() * CG_LIST.length)];
+  // 拉姆的图是暗底圆形头像卡，裸播会大片黑空——专门做圣女卡展示：裁圆+金环圣光
+  const isLamu = pick.src.includes("lamu_cg");
   const modal = openModal(`
-    <div class="cg-wrap">
-      <img class="cg-img" src="${pick.src}" alt="${pick.alt}">
+    <div class="cg-wrap ${isLamu ? "cg-lamu" : ""}">
+      ${isLamu ? `
+        <div class="cg-lamu-ring"><img class="cg-img" src="${pick.src}" alt="${pick.alt}"></div>
+        <div class="cg-lamu-title lamu-glow">꧁༺❀ 拉姆 · 黄教护法圣女 ❀༻꧂</div>
+        <div class="cg-lamu-line">「小师傅，来道素的就成……灶上若有小鱼干，也，咳，一并端来，圣女要替佛祖尝尝咸淡。」</div>` : `
+        <img class="cg-img" src="${pick.src}" alt="${pick.alt}">`}
       <span class="ck-btn plain" data-close>收 起</span>
     </div>
   `, null, "fullscreen");
