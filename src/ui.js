@@ -3,11 +3,11 @@ import {
   TECHNIQUES, TECHNIQUE_IDS, COOKWARE_BY_ID, FLAVORS, FLAVOR_BY_ID,
   ING_BY_NAME, HOURS, SNACKS, ingTag, ING_TAGS, EXPEDITION_MAP, DIMENSIONS, GUESTS, RIVAL_SCHOOLS, weekLabel,
   BREW_RECIPES, SHOP_WINES, WINE_DESSERTS, MEDICINE_HERBS, WORLD_LOCATIONS,
-} from "./data.js?v=v56";
-import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v56";
-import { JIANGHU_ROSTER } from "./jianghu.js?v=v56";
-import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v56";
-import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v56";
+} from "./data.js?v=v57";
+import { judgeStove, shopStock, currentGuest, affName, SKILLS, rankLabel, CHECK_DIMS, inviteCandidates, findKnownGuest, jianghuInviteCandidates, ryuweiTierName, rivalGuestForSchool, GUESTS_PER_DAY } from "./state.js?v=v57";
+import { JIANGHU_ROSTER } from "./jianghu.js?v=v57";
+import { loadCfg, saveCfg, listModels, getTrace, clearTrace, fmtMs, rateDots, rateState, getNsfw, setNsfw, MOOD_WORDS } from "./ai.js?v=v57";
+import { BGM_TRACKS, bgmState, bgmPlay, bgmPause, bgmToggle, bgmNext, bgmSetVolume, bgmSetLoop, bgmInit } from "./bgm.js?v=v57";
 
 // 顶部限流五点是空心/实心 + 12s 计时
 export function renderRate() {
@@ -1130,6 +1130,7 @@ const CG_LIST = [
   { src: "./assets/sutang_cg.png", alt: "苏唐" },
   { src: "./assets/lamu_cg.webp", alt: "拉姆" },
   { src: "./assets/yuwei_lamu_cg.webp", alt: "余味×拉姆" },
+  { src: "./assets/keluo_cg.webp", alt: "珂萝" },
 ];
 export function openCg() {
   const pick = CG_LIST[Math.floor(Math.random() * CG_LIST.length)];
